@@ -1,0 +1,987 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Game Portfolio</title>
+    <style>
+        :root {
+            --bg: #0a0a0f;
+            --surface: #14141f;
+            --card: #1a1a2e;
+            --accent: #7c3aed;
+            --accent-glow: #a78bfa;
+            --gold: #f59e0b;
+            --text: #e2e8f0;
+            --text-muted: #94a3b8;
+            --border: #2d2d44;
+            --radius: 16px;
+            --radius-sm: 10px;
+            --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background:
+                radial-gradient(ellipse at 20% 20%, rgba(124, 58, 237, 0.06) 0%, transparent 60%),
+                radial-gradient(ellipse at 80% 60%, rgba(245, 158, 11, 0.04) 0%, transparent 60%),
+                radial-gradient(ellipse at 50% 80%, rgba(124, 58, 237, 0.05) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        body::after {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+            background-size: 50px 50px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .navbar {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: rgba(10, 10, 15, 0.75);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border);
+            padding: 0 2rem;
+            transition: var(--transition);
+        }
+
+        .navbar-inner {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 64px;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            color: #fff;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .logo-icon {
+            width: 38px;
+            height: 38px;
+            background: var(--accent);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            box-shadow: 0 0 24px rgba(124, 58, 237, 0.4);
+        }
+
+        .nav-links {
+            display: flex;
+            list-style: none;
+            gap: 2rem;
+            align-items: center;
+        }
+
+        .nav-links a {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.95rem;
+            transition: var(--transition);
+            position: relative;
+        }
+
+        .nav-links a:hover {
+            color: #fff;
+        }
+
+        .nav-links a::after {
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: var(--accent-glow);
+            border-radius: 2px;
+            transition: width 0.3s;
+        }
+
+        .nav-links a:hover::after {
+            width: 100%;
+        }
+
+        .btn-contact-nav {
+            background: var(--accent);
+            color: #fff !important;
+            padding: 8px 20px;
+            border-radius: 25px;
+            font-weight: 600 !important;
+            transition: var(--transition);
+            border: none;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+        .btn-contact-nav:hover {
+            background: #8b5cf6;
+            box-shadow: 0 0 28px rgba(124, 58, 237, 0.5);
+            transform: translateY(-1px);
+        }
+        .btn-contact-nav::after {
+            display: none !important;
+        }
+
+        .menu-toggle {
+            display: none;
+            background: none;
+            border: none;
+            cursor: pointer;
+            flex-direction: column;
+            gap: 5px;
+            padding: 8px;
+            z-index: 101;
+        }
+        .menu-toggle span {
+            display: block;
+            width: 26px;
+            height: 2.5px;
+            background: #fff;
+            border-radius: 3px;
+            transition: var(--transition);
+        }
+
+        .hero {
+            position: relative;
+            z-index: 1;
+            text-align: center;
+            padding: 100px 2rem 80px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .hero-badge {
+            display: inline-block;
+            background: rgba(124, 58, 237, 0.15);
+            color: var(--accent-glow);
+            padding: 6px 18px;
+            border-radius: 25px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            margin-bottom: 1.5rem;
+            border: 1px solid rgba(124, 58, 237, 0.3);
+        }
+
+        .hero h1 {
+            font-size: clamp(2.4rem, 5vw, 3.8rem);
+            font-weight: 900;
+            letter-spacing: -1.5px;
+            line-height: 1.1;
+            margin-bottom: 1rem;
+            color: #fff;
+        }
+        .hero h1 .highlight {
+            background: linear-gradient(135deg, var(--accent-glow), var(--gold));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero p {
+            font-size: 1.15rem;
+            color: var(--text-muted);
+            max-width: 550px;
+            margin: 0 auto 2rem;
+            line-height: 1.7;
+        }
+
+        .hero-stats {
+            display: flex;
+            justify-content: center;
+            gap: 3rem;
+            flex-wrap: wrap;
+            margin-top: 1rem;
+        }
+        .stat {
+            text-align: center;
+        }
+        .stat-number {
+            font-size: 2.2rem;
+            font-weight: 800;
+            color: #fff;
+            letter-spacing: -1px;
+        }
+        .stat-label {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .section {
+            position: relative;
+            z-index: 1;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 60px 2rem 80px;
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 50px;
+        }
+        .section-header h2 {
+            font-size: 2.2rem;
+            font-weight: 800;
+            letter-spacing: -1px;
+            color: #fff;
+            margin-bottom: 0.5rem;
+        }
+        .section-header p {
+            color: var(--text-muted);
+            font-size: 1rem;
+        }
+
+        .games-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+            gap: 28px;
+        }
+
+        .game-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            overflow: hidden;
+            transition: var(--transition);
+            cursor: pointer;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+        .game-card:hover {
+            transform: translateY(-6px);
+            border-color: var(--accent);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(124, 58, 237, 0.2);
+        }
+
+        .game-card-image {
+            position: relative;
+            width: 100%;
+            height: 200px;
+            overflow: hidden;
+            background: var(--surface);
+        }
+        .game-card-image .placeholder-bg {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3.5rem;
+            transition: var(--transition);
+        }
+        .game-card:hover .placeholder-bg {
+            transform: scale(1.06);
+        }
+        .game-card-image .overlay-tag {
+            position: absolute;
+            top: 14px;
+            right: 14px;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(8px);
+            color: #fff;
+            padding: 5px 14px;
+            border-radius: 20px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+        }
+        .tag-new {
+            background: rgba(34, 197, 94, 0.85) !important;
+            border-color: rgba(34, 197, 94, 0.4) !important;
+        }
+        .tag-featured {
+            background: rgba(245, 158, 11, 0.85) !important;
+            border-color: rgba(245, 158, 11, 0.4) !important;
+        }
+
+        .game-card-body {
+            padding: 22px 20px 18px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        .game-card-body h3 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 6px;
+            letter-spacing: -0.3px;
+        }
+        .game-card-body .genre {
+            font-size: 0.8rem;
+            color: var(--accent-glow);
+            font-weight: 500;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+        }
+        .game-card-body .description {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            line-height: 1.55;
+            flex: 1;
+        }
+        .game-card-footer {
+            display: flex;
+            gap: 10px;
+            margin-top: 16px;
+            flex-wrap: wrap;
+        }
+        .btn {
+            padding: 9px 18px;
+            border-radius: 25px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+            border: none;
+            transition: var(--transition);
+            text-decoration: none;
+            display: inline-block;
+            letter-spacing: 0.3px;
+        }
+        .btn-primary {
+            background: var(--accent);
+            color: #fff;
+        }
+        .btn-primary:hover {
+            background: #8b5cf6;
+            box-shadow: 0 0 22px rgba(124, 58, 237, 0.45);
+            transform: translateY(-1px);
+        }
+        .btn-outline {
+            background: transparent;
+            color: #fff;
+            border: 1.5px solid var(--border);
+        }
+        .btn-outline:hover {
+            border-color: #fff;
+            background: rgba(255, 255, 255, 0.04);
+        }
+
+        /* ── MODALS ────────────────────── */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(6px);
+            z-index: 200;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.35s;
+        }
+        .modal-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .modal {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 36px 30px;
+            max-width: 520px;
+            width: 90%;
+            text-align: center;
+            position: relative;
+            box-shadow: 0 30px 60px rgba(0, 0, 0, 0.7);
+            transform: translateY(20px);
+            transition: transform 0.35s;
+        }
+        .modal-overlay.active .modal {
+            transform: translateY(0);
+        }
+        .modal-close {
+            position: absolute;
+            top: 14px;
+            right: 18px;
+            background: none;
+            border: none;
+            color: #fff;
+            font-size: 1.6rem;
+            cursor: pointer;
+            opacity: 0.6;
+            transition: var(--transition);
+        }
+        .modal-close:hover {
+            opacity: 1;
+        }
+
+        /* Play overlay specific */
+        .play-overlay {
+            z-index: 210;
+        }
+        .play-container {
+            width: 95%;
+            max-width: 1000px;
+            height: 80vh;
+            display: flex;
+            flex-direction: column;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            overflow: hidden;
+            box-shadow: 0 30px 60px rgba(0, 0, 0, 0.7);
+            position: relative;
+        }
+        .play-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 14px 20px;
+            background: var(--card);
+            border-bottom: 1px solid var(--border);
+        }
+        .play-header h3 {
+            color: #fff;
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin: 0;
+        }
+        .play-actions {
+            display: flex;
+            gap: 10px;
+        }
+        .btn-icon {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: #fff;
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: var(--transition);
+            font-size: 1.1rem;
+        }
+        .btn-icon:hover {
+            background: rgba(255,255,255,0.08);
+            border-color: #fff;
+        }
+        .play-iframe-wrapper {
+            flex: 1;
+            background: #000;
+            position: relative;
+        }
+        .play-iframe-wrapper iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            display: block;
+        }
+
+        /* ── ABOUT ────────────────────── */
+        .about-section {
+            position: relative;
+            z-index: 1;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 2rem 80px;
+        }
+        .about-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 40px 36px;
+            display: flex;
+            gap: 30px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .about-avatar {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent), var(--gold));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5rem;
+            flex-shrink: 0;
+        }
+        .about-text h3 {
+            font-size: 1.5rem;
+            color: #fff;
+            margin-bottom: 6px;
+        }
+        .about-text p {
+            color: var(--text-muted);
+            max-width: 600px;
+            line-height: 1.7;
+        }
+        .about-text .btn {
+            margin-top: 14px;
+        }
+
+        .footer {
+            position: relative;
+            z-index: 1;
+            text-align: center;
+            padding: 40px 2rem;
+            border-top: 1px solid var(--border);
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+        .footer a {
+            color: var(--accent-glow);
+            text-decoration: none;
+        }
+
+        @media (max-width: 768px) {
+            .nav-links {
+                position: fixed;
+                top: 0;
+                right: -100%;
+                width: 260px;
+                height: 100vh;
+                background: rgba(20, 20, 31, 0.97);
+                backdrop-filter: blur(20px);
+                flex-direction: column;
+                padding: 100px 30px 40px;
+                gap: 1.5rem;
+                transition: right 0.4s;
+                border-left: 1px solid var(--border);
+                z-index: 100;
+            }
+            .nav-links.open {
+                right: 0;
+            }
+            .menu-toggle {
+                display: flex;
+            }
+            .games-grid {
+                grid-template-columns: 1fr;
+            }
+            .hero-stats {
+                gap: 1.5rem;
+            }
+            .about-card {
+                flex-direction: column;
+                text-align: center;
+            }
+            .play-container {
+                width: 100%;
+                height: 90vh;
+                border-radius: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ═══════════════ NAVBAR ═══════════════ -->
+    <nav class="navbar">
+        <div class="navbar-inner">
+            <a href="#" class="logo">
+                <div class="logo-icon">🎮</div>
+                MyGames
+            </a>
+            <ul class="nav-links" id="navLinks">
+                <li><a href="#games">Games</a></li>
+                <li><a href="#about">About</a></li>
+                <li><a href="#contact" class="btn-contact-nav">Contact</a></li>
+            </ul>
+            <button class="menu-toggle" id="menuToggle" aria-label="Toggle menu">
+                <span></span><span></span><span></span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- ═══════════════ HERO ═══════════════ -->
+    <header class="hero">
+        <span class="hero-badge">🎯 Game Developer Portfolio</span>
+        <h1>Games I've <span class="highlight">Built</span> &amp; <span class="highlight">Shipped</span></h1>
+        <p>
+            Welcome to my personal game showcase! Each title here represents hours of passion,
+            creativity, and code. Click "Play" to try any game right here on this page.
+        </p>
+        <div class="hero-stats">
+            <div class="stat">
+                <div class="stat-number" id="gameCount">3</div>
+                <div class="stat-label">Games</div>
+            </div>
+            <div class="stat">
+                <div class="stat-number">1</div>
+                <div class="stat-label">Platforms</div>
+            </div>
+            <div class="stat">
+                <div class="stat-number">5+</div>
+                <div class="stat-label">Players</div>
+            </div>
+        </div>
+    </header>
+
+    <!-- ═══════════════ GAMES SECTION ═══════════════ -->
+    <section class="section" id="games">
+        <div class="section-header">
+            <h2>🎮 My Games</h2>
+            <p>Hover for quick info — click "Details" or the card to learn more, "Play" to launch instantly</p>
+        </div>
+        <div class="games-grid" id="gamesGrid">
+            <!-- Cards injected by JS -->
+        </div>
+    </section>
+
+    <!-- ═══════════════ ABOUT ═══════════════ -->
+    <section class="about-section" id="about">
+        <div class="about-card">
+            <div class="about-avatar">👾</div>
+            <div class="about-text">
+                <h3>Hi, I'm a Game Developer!</h3>
+                <p>
+                    I love building immersive, fun experiences using Unity, Godot, and web technologies.
+                    This portfolio showcases my indie game projects — from fast-paced arcade titles to
+                    atmospheric puzzle adventures. I handle everything from concept to code to pixel art.
+                    Want to collaborate or just say hi? Reach out below!
+                </p>
+                <a href="#contact" class="btn btn-primary">Get In Touch</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════ FOOTER / CONTACT ═══════════════ -->
+    <footer class="footer" id="contact">
+        <p>
+            📧 <a href="mailto:yourname@example.com">yourname@example.com</a> &nbsp;|&nbsp;
+            🐦 <a href="#">Twitter / X</a> &nbsp;|&nbsp;
+            💻 <a href="#">GitHub</a> &nbsp;|&nbsp;
+            🎥 <a href="#">YouTube</a>
+        </p>
+        <p style="margin-top:8px;">&copy; 2026 MyGames Portfolio. Built with ❤️ and lots of coffee.</p>
+    </footer>
+
+    <!-- ═══════════════ DETAILS MODAL ═══════════════ -->
+    <div class="modal-overlay" id="modalOverlay">
+        <div class="modal" id="modal">
+            <button class="modal-close" id="modalClose">&times;</button>
+            <h3 id="modalTitle"></h3>
+            <p id="modalDesc"></p>
+            <div>
+                <button class="btn btn-primary" id="modalPlayBtn">▶ Play Now</button>
+                <a href="#" class="btn btn-outline" id="modalVideoBtn" target="_blank">🎬 Trailer</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════ PLAY OVERLAY (IN-PAGE GAME WINDOW) ═══════════════ -->
+    <div class="modal-overlay play-overlay" id="playOverlay">
+        <div class="play-container">
+            <div class="play-header">
+                <h3 id="playTitle">Loading game...</h3>
+                <div class="play-actions">
+                    <button class="btn-icon" id="fullscreenBtn" title="Fullscreen">⛶</button>
+                    <button class="btn-icon" id="playCloseBtn" title="Close">✕</button>
+                </div>
+            </div>
+            <div class="play-iframe-wrapper">
+                <iframe id="gameIframe" src="" allow="autoplay; fullscreen" allowfullscreen></iframe>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ─────────────────────────────────────
+        // GAME DATA — Replace playUrl with your actual game URLs!
+        // ─────────────────────────────────────
+        const games = [{
+            id: 1,
+            title: 'Rooms Escape',
+            genre: 'Shooting / Multiplayer',
+            description: '2P co-op roguelite where you clear rooms, upgrade weapons, and defeat bosses to escape.',
+            icon: '🔑',
+            gradient: 'linear-gradient(135deg, #1a0533 0%, #0d1b3e 50%, #0a0a2e 100%)',
+            tag: 'Featured',
+            tagClass: 'tag-featured',
+            playUrl: 'file:///C:/Users/User/Documents/Vibe%20coded%20apps/room%20escape%20sword%2022052026.html',          // <-- Replace with your game URL, e.g. https://mygames.com/cosmic-drift/
+            videoLink: '#',
+        }, {
+            id: 2,
+            title: 'Snake',
+            genre: 'Snake / Adventure',
+            description: 'Snake',
+            icon: '🐍',
+            gradient: 'linear-gradient(135deg, #1a2a0a 0%, #0f1f1a 50%, #0a1a14 100%)',
+            tag: 'New',
+            tagClass: 'tag-new',
+            playUrl: 'file:///C:/Users/User/Documents/Vibe%20coded%20apps/Snake%205%2011052026.html',
+            videoLink: '#',
+        }, {
+            id: 3,
+            title: '3D snake',
+            genre: 'Snake / Multiplayer',
+            description: 'A chaotic 3D snake arena where you jump, boost, and battle AI snakes while collecting colorful apples and power‑ups, with a live minimap and split‑screen co‑op.',
+            icon: '🐍',
+            gradient: 'linear-gradient(135deg, #2a0a0a 0%, #1f1010 50%, #1a0a0a 100%)',
+            tag: 'Popular',
+            tagClass: '',
+            playUrl: 'file:///C:/Users/User/Documents/Vibe%20coded%20apps/3D%20snake%2001062026.html',
+            videoLink: '#',
+        }/*, {
+            id: 4,
+            title: 'Skyward Bound',
+            genre: 'Platformer',
+            description: 'Leap between floating islands in a hand-painted world. Master wind currents, collect star fragments, and reach the highest peak.',
+            icon: '🪽',
+            gradient: 'linear-gradient(135deg, #0a1a2e 0%, #152540 50%, #0a1628 100%)',
+            tag: 'New',
+            tagClass: 'tag-new',
+            playUrl: '#',
+            videoLink: '#',
+        }, {
+            id: 5,
+            title: 'Shadow Protocol',
+            genre: 'Stealth / Strategy',
+            description: 'Infiltrate high-security facilities as a cybernetic agent. Use gadgets, shadows, and wit to complete missions without detection.',
+            icon: '🕶️',
+            gradient: 'linear-gradient(135deg, #0f0f0f 0%, #1a1a1a 50%, #0a0a0a 100%)',
+            tag: 'Featured',
+            tagClass: 'tag-featured',
+            playUrl: '#',
+            videoLink: '#',
+        }, {
+            id: 6,
+            title: 'Tiny Tactics',
+            genre: 'Turn-Based / Strategy',
+            description: 'Command a squad of adorable but fierce creatures in grid-based tactical battles. Each unit evolves mid-battle — plan carefully!',
+            icon: '🧩',
+            gradient: 'linear-gradient(135deg, #1a1a0a 0%, #1f1f10 50%, #14140a 100%)',
+            tag: '',
+            tagClass: '',
+            playUrl: '#',
+            videoLink: '#',
+        }*/];
+
+        // ─────────────────────────────────────
+        // RENDER GAME CARDS
+        // ─────────────────────────────────────
+        const gamesGrid = document.getElementById('gamesGrid');
+
+        function renderGames() {
+            gamesGrid.innerHTML = '';
+            games.forEach(game => {
+                const card = document.createElement('div');
+                card.className = 'game-card';
+                card.setAttribute('data-game-id', game.id);
+                card.innerHTML = `
+                    <div class="game-card-image">
+                        <div class="placeholder-bg" style="background:${game.gradient};">
+                            ${game.icon}
+                        </div>
+                        ${game.tag ? `<span class="overlay-tag ${game.tagClass}">${game.tag}</span>` : ''}
+                    </div>
+                    <div class="game-card-body">
+                        <h3>${game.title}</h3>
+                        <span class="genre">${game.genre}</span>
+                        <p class="description">${game.description}</p>
+                        <div class="game-card-footer">
+                            <button class="btn btn-primary btn-details" data-id="${game.id}">Details</button>
+                            <a href="${game.playUrl}" class="btn btn-outline btn-play-card" data-id="${game.id}">▶ Play</a>
+                        </div>
+                    </div>
+                `;
+                gamesGrid.appendChild(card);
+            });
+
+            document.getElementById('gameCount').textContent = games.length;
+        }
+
+        // ─────────────────────────────────────
+        // DETAILS MODAL
+        // ─────────────────────────────────────
+        const modalOverlay = document.getElementById('modalOverlay');
+        const modalTitle = document.getElementById('modalTitle');
+        const modalDesc = document.getElementById('modalDesc');
+        const modalPlayBtn = document.getElementById('modalPlayBtn');
+        const modalVideoBtn = document.getElementById('modalVideoBtn');
+        const modalClose = document.getElementById('modalClose');
+        let currentModalGame = null;
+
+        function openDetailsModal(game) {
+            currentModalGame = game;
+            modalTitle.textContent = game.title;
+            modalDesc.textContent = game.description +
+                '\n\nGenre: ' + game.genre +
+                '\n\nThis is one of my proudest creations. I hope you enjoy playing it as much as I enjoyed building it!';
+            modalVideoBtn.href = game.videoLink;
+            modalOverlay.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeDetailsModal() {
+            modalOverlay.classList.remove('active');
+            document.body.style.overflow = '';
+            currentModalGame = null;
+        }
+
+        modalClose.addEventListener('click', closeDetailsModal);
+        modalOverlay.addEventListener('click', (e) => {
+            if (e.target === modalOverlay) closeDetailsModal();
+        });
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                if (playOverlay.classList.contains('active')) {
+                    closePlayOverlay();
+                } else if (modalOverlay.classList.contains('active')) {
+                    closeDetailsModal();
+                }
+            }
+        });
+
+        // ─────────────────────────────────────
+        // PLAY OVERLAY (IN-PAGE GAME WINDOW)
+        // ─────────────────────────────────────
+        const playOverlay = document.getElementById('playOverlay');
+        const playTitle = document.getElementById('playTitle');
+        const gameIframe = document.getElementById('gameIframe');
+        const playCloseBtn = document.getElementById('playCloseBtn');
+        const fullscreenBtn = document.getElementById('fullscreenBtn');
+
+        function openPlayOverlay(game) {
+            playTitle.textContent = game.title;
+            // If playUrl is '#' or empty, show a placeholder message
+            if (!game.playUrl || game.playUrl === '#') {
+                gameIframe.src = 'about:blank';
+                // Optionally show a message inside the iframe – we'll use a data URI
+                const msg = `<html><body style="background:#111;color:#fff;display:flex;align-items:center;justify-content:center;font-family:sans-serif;height:100%;margin:0;"><p>🎮 Game URL not set.<br>Add your game's URL in the <code>playUrl</code> field.</p></body></html>`;
+                gameIframe.src = 'data:text/html;charset=utf-8,' + encodeURIComponent(msg);
+            } else {
+                gameIframe.src = game.playUrl;
+            }
+            playOverlay.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closePlayOverlay() {
+            playOverlay.classList.remove('active');
+            document.body.style.overflow = '';
+            // Stop the game from running in background by resetting src
+            gameIframe.src = '';
+        }
+
+        playCloseBtn.addEventListener('click', closePlayOverlay);
+        playOverlay.addEventListener('click', (e) => {
+            if (e.target === playOverlay) closePlayOverlay();
+        });
+
+        // Fullscreen button for the iframe
+        fullscreenBtn.addEventListener('click', () => {
+            if (gameIframe.requestFullscreen) {
+                gameIframe.requestFullscreen();
+            } else if (gameIframe.webkitRequestFullscreen) {
+                gameIframe.webkitRequestFullscreen();
+            } else if (gameIframe.msRequestFullscreen) {
+                gameIframe.msRequestFullscreen();
+            }
+        });
+
+        // ─────────────────────────────────────
+        // EVENT HANDLERS FOR PLAY BUTTONS
+        // ─────────────────────────────────────
+        // Card "Play" buttons
+        gamesGrid.addEventListener('click', (e) => {
+            // Play button on card
+            const playBtn = e.target.closest('.btn-play-card');
+            if (playBtn) {
+                e.preventDefault();
+                const gameId = parseInt(playBtn.getAttribute('data-id'));
+                const game = games.find(g => g.id === gameId);
+                if (game) openPlayOverlay(game);
+                return;
+            }
+
+            // Details button
+            const detailsBtn = e.target.closest('.btn-details');
+            if (detailsBtn) {
+                const gameId = parseInt(detailsBtn.getAttribute('data-id'));
+                const game = games.find(g => g.id === gameId);
+                if (game) openDetailsModal(game);
+                return;
+            }
+
+            // Whole card click (but not on buttons/links)
+            const card = e.target.closest('.game-card');
+            if (card && !e.target.closest('a') && !e.target.closest('button')) {
+                const gameId = parseInt(card.getAttribute('data-game-id'));
+                const game = games.find(g => g.id === gameId);
+                if (game) openDetailsModal(game);
+            }
+        });
+
+        // Modal "Play Now" button
+        modalPlayBtn.addEventListener('click', () => {
+            if (currentModalGame) {
+                openPlayOverlay(currentModalGame);
+                closeDetailsModal(); // optionally close details modal
+            }
+        });
+
+        // ─────────────────────────────────────
+        // MOBILE MENU TOGGLE
+        // ─────────────────────────────────────
+        const menuToggle = document.getElementById('menuToggle');
+        const navLinks = document.getElementById('navLinks');
+        menuToggle.addEventListener('click', () => {
+            navLinks.classList.toggle('open');
+        });
+        navLinks.querySelectorAll('a').forEach(link => {
+            link.addEventListener('click', () => {
+                navLinks.classList.remove('open');
+            });
+        });
+
+        // ─────────────────────────────────────
+        // INIT
+        // ─────────────────────────────────────
+        renderGames();
+        console.log('🎮 Game portfolio ready!');
+        console.log('💡 To make the play window work, replace each game\'s playUrl with the full URL to your HTML5 game.');
+    </script>
+</body>
+</html>
