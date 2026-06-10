@@ -1,0 +1,1409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>🐍 3D Snake – Golden Ball 50, AI 20‑30%</title>
+  <style>
+    body { margin: 0; overflow: hidden; font-family: 'Segoe UI', sans-serif; }
+    #ui {
+      position: absolute; top: 20px; left: 20px;
+      color: white; font-size: 1.2rem; text-shadow: 2px 2px 5px black;
+      pointer-events: none; z-index: 10;
+    }
+    #liveLeaderboard {
+      position: absolute; top: 20px; right: 20px;
+      background: rgba(0,0,0,0.7); color: #eee; padding: 10px 15px;
+      border-radius: 12px; text-align: right; z-index: 10;
+      backdrop-filter: blur(5px); font-size: 0.85rem;
+      min-width: 180px;
+    }
+    #liveLeaderboard h3 { margin: 0 0 5px; text-align: center; }
+    #liveList { list-style: none; padding: 0; margin: 0; }
+    #liveList li { margin: 3px 0; white-space: nowrap; }
+    .player1 { color: #00ffcc; }
+    .player2 { color: #ff44ff; }
+    .ai0 { color: #ff5555; }
+    .ai1 { color: #5588ff; }
+    .ai2 { color: #ffaa00; }
+    .ai3 { color: #ff4444; font-weight: bold; }
+    .ai4 { color: #ff66ff; }
+    .ai5 { color: #ffdd00; }
+    .ai6 { color: #66ff66; }
+    .ai7 { color: #ff8800; }
+    .ai8 { color: #ff0000; font-weight: bold; text-shadow: 0 0 5px red; }
+    #buttons {
+      position: absolute; bottom: 20px; left: 50%;
+      transform: translateX(-50%);
+      display: flex; gap: 15px; z-index: 20;
+    }
+    #buttons button, #modeToggle {
+      padding: 10px 20px; font-size: 1rem;
+      background: #2c3e50; color: white; border: 2px solid #4a6b8a;
+      border-radius: 8px; cursor: pointer; box-shadow: 0 0 10px rgba(0,0,0,0.5);
+      transition: 0.2s;
+    }
+    #buttons button:hover, #modeToggle:hover { background: #3e566d; }
+    #modeToggle {
+      position: absolute; top: 20px; left: 50%;
+      transform: translateX(-50%); z-index: 20;
+    }
+    .instruction {
+      position: absolute; bottom: 80px; left: 20px;
+      color: rgba(255,255,255,0.7); font-size: 0.8rem; z-index: 10;
+    }
+    #minimap {
+      position: absolute; bottom: 20px; right: 20px;
+      width: 180px; height: 180px; border: 2px solid #4a6b8a; border-radius: 10px;
+      background: rgba(0,0,0,0.6); z-index: 15;
+    }
+  </style>
+</head>
+<body>
+  <div id="ui">
+    🔵 P1: <span id="scoreP1">0</span> &nbsp;|&nbsp; 🟣 P2: <span id="scoreP2">0</span>
+  </div>
+  <div id="liveLeaderboard">
+    <h3>🏆 Live</h3>
+    <ul id="liveList"></ul>
+  </div>
+  <div id="buttons">
+    <button id="respawnP1">↺ P1 (R)</button>
+    <button id="respawnP2">↺ P2 (P)</button>
+    <button id="fullRestart">🔄 Restart Game</button>
+  </div>
+  <button id="modeToggle">👥 2‑Player Mode</button>
+  <div class="instruction">
+    P1: WASD (hold S to boost) | P2: Arrows (hold ↓ to boost) | R/P respawn | Space restart
+  </div>
+  <canvas id="minimap" width="180" height="180"></canvas>
+
+  <script type="importmap">
+    { "imports": { "three": "https://unpkg.com/three@0.126.0/build/three.module.js" } }
+  </script>
+  <script type="module">
+    import * as THREE from 'three';
+
+    // ---------- Sound Effects ----------
+    const Sfx = {
+      ctx: null,
+      init() {
+        if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        if (this.ctx.state === 'suspended') this.ctx.resume();
+      },
+      playTone(freq, endFreq, duration, type = 'sine', volume = 0.15) {
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, now);
+        osc.frequency.exponentialRampToValueAtTime(endFreq, now + duration * 0.7);
+        gain.gain.setValueAtTime(volume, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+        osc.connect(gain); gain.connect(this.ctx.destination);
+        osc.start(now); osc.stop(now + duration);
+      },
+      eatApple()  { this.playTone(600,900,0.1,'sine',0.2); },
+      blueApple() { this.playTone(400,700,0.1,'triangle',0.2); },
+      goldenApple(){ this.playTone(800,1200,0.2,'sine',0.25); },
+      playerDie() { this.playTone(180,40,0.4,'sawtooth',0.2); },
+      aiKill()    { this.playTone(1000,1400,0.15,'square',0.15); },
+      aiDie()     { this.playTone(300,100,0.25,'triangle',0.12); },
+      jump()      { this.playTone(400,600,0.07,'sine',0.1); },
+      respawn()   { this.playTone(200,500,0.2,'sine',0.15); },
+      powerup()   { this.playTone(1200,1600,0.2,'sine',0.2); },
+      teleport()  { this.playTone(500,800,0.15,'sine',0.2); }
+    };
+    document.addEventListener('click', () => Sfx.init(), { once: true });
+    document.addEventListener('keydown', () => Sfx.init(), { once: true });
+
+    // ---------- Setup ----------
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0a1a3a);
+    const canvas = document.createElement('canvas');
+    document.body.appendChild(canvas);
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+    scene.add(new THREE.AmbientLight(0x404066));
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+    dirLight.position.set(20, 40, 20);
+    dirLight.castShadow = true; dirLight.receiveShadow = true;
+    dirLight.shadow.mapSize.width = 2048; dirLight.shadow.mapSize.height = 2048;
+    scene.add(dirLight);
+
+    // ---------- Arena (200x200) ----------
+    const arenaSize = 200;
+    const halfArena = arenaSize / 2;
+    const groundGeom = new THREE.PlaneGeometry(arenaSize, arenaSize, 200, 200);
+    const colors = [];
+    for (let i = 0; i < groundGeom.attributes.position.count; i++) {
+      const x = groundGeom.attributes.position.getX(i);
+      const z = groundGeom.attributes.position.getY(i);
+      const col = Math.floor(x / 2 + 50) + Math.floor(z / 2 + 50);
+      colors.push(...((col % 2 === 0) ? [0.4,0.8,0.4] : [0.2,0.6,0.2]));
+    }
+    groundGeom.setAttribute('color', new THREE.BufferAttribute(new Float32Array(colors), 3));
+    const ground = new THREE.Mesh(groundGeom, new THREE.MeshStandardMaterial({ vertexColors: true, side: THREE.DoubleSide }));
+    ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
+
+    const wrapWallMat = new THREE.MeshStandardMaterial({ color: 0x3399ff, transparent: true, opacity: 0.2, emissive: 0x112233 });
+    const addWrapWall = (w, h, d, x, y, z) => {
+      const wall = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), wrapWallMat);
+      wall.position.set(x, y, z); wall.receiveShadow = true; scene.add(wall);
+    };
+    const wallThick = 0.5, wallH = 4;
+    addWrapWall(arenaSize + wallThick*2, wallH, wallThick, 0, wallH/2, halfArena + wallThick/2);
+    addWrapWall(arenaSize + wallThick*2, wallH, wallThick, 0, wallH/2, -halfArena - wallThick/2);
+    addWrapWall(wallThick, wallH, arenaSize + wallThick*2, halfArena + wallThick/2, wallH/2, 0);
+    addWrapWall(wallThick, wallH, arenaSize + wallThick*2, -halfArena - wallThick/2, wallH/2, 0);
+
+    const solidWallGeom = new THREE.BoxGeometry(2.5, 5, 2.5);
+    const solidWallMat = new THREE.MeshStandardMaterial({ color: 0x8b5a2b, roughness: 0.7 });
+    const solidWalls = [];
+    function spawnSolidWall(x, z) {
+      const wall = new THREE.Mesh(solidWallGeom, solidWallMat);
+      wall.position.set(x, 2.5, z); wall.castShadow = true; wall.receiveShadow = true; scene.add(wall);
+      solidWalls.push(wall);
+    }
+
+    const obstacles = [];
+    const OBSTACLE_HEIGHT = 2.0;
+    function spawnObstacle(pos) {
+      const obs = new THREE.Mesh(
+        new THREE.BoxGeometry(2.0, OBSTACLE_HEIGHT, 2.0),
+        new THREE.MeshStandardMaterial({ color: 0x666666, roughness: 0.5 })
+      );
+      obs.castShadow = true; obs.receiveShadow = true;
+      obs.position.copy(pos);
+      for (const sw of solidWalls) {
+        if (new THREE.Box3().setFromObject(sw).intersectsBox(new THREE.Box3().setFromObject(obs))) return;
+      }
+      for (const existing of obstacles) {
+        if (new THREE.Box3().setFromObject(existing).intersectsBox(new THREE.Box3().setFromObject(obs))) return;
+      }
+      scene.add(obs); obstacles.push(obs);
+    }
+
+    // Foods
+    const foods = [];
+    const MAX_APPLES = 200;
+    const appleTypes = ['apple', 'apple', 'apple', 'apple', 'blue', 'blue', 'golden'];
+    function spawnApple(pos, typeOverride) {
+      const type = typeOverride || appleTypes[Math.floor(Math.random() * appleTypes.length)];
+      let color, emissive;
+      if (type === 'golden') { color = 0xffdd00; emissive = 0x442200; }
+      else if (type === 'blue') { color = 0x4444ff; emissive = 0x111122; }
+      else { color = 0xff4444; emissive = 0x441111; }
+      const apple = new THREE.Mesh(
+        new THREE.SphereGeometry(0.5, 16, 16),
+        new THREE.MeshStandardMaterial({ color, emissive })
+      );
+      apple.castShadow = true; apple.receiveShadow = true;
+      apple.position.copy(pos);
+      apple.userData.type = type;
+      for (const obs of obstacles) {
+        if (new THREE.Box3().setFromObject(obs).containsPoint(apple.position)) return;
+      }
+      for (const sw of solidWalls) {
+        if (new THREE.Box3().setFromObject(sw).containsPoint(apple.position)) return;
+      }
+      if (goldenApple && new THREE.Box3().setFromObject(goldenApple.mesh).containsPoint(apple.position)) return;
+      scene.add(apple); foods.push(apple);
+    }
+
+    function dropApplesAlongLine(positions) {
+      for (const pos of positions) {
+        const offset = new THREE.Vector3((Math.random() - 0.5) * 0.5, 0, (Math.random() - 0.5) * 0.5);
+        const applePos = pos.clone().add(offset);
+        applePos.y = 0.5;
+        applePos.x = Math.max(-halfArena+1, Math.min(halfArena-1, applePos.x));
+        applePos.z = Math.max(-halfArena+1, Math.min(halfArena-1, applePos.z));
+        spawnApple(applePos, 'apple');
+      }
+    }
+
+    function dropApples(count, center) {
+      for (let i = 0; i < count; i++) {
+        const offset = new THREE.Vector3((Math.random() - 0.5) * 4, 0, (Math.random() - 0.5) * 4);
+        const pos = center.clone().add(offset);
+        pos.y = 0.5;
+        pos.x = Math.max(-halfArena+1, Math.min(halfArena-1, pos.x));
+        pos.z = Math.max(-halfArena+1, Math.min(halfArena-1, pos.z));
+        spawnApple(pos, 'apple');
+      }
+    }
+
+    // Power‑ups (MORE!)
+    const powerups = [];
+    const MAX_POWERUPS = 16;   // doubled
+    const powerupTypes = ['speed', 'turn', 'bonus', '2x'];
+
+    function createPowerupLabel(type) {
+      const canvas = document.createElement('canvas');
+      canvas.width = 64;
+      canvas.height = 64;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = 'white';
+      ctx.font = 'bold 48px "Segoe UI", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      let symbol = '';
+      switch (type) {
+        case 'speed': symbol = '⚡'; break;
+        case 'turn': symbol = '↻'; break;
+        case 'bonus': symbol = '💰'; break;
+        case '2x': symbol = 'x2'; break;
+      }
+      ctx.fillText(symbol, 32, 32);
+      const texture = new THREE.CanvasTexture(canvas);
+      const material = new THREE.SpriteMaterial({ map: texture, transparent: true });
+      const sprite = new THREE.Sprite(material);
+      sprite.scale.set(1.5, 1.5, 1);
+      return sprite;
+    }
+
+    function spawnPowerup(pos) {
+      const type = powerupTypes[Math.floor(Math.random() * powerupTypes.length)];
+      let color;
+      switch (type) {
+        case 'speed': color = 0xffff00; break;
+        case 'turn': color = 0xff8800; break;
+        case 'bonus': color = 0xaa44ff; break;
+        case '2x': color = 0xffffff; break;
+      }
+      const geom = new THREE.SphereGeometry(0.9, 32, 32);
+      const mat = new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.8, roughness: 0.2, metalness: 0.3 });
+      const mesh = new THREE.Mesh(geom, mat);
+      mesh.castShadow = true; mesh.receiveShadow = true;
+      mesh.position.copy(pos);
+      mesh.position.y = 0.8;
+      mesh.userData.type = type;
+
+      const label = createPowerupLabel(type);
+      label.position.y = 1.8;
+      mesh.add(label);
+
+      const outline = new THREE.Mesh(geom, new THREE.MeshBasicMaterial({ color, wireframe: true, transparent: true, opacity: 0.6 }));
+      mesh.add(outline);
+
+      for (const obs of obstacles) {
+        if (new THREE.Box3().setFromObject(obs).containsPoint(mesh.position)) return;
+      }
+      for (const sw of solidWalls) {
+        if (new THREE.Box3().setFromObject(sw).containsPoint(mesh.position)) return;
+      }
+      if (goldenApple && new THREE.Box3().setFromObject(goldenApple.mesh).containsPoint(mesh.position)) return;
+      scene.add(mesh); powerups.push(mesh);
+    }
+
+    function clearWorld() {
+      foods.forEach(f => scene.remove(f)); foods.length = 0;
+      obstacles.forEach(o => scene.remove(o)); obstacles.length = 0;
+      solidWalls.forEach(w => scene.remove(w)); solidWalls.length = 0;
+      powerups.forEach(p => scene.remove(p)); powerups.length = 0;
+      if (goldenApple) scene.remove(goldenApple.mesh);
+    }
+
+    // Golden apple (rolling – worth 50 points)
+    let goldenApple = null;
+    function createGoldenApple(pos) {
+      if (goldenApple) scene.remove(goldenApple.mesh);
+      const geom = new THREE.SphereGeometry(0.8, 32, 32);
+      const mat = new THREE.MeshStandardMaterial({ color: 0xffdd00, emissive: 0x442200, roughness: 0.3, metalness: 0.8 });
+      const mesh = new THREE.Mesh(geom, mat);
+      mesh.castShadow = true; mesh.receiveShadow = true;
+      mesh.position.copy(pos); scene.add(mesh);
+      goldenApple = { mesh, velocity: new THREE.Vector3((Math.random()-0.5)*8, 0, (Math.random()-0.5)*8).normalize().multiplyScalar(6), position: pos.clone() };
+    }
+    function updateGoldenApple(delta) {
+      if (!goldenApple) return;
+      const g = goldenApple;
+      g.position.add(g.velocity.clone().multiplyScalar(delta));
+      if (g.position.x > halfArena - 1) { g.position.x = halfArena - 1; g.velocity.x *= -1; }
+      if (g.position.x < -halfArena + 1) { g.position.x = -halfArena + 1; g.velocity.x *= -1; }
+      if (g.position.z > halfArena - 1) { g.position.z = halfArena - 1; g.velocity.z *= -1; }
+      if (g.position.z < -halfArena + 1) { g.position.z = -halfArena + 1; g.velocity.z *= -1; }
+      for (const wall of solidWalls) {
+        const wallBox = new THREE.Box3().setFromObject(wall);
+        if (wallBox.containsPoint(g.position)) {
+          const closest = wallBox.clampPoint(g.position, new THREE.Vector3());
+          const diff = g.position.clone().sub(closest).normalize();
+          g.velocity.reflect(diff);
+          g.position.add(g.velocity.clone().multiplyScalar(delta));
+        }
+      }
+      for (const obs of obstacles) {
+        const obsBox = new THREE.Box3().setFromObject(obs);
+        if (obsBox.containsPoint(g.position)) {
+          const closest = obsBox.clampPoint(g.position, new THREE.Vector3());
+          const diff = g.position.clone().sub(closest).normalize();
+          g.velocity.reflect(diff);
+          g.position.add(g.velocity.clone().multiplyScalar(delta));
+        }
+      }
+      g.mesh.position.copy(g.position);
+    }
+    function checkGoldenAppleCollision(headPos, radius) {
+      if (!goldenApple) return false;
+      return headPos.distanceTo(goldenApple.position) < radius + 0.8;
+    }
+
+    // Random free spot
+    function getRandomFreePosition(ignorePlayer = null) {
+      const occupied = new Set();
+      obstacles.forEach(o => {
+        const box = new THREE.Box3().setFromObject(o);
+        for (let cx = Math.floor(box.min.x); cx <= Math.ceil(box.max.x); cx++)
+          for (let cz = Math.floor(box.min.z); cz <= Math.ceil(box.max.z); cz++)
+            occupied.add(cx + ',' + cz);
+      });
+      solidWalls.forEach(w => {
+        const box = new THREE.Box3().setFromObject(w);
+        for (let cx = Math.floor(box.min.x); cx <= Math.ceil(box.max.x); cx++)
+          for (let cz = Math.floor(box.min.z); cz <= Math.ceil(box.max.z); cz++)
+            occupied.add(cx + ',' + cz);
+      });
+      if (goldenApple) occupied.add(Math.round(goldenApple.position.x) + ',' + Math.round(goldenApple.position.z));
+      powerups.forEach(p => occupied.add(Math.round(p.position.x) + ',' + Math.round(p.position.z)));
+      aiSnakes.forEach(ai => {
+        if (!ai.alive) return;
+        ai.bodyMeshes.forEach(m => occupied.add(Math.round(m.position.x) + ',' + Math.round(m.position.z)));
+        if (ai.headMesh) occupied.add(Math.round(ai.headPos.x) + ',' + Math.round(ai.headPos.z));
+      });
+      [player1, player2].forEach(p => {
+        if (p === ignorePlayer) return;
+        if (!p.alive) return;
+        p.bodyMeshes.forEach(m => occupied.add(Math.round(m.position.x) + ',' + Math.round(m.position.z)));
+        if (p.headMesh) occupied.add(Math.round(p.headPos.x) + ',' + Math.round(p.headPos.z));
+      });
+      for (let i = 0; i < 1000; i++) {
+        const x = Math.floor(Math.random() * (arenaSize - 4) - halfArena + 2);
+        const z = Math.floor(Math.random() * (arenaSize - 4) - halfArena + 2);
+        if (!occupied.has(x + ',' + z)) return new THREE.Vector3(x + 0.5, baseSegSize/2, z + 0.5);
+      }
+      return new THREE.Vector3(0, baseSegSize/2, 0);
+    }
+
+    // ---------- Player class ----------
+    const baseSegSize = 0.8;
+    const normalSpeed = 10;
+    const boostSpeed = 16;
+    const turnSpeedBase = 3.5;
+    const segmentSpacing = 1.0;
+
+    class PlayerSnake {
+      constructor(color, startX, startZ, keys) {
+        this.color = color;
+        this.headPos = new THREE.Vector3(startX, baseSegSize/2, startZ);
+        this.yaw = 0; this.score = 0; this.kills = 0; this.alive = true;
+        this.jumpVel = 0;
+        this.trail = []; this.bodyMeshes = [];
+        this.bodyGroup = new THREE.Group(); scene.add(this.bodyGroup);
+        this.keys = keys;
+        this.headMesh = null;
+        this.sizeMultiplier = 1;
+        this.createHead();
+        for (let i = 0; i < 5; i++) this.addBodySegment(true);
+        this.resetTrail();
+        this.boostDrainTimer = 0;
+        this.powerupSpeedTimer = 0;
+        this.powerupTurnTimer = 0;
+        this.powerup2xTimer = 0;
+        this.spawnInvincibleTimer = 0;
+        this.freezeTimer = 0;
+      }
+
+      get segSize() { return baseSegSize * this.sizeMultiplier; }
+
+      updateSize() {
+        this.sizeMultiplier = Math.min(3, 1 + this.score * 0.01);
+        if (this.headMesh) this.headMesh.scale.setScalar(this.sizeMultiplier);
+        this.bodyMeshes.forEach(m => m.scale.setScalar(this.sizeMultiplier));
+      }
+
+      createHead() {
+        if (this.headMesh) scene.remove(this.headMesh);
+        const geom = new THREE.BoxGeometry(baseSegSize, baseSegSize, baseSegSize*1.2);
+        const mat = new THREE.MeshStandardMaterial({ color: this.color, emissive: this.color, emissiveIntensity: 0.4 });
+        this.headMesh = new THREE.Mesh(geom, mat);
+        this.headMesh.castShadow = true; this.headMesh.receiveShadow = true;
+        this.headMesh.scale.setScalar(this.sizeMultiplier);
+        scene.add(this.headMesh);
+      }
+      addBodySegment() {
+        const mesh = new THREE.Mesh(
+          new THREE.BoxGeometry(baseSegSize*0.7, baseSegSize*0.7, baseSegSize*0.7),
+          new THREE.MeshStandardMaterial({ color: this.color, emissive: this.color, emissiveIntensity: 0.2 })
+        );
+        mesh.castShadow = true; mesh.receiveShadow = true;
+        mesh.scale.setScalar(this.sizeMultiplier);
+        this.bodyGroup.add(mesh); this.bodyMeshes.push(mesh);
+      }
+      resetTrail() {
+        this.trail = [];
+        for (let dist = 0; dist < segmentSpacing * this.bodyMeshes.length + 5; dist += 0.1) {
+          this.trail.push(this.headPos.clone().add(new THREE.Vector3(0,0,-dist)));
+        }
+      }
+
+      handleInput(delta) {
+        if (!this.alive) return;
+        if (this.freezeTimer > 0) return;
+        const turnMultiplier = this.powerupTurnTimer > 0 ? 2.0 : 1.0;
+        let turn = 0;
+        if (this.keys.left) turn += 1;
+        if (this.keys.right) turn -= 1;
+        this.yaw += turn * turnSpeedBase * turnMultiplier * delta;
+        if (this.keys.jump && this.headPos.y <= this.segSize/2 + 0.01 && this.jumpVel <= 0) {
+          this.jumpVel = 12; Sfx.jump();
+        }
+        if (this.keys.boost) {
+          this.boostDrainTimer += delta;
+          while (this.boostDrainTimer >= 1.0) {
+            if (this.score > 0) this.score--;
+            this.boostDrainTimer -= 1.0;
+          }
+        } else {
+          this.boostDrainTimer = 0;
+        }
+        if (this.powerupSpeedTimer > 0) this.powerupSpeedTimer -= delta;
+        if (this.powerupTurnTimer > 0) this.powerupTurnTimer -= delta;
+        if (this.powerup2xTimer > 0) this.powerup2xTimer -= delta;
+        if (this.spawnInvincibleTimer > 0) this.spawnInvincibleTimer -= delta;
+      }
+
+      getEffectiveSpeed() {
+        if (this.powerupSpeedTimer > 0) return boostSpeed;
+        return this.keys.boost ? boostSpeed : normalSpeed;
+      }
+
+      isInvincible() { return this.spawnInvincibleTimer > 0; }
+
+      wrapPosition(pos) {
+        if (pos.x > halfArena) pos.x = -halfArena + 0.5;
+        if (pos.x < -halfArena) pos.x = halfArena - 0.5;
+        if (pos.z > halfArena) pos.z = -halfArena + 0.5;
+        if (pos.z < -halfArena) pos.z = halfArena - 0.5;
+      }
+
+      teleportToRandomSpot() {
+        const newPos = getRandomFreePosition(this);
+        this.headPos.copy(newPos);
+        this.yaw = Math.random() * Math.PI * 2;
+        this.jumpVel = 0;
+        this.freezeTimer = 0.5;
+        this.trail = [];
+        for (let dist = 0; dist < segmentSpacing * this.bodyMeshes.length + 5; dist += 0.1) {
+          this.trail.push(this.headPos.clone().add(new THREE.Vector3(0,0,-dist)));
+        }
+        let distFromHead = segmentSpacing;
+        for (let i = 0; i < this.bodyMeshes.length; i++) {
+          let acc = 0, prev = this.trail[0], target = prev.clone();
+          for (let j = 1; j < this.trail.length; j++) {
+            const curr = this.trail[j]; const step = prev.distanceTo(curr);
+            if (acc + step >= distFromHead) { target = prev.clone().lerp(curr, (distFromHead - acc) / step); break; }
+            acc += step; prev = curr; target = curr.clone();
+          }
+          this.bodyMeshes[i].position.copy(target);
+          const nextPos = i === 0 ? this.headMesh.position : this.bodyMeshes[i-1].position;
+          const dir = new THREE.Vector3().subVectors(nextPos, target).normalize();
+          if (dir.lengthSq() > 0.01) this.bodyMeshes[i].quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1), dir);
+          distFromHead += segmentSpacing;
+        }
+        this.headMesh.position.copy(this.headPos);
+        this.headMesh.rotation.y = this.yaw;
+        Sfx.teleport();
+      }
+
+      resolveObstacleCollision(newHeadPos, currentY) {
+        const s = this.segSize;
+        const headBox = new THREE.Box3(
+          new THREE.Vector3(newHeadPos.x - 0.4*s, currentY - s/2, newHeadPos.z - 0.4*s),
+          new THREE.Vector3(newHeadPos.x + 0.4*s, currentY + s/2, newHeadPos.z + 0.4*s)
+        );
+        let standing = false;
+        for (const obs of obstacles) {
+          const obsBox = new THREE.Box3().setFromObject(obs);
+          if (!headBox.intersectsBox(obsBox)) continue;
+          const obsTop = obs.position.y + OBSTACLE_HEIGHT / 2;
+          const playerBottom = currentY - s/2;
+          if (playerBottom >= obsTop - 0.01) {
+            standing = true;
+            currentY = obsTop + s/2;
+            headBox.min.y = obsTop;
+            headBox.max.y = obsTop + s;
+          } else {
+            const overlapX = Math.min(headBox.max.x - obsBox.min.x, obsBox.max.x - headBox.min.x);
+            const overlapZ = Math.min(headBox.max.z - obsBox.min.z, obsBox.max.z - headBox.min.z);
+            if (overlapX < overlapZ) {
+              if (headBox.max.x - obsBox.min.x < obsBox.max.x - headBox.min.x) newHeadPos.x -= overlapX;
+              else newHeadPos.x += overlapX;
+            } else {
+              if (headBox.max.z - obsBox.min.z < obsBox.max.z - headBox.min.z) newHeadPos.z -= overlapZ;
+              else newHeadPos.z += overlapZ;
+            }
+            headBox.min.x = newHeadPos.x - 0.4*s; headBox.max.x = newHeadPos.x + 0.4*s;
+            headBox.min.z = newHeadPos.z - 0.4*s; headBox.max.z = newHeadPos.z + 0.4*s;
+          }
+        }
+        return { newHeadPos, currentY, standing };
+      }
+
+      updatePhysics(delta, obstaclesList, solidWallsList, otherPlayer) {
+        if (!this.alive) return { died: false };
+        if (this.freezeTimer > 0) {
+          this.freezeTimer -= delta;
+          if (this.powerupSpeedTimer > 0) this.powerupSpeedTimer -= delta;
+          if (this.powerupTurnTimer > 0) this.powerupTurnTimer -= delta;
+          if (this.powerup2xTimer > 0) this.powerup2xTimer -= delta;
+          if (this.spawnInvincibleTimer > 0) this.spawnInvincibleTimer -= delta;
+          return { died: false };
+        }
+        const gravity = 15;
+        if (this.headPos.y > this.segSize/2 || this.jumpVel > 0) {
+          this.jumpVel -= gravity * delta;
+          this.headPos.y += this.jumpVel * delta;
+          if (this.headPos.y <= this.segSize/2) { this.headPos.y = this.segSize/2; this.jumpVel = 0; }
+        }
+        const speed = this.getEffectiveSpeed();
+        const moveVec = new THREE.Vector3(Math.sin(this.yaw), 0, Math.cos(this.yaw)).multiplyScalar(speed * delta);
+        let newHeadPos = this.headPos.clone().add(moveVec);
+        let newY = this.headPos.y;
+        this.wrapPosition(newHeadPos);
+        const s = this.segSize;
+        const headBox = new THREE.Box3(
+          new THREE.Vector3(newHeadPos.x - 0.4*s, newY - s/2, newHeadPos.z - 0.4*s),
+          new THREE.Vector3(newHeadPos.x + 0.4*s, newY + s/2, newHeadPos.z + 0.4*s)
+        );
+
+        for (const wall of solidWallsList) {
+          if (headBox.intersectsBox(new THREE.Box3().setFromObject(wall))) {
+            if (!this.isInvincible()) {
+              this.teleportToRandomSpot();
+              return { died: false };
+            }
+          }
+        }
+
+        const resolved = this.resolveObstacleCollision(newHeadPos, newY);
+        newHeadPos = resolved.newHeadPos; newY = resolved.currentY; const standing = resolved.standing;
+        if (!standing && newY <= s/2 + 0.01) { newY = s/2; this.jumpVel = 0; }
+        const finalHeadBox = new THREE.Box3(
+          new THREE.Vector3(newHeadPos.x - 0.4*s, newY - s/2, newHeadPos.z - 0.4*s),
+          new THREE.Vector3(newHeadPos.x + 0.4*s, newY + s/2, newHeadPos.z + 0.4*s)
+        );
+
+        if (!this.isInvincible()) {
+          if (this.bodyMeshes.length > 3) {
+            for (let i = 3; i < this.bodyMeshes.length; i++) {
+              if (finalHeadBox.intersectsBox(new THREE.Box3().setFromObject(this.bodyMeshes[i]))) {
+                this.die(); return { died: true };
+              }
+            }
+          }
+          if (otherPlayer && otherPlayer.alive) {
+            const otherS = otherPlayer.segSize;
+            const otherHeadBox = new THREE.Box3(
+              new THREE.Vector3(otherPlayer.headPos.x - 0.4*otherS, otherPlayer.headPos.y - otherS/2, otherPlayer.headPos.z - 0.4*otherS),
+              new THREE.Vector3(otherPlayer.headPos.x + 0.4*otherS, otherPlayer.headPos.y + otherS/2, otherPlayer.headPos.z + 0.4*otherS)
+            );
+            if (finalHeadBox.intersectsBox(otherHeadBox)) { this.die(); otherPlayer.die(); return { died: true }; }
+            for (const mesh of otherPlayer.bodyMeshes) {
+              if (finalHeadBox.intersectsBox(new THREE.Box3().setFromObject(mesh))) { this.die(); return { died: true }; }
+            }
+          }
+          const aiDeathList = [];
+          for (const ai of aiSnakes) {
+            if (!ai.alive) continue;
+            let playerHit = false;
+            if (ai.headMesh) {
+              const aiS = ai.segSize;
+              const aiHeadBox = new THREE.Box3(
+                new THREE.Vector3(ai.headPos.x - 0.7*aiS, 0, ai.headPos.z - 0.7*aiS),
+                new THREE.Vector3(ai.headPos.x + 0.7*aiS, 2.0, ai.headPos.z + 0.7*aiS)
+              );
+              if (finalHeadBox.intersectsBox(aiHeadBox)) playerHit = true;
+            }
+            if (!playerHit) {
+              for (const mesh of ai.bodyMeshes) {
+                if (finalHeadBox.intersectsBox(new THREE.Box3().setFromObject(mesh))) { playerHit = true; break; }
+              }
+            }
+            if (playerHit) { this.die(); return { died: true }; }
+            if (ai.headMesh) {
+              const aiS = ai.segSize;
+              const aiHeadBox = new THREE.Box3(
+                new THREE.Vector3(ai.headPos.x - 0.7*aiS, 0, ai.headPos.z - 0.7*aiS),
+                new THREE.Vector3(ai.headPos.x + 0.7*aiS, 2.0, ai.headPos.z + 0.7*aiS)
+              );
+              for (const mesh of this.bodyMeshes) {
+                if (aiHeadBox.intersectsBox(new THREE.Box3().setFromObject(mesh))) { aiDeathList.push(ai); break; }
+              }
+            }
+          }
+          for (const ai of aiDeathList) {
+            if (ai.alive) {
+              ai.die(false, true);
+              this.score += 2;
+              this.kills++;
+              this.updateSize();
+              Sfx.aiKill();
+            }
+          }
+        }
+
+        for (let i = powerups.length - 1; i >= 0; i--) {
+          const p = powerups[i];
+          if (newHeadPos.distanceTo(p.position) < 1.6) {
+            Sfx.powerup();
+            switch (p.userData.type) {
+              case 'speed': this.powerupSpeedTimer = 5; break;
+              case 'turn': this.powerupTurnTimer = 5; break;
+              case 'bonus': this.score += 10; break;
+              case '2x': this.powerup2xTimer = 10; break;
+            }
+            scene.remove(p); powerups.splice(i, 1);
+          }
+        }
+
+        for (let i = foods.length - 1; i >= 0; i--) {
+          const f = foods[i];
+          if (newHeadPos.distanceTo(f.position) < 1.3 * this.sizeMultiplier) {
+            let points = 1;
+            if (f.userData.type === 'blue') points = 3;
+            else if (f.userData.type === 'golden') points = 5;   // static golden apple = 5 points
+            if (this.powerup2xTimer > 0) points *= 2;
+            this.score += points;
+            scene.remove(f); foods.splice(i, 1);
+            this.addBodySegment();
+            this.updateSize();
+            spawnApple();
+            if (f.userData.type === 'blue') Sfx.blueApple();
+            else if (f.userData.type === 'golden') Sfx.goldenApple();
+            else Sfx.eatApple();
+            break;
+          }
+        }
+        if (checkGoldenAppleCollision(newHeadPos, 0.4 * this.sizeMultiplier)) {
+          this.score += 50;  // rolling golden ball = 50 points
+          this.updateSize();
+          createGoldenApple(new THREE.Vector3((Math.random()-0.5)*(arenaSize-6), 0.5, (Math.random()-0.5)*(arenaSize-6)));
+          Sfx.goldenApple();
+        }
+
+        this.trail.unshift(newHeadPos.clone());
+        const maxTrail = segmentSpacing * this.bodyMeshes.length + 2;
+        while (this.trail.length > 0 && this.headPos.distanceTo(this.trail[this.trail.length-1]) > maxTrail + 1) this.trail.pop();
+        let distFromHead = segmentSpacing;
+        for (let i = 0; i < this.bodyMeshes.length; i++) {
+          let acc = 0, prev = this.trail[0], target = prev.clone();
+          for (let j = 1; j < this.trail.length; j++) {
+            const curr = this.trail[j]; const step = prev.distanceTo(curr);
+            if (acc + step >= distFromHead) { target = prev.clone().lerp(curr, (distFromHead - acc) / step); break; }
+            acc += step; prev = curr; target = curr.clone();
+          }
+          this.bodyMeshes[i].position.copy(target);
+          const nextPos = i === 0 ? this.headMesh.position : this.bodyMeshes[i-1].position;
+          const dir = new THREE.Vector3().subVectors(nextPos, target).normalize();
+          if (dir.lengthSq() > 0.01) this.bodyMeshes[i].quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1), dir);
+          distFromHead += segmentSpacing;
+        }
+        this.headMesh.position.copy(newHeadPos); this.headMesh.rotation.y = this.yaw;
+        this.headPos.copy(newHeadPos); this.headPos.y = newY;
+        return { died: false };
+      }
+
+      die() {
+        if (!this.alive) return;
+        const bodyPositions = this.bodyMeshes.map(m => m.position.clone());
+        const dropCount = Math.floor(this.score / 2);
+        if (dropCount > 0 && bodyPositions.length > 0) {
+          const step = Math.max(1, Math.floor(bodyPositions.length / dropCount));
+          const samples = [];
+          for (let i = 0; i < bodyPositions.length; i += step) {
+            samples.push(bodyPositions[i]);
+          }
+          dropApplesAlongLine(samples);
+        }
+        this.score -= dropCount;
+        this.alive = false; scene.remove(this.headMesh); this.headMesh = null;
+        this.bodyMeshes.forEach(m => scene.remove(m)); this.bodyMeshes.length = 0; this.bodyGroup.clear();
+        Sfx.playerDie();
+      }
+      respawn() {
+        if (this.alive) this.die();
+        const newPos = getRandomFreePosition(this);
+        this.headPos.copy(newPos);
+        this.yaw = 0; this.jumpVel = 0; this.boostDrainTimer = 0;
+        this.powerupSpeedTimer = 0; this.powerupTurnTimer = 0; this.powerup2xTimer = 0;
+        this.spawnInvincibleTimer = 3;
+        this.freezeTimer = 0;
+        this.kills = 0;
+        this.sizeMultiplier = 1;
+        this.alive = true;
+        this.createHead();
+        while (this.bodyMeshes.length > 5) {
+          const mesh = this.bodyMeshes.pop();
+          scene.remove(mesh);
+        }
+        while (this.bodyMeshes.length < 5) this.addBodySegment();
+        this.resetTrail();
+        this.updateSize();
+        Sfx.respawn();
+      }
+    }
+
+    // ---------- AI Snake (now with 20‑30% of top player score) ----------
+    class AISnake {
+      constructor(color, personality, name) {
+        this.color = color; this.personality = personality; this.name = name;
+        this.headMesh = null; this.outlineMesh = null; this.bodyMeshes = [];
+        this.alive = false; this.speed = 6 + Math.random()*4; this.segments = 4;
+        this.yaw = 0; this.trail = []; this.headPos = new THREE.Vector3(); this.score = 0; this.kills = 0;
+        this.respawnTimer = null;
+        this.jumpVel = 0;
+        this.canJump = (personality === 'jumpy');
+        if (this.name === '💀 Reaper') this.speed = 14;
+        this.sizeMultiplier = 1;
+      }
+      get segSize() { return baseSegSize * this.sizeMultiplier; }
+      updateSize() {
+        this.sizeMultiplier = Math.min(3, 1 + this.score * 0.01);
+        if (this.headMesh) this.headMesh.scale.setScalar(this.sizeMultiplier);
+        this.bodyMeshes.forEach(m => m.scale.setScalar(this.sizeMultiplier));
+      }
+
+      spawn(pos) {
+        this.die(true);
+        this.headPos.copy(pos); this.yaw = Math.random()*Math.PI*2;
+        // Start with 20‑30% of the top player's score
+        const maxPlayerScore = Math.max(player1.score, twoPlayerMode ? player2.score : 0);
+        this.score = Math.floor(maxPlayerScore * (0.2 + Math.random() * 0.1));
+        this.kills = 0;
+        this.sizeMultiplier = 1;
+        const headGeom = new THREE.BoxGeometry(baseSegSize*1.5, baseSegSize*1.5, baseSegSize*1.8);
+        const mat = new THREE.MeshStandardMaterial({ color: this.color, emissive: this.color, emissiveIntensity: 0.7 });
+        this.headMesh = new THREE.Mesh(headGeom, mat);
+        this.headMesh.castShadow = true; this.headMesh.receiveShadow = true;
+        this.headMesh.scale.setScalar(this.sizeMultiplier);
+        scene.add(this.headMesh);
+        this.outlineMesh = new THREE.Mesh(headGeom, new THREE.MeshBasicMaterial({ color: this.color, wireframe: true, transparent: true, opacity: 0.5 }));
+        this.headMesh.add(this.outlineMesh);
+        for (let i=0; i<this.segments; i++) {
+          const bGeom = new THREE.BoxGeometry(baseSegSize*0.7, baseSegSize*0.7, baseSegSize*0.7);
+          const bMat = new THREE.MeshStandardMaterial({ color: this.color, emissive: this.color, emissiveIntensity: 0.3 });
+          const mesh = new THREE.Mesh(bGeom, bMat);
+          mesh.castShadow = true; mesh.receiveShadow = true;
+          mesh.scale.setScalar(this.sizeMultiplier);
+          this.bodyMeshes.push(mesh); scene.add(mesh);
+        }
+        this.trail = [];
+        for (let dist=0; dist<segmentSpacing*this.segments; dist+=0.1) this.trail.push(this.headPos.clone().add(new THREE.Vector3(0,0,-dist)));
+        this.alive = true;
+        this.updateSize();
+      }
+      die(skipRespawn = false, dropBodyApples = false) {
+        if (this.alive) {
+          if (dropBodyApples) {
+            const segPositions = this.bodyMeshes.map(m => m.position.clone());
+            segPositions.unshift(this.headPos.clone());
+            dropApplesAlongLine(segPositions);
+          } else {
+            dropApples(3, this.headPos.clone());
+          }
+          Sfx.aiDie();
+        }
+        this.alive = false;
+        if (this.headMesh) { scene.remove(this.headMesh); if (this.outlineMesh) this.headMesh.remove(this.outlineMesh); this.headMesh = null; this.outlineMesh = null; }
+        this.bodyMeshes.forEach(m => scene.remove(m)); this.bodyMeshes.length = 0; this.score = 0; this.kills = 0;
+        if (this.respawnTimer) clearTimeout(this.respawnTimer);
+        if (!skipRespawn) {
+          this.respawnTimer = setTimeout(() => {
+            let pos;
+            let attempts = 0;
+            do {
+              pos = new THREE.Vector3((Math.random()-0.5)*(arenaSize-10), baseSegSize/2, (Math.random()-0.5)*(arenaSize-10));
+              attempts++;
+              if (attempts > 100) break;
+            } while (pos.distanceTo(player1.headPos) < 40 || (twoPlayerMode && player2.alive && pos.distanceTo(player2.headPos) < 40));
+            this.spawn(pos);
+          }, 0);
+        }
+      }
+
+      rayBoxIntersect(origin, direction, box, maxDist) {
+        const dir = direction.clone().normalize();
+        const invDir = new THREE.Vector3(1/dir.x, 1/dir.y, 1/dir.z);
+        const t1 = (box.min.x - origin.x) * invDir.x;
+        const t2 = (box.max.x - origin.x) * invDir.x;
+        const t3 = (box.min.y - origin.y) * invDir.y;
+        const t4 = (box.max.y - origin.y) * invDir.y;
+        const t5 = (box.min.z - origin.z) * invDir.z;
+        const t6 = (box.max.z - origin.z) * invDir.z;
+        const tmin = Math.max(Math.max(Math.min(t1, t2), Math.min(t3, t4)), Math.min(t5, t6));
+        const tmax = Math.min(Math.min(Math.max(t1, t2), Math.max(t3, t4)), Math.max(t5, t6));
+        if (tmax < 0 || tmin > tmax || tmin > maxDist) return null;
+        return tmin;
+      }
+
+      rayDistance(origin, direction, maxDist = 5) {
+        let closest = maxDist;
+        const allObs = [...obstacles, ...solidWalls];
+        for (const obj of allObs) {
+          const box = new THREE.Box3().setFromObject(obj);
+          const t = this.rayBoxIntersect(origin, direction, box, maxDist);
+          if (t !== null && t < closest) closest = t;
+        }
+        return closest;
+      }
+
+      applyAvoidance(delta) {
+        const forward = new THREE.Vector3(Math.sin(this.yaw), 0, Math.cos(this.yaw));
+        const angles = [0, 0.5, -0.5];
+        let bestDir = forward.clone();
+        let bestClearance = -1;
+        const results = [];
+        for (const angle of angles) {
+          const dir = forward.clone().applyAxisAngle(new THREE.Vector3(0,1,0), angle);
+          const clearance = this.rayDistance(this.headPos, dir, 4);
+          results.push({ angle, clearance, dir });
+          if (clearance > bestClearance) { bestClearance = clearance; bestDir = dir.clone(); }
+        }
+        const straightRes = results.find(r => r.angle === 0);
+        if (straightRes.clearance < 2.5 && bestClearance > straightRes.clearance + 0.2) {
+          const desiredYaw = Math.atan2(bestDir.x, bestDir.z);
+          let diff = desiredYaw - this.yaw;
+          while (diff > Math.PI) diff -= Math.PI*2; while (diff < -Math.PI) diff += Math.PI*2;
+          this.yaw += diff * Math.min(1, 4 * delta);
+          return true;
+        }
+        if (bestClearance < 1.5) { this.yaw += Math.PI; return true; }
+        return false;
+      }
+
+      findNearestCluster() {
+        const cellSize = 3;
+        const clusters = new Map();
+        foods.forEach(f => {
+          const cx = Math.floor(f.position.x / cellSize);
+          const cz = Math.floor(f.position.z / cellSize);
+          const key = `${cx},${cz}`;
+          if (!clusters.has(key)) clusters.set(key, []);
+          clusters.get(key).push(f);
+        });
+        let bestCluster = null;
+        let bestDist = Infinity;
+        for (const [key, cluster] of clusters) {
+          if (cluster.length < 3) continue;
+          const center = new THREE.Vector3();
+          cluster.forEach(f => center.add(f.position));
+          center.divideScalar(cluster.length);
+          const dist = this.headPos.distanceTo(center);
+          if (dist < bestDist) {
+            bestDist = dist;
+            bestCluster = center;
+          }
+        }
+        return bestCluster;
+      }
+
+      update(delta, players, solidWalls) {
+        if (!this.alive) return;
+        const gravity = 15;
+        if (this.canJump) {
+          if (this.headPos.y > this.segSize/2 || this.jumpVel > 0) {
+            this.jumpVel -= gravity * delta; this.headPos.y += this.jumpVel * delta;
+            if (this.headPos.y <= this.segSize/2) { this.headPos.y = this.segSize/2; this.jumpVel = 0; }
+          }
+        }
+        const avoidanceActive = this.applyAvoidance(delta);
+        let targetDir = new THREE.Vector3(Math.sin(this.yaw), 0, Math.cos(this.yaw));
+        const head = this.headPos;
+        if (!avoidanceActive) {
+          if (this.name === '💀 Reaper') {
+            let closest = null, minDist = Infinity;
+            for (const p of players) { if (!p.alive) continue; const d = head.distanceTo(p.headPos); if (d < minDist) { minDist = d; closest = p.headPos; } }
+            for (const ai of aiSnakes) {
+              if (ai === this || !ai.alive) continue;
+              const d = head.distanceTo(ai.headPos);
+              if (d < minDist) { minDist = d; closest = ai.headPos; }
+            }
+            if (closest) targetDir.copy(closest).sub(head).normalize();
+            this.speed = 14;
+          } else if (this.personality === 'killer') {
+            let closest = null, minDist = Infinity;
+            for (const p of players) { if (!p.alive) continue; const d = head.distanceTo(p.headPos); if (d < minDist) { minDist = d; closest = p.headPos; } }
+            if (closest) targetDir.copy(closest).sub(head).normalize();
+            this.speed = 11;
+          } else if (this.personality === 'hungry') {
+            const cluster = this.findNearestCluster();
+            if (cluster) {
+              targetDir.copy(cluster).sub(head).normalize();
+            } else {
+              let best = null, bestD = Infinity;
+              for (const f of foods) { const d = head.distanceTo(f.position); if (d < bestD) { bestD = d; best = f.position; } }
+              if (best) targetDir.copy(best).sub(head).normalize();
+            }
+            this.speed = 7;
+          } else if (this.personality === 'shy') {
+            let closestPlayer = null, minDist = 100;
+            for (const p of players) { if (!p.alive) continue; const d = head.distanceTo(p.headPos); if (d < minDist) { minDist = d; closestPlayer = p.headPos; } }
+            if (closestPlayer && minDist < 12) targetDir.copy(head).sub(closestPlayer).normalize();
+            this.speed = 6;
+          } else if (this.personality === 'jumpy') {
+            if (Math.random()<0.02) this.yaw += (Math.random()-0.5)*1.5;
+            targetDir.set(Math.sin(this.yaw),0,Math.cos(this.yaw));
+            this.speed = 7;
+            if (this.headPos.y <= this.segSize/2 + 0.01) {
+              const ahead = head.clone().add(targetDir.clone().multiplyScalar(0.8));
+              const willCollide = obstacles.some(o => new THREE.Box3().setFromObject(o).containsPoint(ahead));
+              if (willCollide || Math.random() < 0.01) { this.jumpVel = 12; Sfx.jump(); }
+            }
+          } else {
+            if (Math.random()<0.02) this.yaw += (Math.random()-0.5)*1.5;
+            targetDir.set(Math.sin(this.yaw),0,Math.cos(this.yaw));
+            this.speed = 6;
+          }
+
+          const jitter = 0.1;
+          targetDir.x += (Math.random() - 0.5) * jitter;
+          targetDir.z += (Math.random() - 0.5) * jitter;
+
+          const avoid = new THREE.Vector3();
+          for (const obs of obstacles) {
+            const diff = head.clone().sub(obs.position); const len = diff.length();
+            if (len < 3 && len > 0.001) { diff.divideScalar(len); avoid.add(diff.multiplyScalar(3 / (len+0.1))); }
+          }
+          for (const wall of solidWalls) {
+            const diff = head.clone().sub(wall.position); const len = diff.length();
+            if (len < 3 && len > 0.001) { diff.divideScalar(len); avoid.add(diff.multiplyScalar(5 / (len+0.1))); }
+          }
+          if (head.x > halfArena-2) avoid.x -= 2; if (head.x < -halfArena+2) avoid.x += 2;
+          if (head.z > halfArena-2) avoid.z -= 2; if (head.z < -halfArena+2) avoid.z += 2;
+          targetDir.add(avoid); const len = targetDir.length(); if (len > 0.001) targetDir.divideScalar(len);
+          else targetDir.set(0,0,0);
+          const desiredYaw = Math.atan2(targetDir.x, targetDir.z);
+          let yawDiff = desiredYaw - this.yaw;
+          while (yawDiff > Math.PI) yawDiff -= Math.PI*2; while (yawDiff < -Math.PI) yawDiff += Math.PI*2;
+          this.yaw += yawDiff * 3 * delta;
+        }
+        const move = new THREE.Vector3(Math.sin(this.yaw), 0, Math.cos(this.yaw)).multiplyScalar(this.speed * delta);
+        const newPos = head.clone().add(move);
+        newPos.y = this.headPos.y;
+        if (newPos.x > halfArena) newPos.x = -halfArena + 0.5; if (newPos.x < -halfArena) newPos.x = halfArena - 0.5;
+        if (newPos.z > halfArena) newPos.z = -halfArena + 0.5; if (newPos.z < -halfArena) newPos.z = halfArena - 0.5;
+
+        const s = this.segSize;
+        const headBox = new THREE.Box3(
+          new THREE.Vector3(newPos.x-0.7*s, 0, newPos.z-0.7*s),
+          new THREE.Vector3(newPos.x+0.7*s, 2.0, newPos.z+0.7*s)
+        );
+        for (const wall of solidWalls) {
+          if (headBox.intersectsBox(new THREE.Box3().setFromObject(wall))) { this.die(false, false); return; }
+        }
+        for (const obs of obstacles) {
+          if (headBox.intersectsBox(new THREE.Box3().setFromObject(obs))) {
+            const obsBox = new THREE.Box3().setFromObject(obs);
+            const overlapX = Math.min(headBox.max.x - obsBox.min.x, obsBox.max.x - headBox.min.x);
+            const overlapZ = Math.min(headBox.max.z - obsBox.min.z, obsBox.max.z - headBox.min.z);
+            if (overlapX < overlapZ) {
+              if (headBox.max.x - obsBox.min.x < obsBox.max.x - headBox.min.x) newPos.x -= overlapX;
+              else newPos.x += overlapX;
+            } else {
+              if (headBox.max.z - obsBox.min.z < obsBox.max.z - headBox.min.z) newPos.z -= overlapZ;
+              else newPos.z += overlapZ;
+            }
+            headBox.min.x = newPos.x - 0.7*s; headBox.max.x = newPos.x + 0.7*s;
+            headBox.min.z = newPos.z - 0.7*s; headBox.max.z = newPos.z + 0.7*s;
+          }
+        }
+        if (this.bodyMeshes.length > 1) {
+          for (let i = 1; i < this.bodyMeshes.length; i++) {
+            if (headBox.intersectsBox(new THREE.Box3().setFromObject(this.bodyMeshes[i]))) { this.die(false, false); return; }
+          }
+        }
+
+        this.headPos.copy(newPos);
+        for (let i = foods.length-1; i>=0; i--) {
+          if (newPos.distanceTo(foods[i].position) < 1.5 * this.sizeMultiplier) {
+            let pts = 1;
+            if (foods[i].userData.type === 'blue') pts = 3;
+            else if (foods[i].userData.type === 'golden') pts = 5;   // static golden apple = 5
+            this.score += pts; scene.remove(foods[i]); foods.splice(i,1); this.grow(); this.updateSize();
+            break;
+          }
+        }
+        if (checkGoldenAppleCollision(newPos, 0.7 * this.sizeMultiplier)) {
+          this.score += 50;  // rolling golden ball = 50 for AI too
+          this.updateSize();
+          createGoldenApple(new THREE.Vector3((Math.random()-0.5)*(arenaSize-6), 0.5, (Math.random()-0.5)*(arenaSize-6)));
+          Sfx.goldenApple();
+        }
+        this.updateBodyPositions();
+      }
+      grow() {
+        const mesh = new THREE.Mesh(
+          new THREE.BoxGeometry(baseSegSize*0.7, baseSegSize*0.7, baseSegSize*0.7),
+          new THREE.MeshStandardMaterial({ color: this.color, emissive: this.color, emissiveIntensity: 0.3 })
+        );
+        mesh.castShadow = true; mesh.receiveShadow = true;
+        mesh.scale.setScalar(this.sizeMultiplier);
+        this.bodyMeshes.push(mesh); scene.add(mesh);
+      }
+      updateBodyPositions() {
+        if (!this.alive || this.bodyMeshes.length===0) return;
+        this.trail.unshift(this.headPos.clone());
+        const maxDist = segmentSpacing * this.bodyMeshes.length + 1;
+        while (this.trail.length>0 && this.headPos.distanceTo(this.trail[this.trail.length-1]) > maxDist) this.trail.pop();
+        let dist = segmentSpacing;
+        for (let i=0; i<this.bodyMeshes.length; i++) {
+          let acc=0, prev=this.trail[0], target=prev.clone();
+          for (let j=1; j<this.trail.length; j++) {
+            const curr=this.trail[j]; const step=prev.distanceTo(curr);
+            if (acc+step >= dist) { target = prev.clone().lerp(curr, (dist-acc)/step); break; }
+            acc+=step; prev=curr; target=curr.clone();
+          }
+          this.bodyMeshes[i].position.copy(target);
+          const nextPos = i===0 ? this.headMesh.position : this.bodyMeshes[i-1].position;
+          const dir = new THREE.Vector3().subVectors(nextPos, target).normalize();
+          if (dir.lengthSq()>0.01) this.bodyMeshes[i].quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1), dir);
+          dist += segmentSpacing;
+        }
+        this.headMesh.position.copy(this.headPos); this.headMesh.rotation.y = this.yaw;
+      }
+    }
+
+    // ---------- Reaper kill logic ----------
+    function reaperKillAIs() {
+      const reaper = aiSnakes.find(ai => ai.name === '💀 Reaper' && ai.alive);
+      if (!reaper) return;
+      const s = reaper.segSize;
+      const headBox = new THREE.Box3(
+        new THREE.Vector3(reaper.headPos.x - 0.7*s, 0, reaper.headPos.z - 0.7*s),
+        new THREE.Vector3(reaper.headPos.x + 0.7*s, 2.0, reaper.headPos.z + 0.7*s)
+      );
+      for (const ai of aiSnakes) {
+        if (ai === reaper || !ai.alive) continue;
+        let killed = false;
+        if (ai.headMesh) {
+          const aiS = ai.segSize;
+          const aiHeadBox = new THREE.Box3(
+            new THREE.Vector3(ai.headPos.x - 0.7*aiS, 0, ai.headPos.z - 0.7*aiS),
+            new THREE.Vector3(ai.headPos.x + 0.7*aiS, 2.0, ai.headPos.z + 0.7*aiS)
+          );
+          if (headBox.intersectsBox(aiHeadBox)) killed = true;
+        }
+        if (!killed) {
+          for (const mesh of ai.bodyMeshes) {
+            if (headBox.intersectsBox(new THREE.Box3().setFromObject(mesh))) { killed = true; break; }
+          }
+        }
+        if (killed) {
+          ai.die(false, true);
+          reaper.kills++;
+          reaper.score += 2;
+          reaper.updateSize();
+          Sfx.aiKill();
+        }
+      }
+    }
+
+    // ---------- Game objects & mode ----------
+    let twoPlayerMode = true;
+    const playerKeys1 = { left: false, right: false, jump: false, boost: false };
+    const playerKeys2 = { left: false, right: false, jump: false, boost: false };
+    const player1 = new PlayerSnake(0x00ffcc, -12, 0, playerKeys1);
+    const player2 = new PlayerSnake(0xff44ff, 12, 0, playerKeys2);
+    const players = [player1, player2];
+
+    const aiSnakes = [
+      new AISnake(0xff5555, 'hungry', '🍎 Hungry'),
+      new AISnake(0x5588ff, 'shy', '💧 Shy'),
+      new AISnake(0xffaa00, 'random', '🎲 Random'),
+      new AISnake(0xff2222, 'killer', '☠️ Killer'),
+      new AISnake(0xff66ff, 'jumpy', '🐇 Jumpy'),
+      new AISnake(0xffdd00, 'hungry', '🍏 Greedy'),
+      new AISnake(0x66ff66, 'jumpy', '🐇 Hoppy'),
+      new AISnake(0xff8800, 'jumpy', '🦘 Bouncy'),
+      new AISnake(0xff0000, 'killer', '💀 Reaper')
+    ];
+
+    // Minimap with apple clusters
+    const minimapCanvas = document.getElementById('minimap');
+    const minimapCtx = minimapCanvas.getContext('2d');
+    function drawMinimap() {
+      minimapCtx.clearRect(0, 0, 180, 180);
+      const scale = 180 / arenaSize;
+      minimapCtx.fillStyle = 'rgba(0,0,0,0.8)';
+      minimapCtx.fillRect(0, 0, 180, 180);
+
+      minimapCtx.fillStyle = '#666';
+      obstacles.forEach(o => {
+        minimapCtx.fillRect(
+          (o.position.x - 1) * scale + 90, (o.position.z - 1) * scale + 90, 2 * scale, 2 * scale
+        );
+      });
+      minimapCtx.fillStyle = '#8b5a2b';
+      solidWalls.forEach(w => {
+        minimapCtx.fillRect(
+          (w.position.x - 1.25) * scale + 90, (w.position.z - 1.25) * scale + 90, 2.5 * scale, 2.5 * scale
+        );
+      });
+
+      const cellSize = 3;
+      const grid = new Map();
+      foods.forEach(f => {
+        const cx = Math.floor(f.position.x / cellSize);
+        const cz = Math.floor(f.position.z / cellSize);
+        const key = `${cx},${cz}`;
+        if (!grid.has(key)) grid.set(key, []);
+        grid.get(key).push(f);
+      });
+      minimapCtx.fillStyle = '#ffaa00';
+      for (const [key, cluster] of grid) {
+        if (cluster.length >= 3) {
+          const [cx, cz] = key.split(',').map(Number);
+          const x = (cx * cellSize + cellSize/2) * scale + 90;
+          const z = (cz * cellSize + cellSize/2) * scale + 90;
+          minimapCtx.fillRect(x - 1.5, z - 1.5, 3, 3);
+        }
+      }
+
+      minimapCtx.fillStyle = 'yellow';
+      powerups.forEach(p => {
+        minimapCtx.fillRect(
+          (p.position.x - 0.6) * scale + 90, (p.position.z - 0.6) * scale + 90, 1.2 * scale, 1.2 * scale
+        );
+      });
+      if (goldenApple) {
+        minimapCtx.fillStyle = '#ffdd00';
+        minimapCtx.beginPath();
+        minimapCtx.arc(
+          goldenApple.position.x * scale + 90, goldenApple.position.z * scale + 90, 2 * scale, 0, Math.PI*2
+        );
+        minimapCtx.fill();
+      }
+
+      function drawSnakeBody(headPos, bodyMeshes, color, sizeMul = 1) {
+        minimapCtx.fillStyle = color;
+        minimapCtx.beginPath();
+        minimapCtx.arc(
+          headPos.x * scale + 90, headPos.z * scale + 90, 2.5 * sizeMul * scale, 0, Math.PI*2
+        );
+        minimapCtx.fill();
+        for (const mesh of bodyMeshes) {
+          const pos = mesh.position;
+          minimapCtx.fillRect(
+            (pos.x - 0.3*sizeMul) * scale + 90, (pos.z - 0.3*sizeMul) * scale + 90, 0.6*sizeMul * scale, 0.6*sizeMul * scale
+          );
+        }
+      }
+
+      if (player1.alive) drawSnakeBody(player1.headPos, player1.bodyMeshes, '#00ffcc', player1.sizeMultiplier);
+      if (twoPlayerMode && player2.alive) drawSnakeBody(player2.headPos, player2.bodyMeshes, '#ff44ff', player2.sizeMultiplier);
+      aiSnakes.forEach(ai => {
+        if (ai.alive) drawSnakeBody(ai.headPos, ai.bodyMeshes, '#' + ai.color.toString(16).padStart(6, '0'), ai.sizeMultiplier);
+      });
+    }
+
+    function resetWorld() {
+      clearWorld();
+      const step = 10;
+      for (let x = -halfArena + step; x < halfArena - step; x += step) {
+        for (let z = -halfArena + step; z < halfArena - step; z += step) {
+          if (Math.random() < 0.7) continue;
+          if (Math.abs(x - (-12)) < 6 && Math.abs(z - 0) < 6) continue;
+          if (Math.abs(x - 12) < 6 && Math.abs(z - 0) < 6) continue;
+          spawnSolidWall(x, z);
+        }
+      }
+
+      const gridStep = 4.5;
+      for (let x = -halfArena + 3; x < halfArena - 3; x += gridStep) {
+        for (let z = -halfArena + 3; z < halfArena - 3; z += gridStep) {
+          if (Math.abs(x) < 4 && Math.abs(z) < 4) continue;
+          if (Math.abs(x - (-12)) < 4 && Math.abs(z - 0) < 4) continue;
+          if (Math.abs(x - 12) < 4 && Math.abs(z - 0) < 4) continue;
+          if (Math.random() < 0.7) continue;
+          const pos = new THREE.Vector3(x, 1.0, z);
+          if (solidWalls.some(w => new THREE.Box3().setFromObject(w).containsPoint(pos))) continue;
+          spawnObstacle(pos);
+        }
+      }
+
+      for (let i = 0; i < MAX_APPLES; i++) {
+        let pos;
+        do {
+          pos = new THREE.Vector3((Math.random()-0.5)*(arenaSize-6), 0.5, (Math.random()-0.5)*(arenaSize-6));
+        } while (
+          obstacles.some(o => new THREE.Box3().setFromObject(o).containsPoint(pos)) ||
+          solidWalls.some(w => new THREE.Box3().setFromObject(w).containsPoint(pos)) ||
+          (goldenApple && pos.distanceTo(goldenApple.position) < 2)
+        );
+        spawnApple(pos);
+      }
+
+      for (let i = 0; i < MAX_POWERUPS; i++) {
+        let pos;
+        do {
+          pos = new THREE.Vector3((Math.random()-0.5)*(arenaSize-6), 0.6, (Math.random()-0.5)*(arenaSize-6));
+        } while (
+          obstacles.some(o => new THREE.Box3().setFromObject(o).containsPoint(pos)) ||
+          solidWalls.some(w => new THREE.Box3().setFromObject(w).containsPoint(pos))
+        );
+        spawnPowerup(pos);
+      }
+
+      [player1, player2].forEach(p => {
+        p.alive = true;
+        p.score = 0;
+        p.kills = 0;
+        p.sizeMultiplier = 1;
+        p.headPos.set(p === player1 ? -12 : 12, baseSegSize/2, 0);
+        p.yaw = 0;
+        p.jumpVel = 0;
+        p.boostDrainTimer = 0;
+        p.powerupSpeedTimer = 0;
+        p.powerupTurnTimer = 0;
+        p.powerup2xTimer = 0;
+        p.spawnInvincibleTimer = 3;
+        p.freezeTimer = 0;
+        while (p.bodyMeshes.length > 5) {
+          const mesh = p.bodyMeshes.pop();
+          scene.remove(mesh);
+        }
+        while (p.bodyMeshes.length < 5) p.addBodySegment();
+        p.createHead();
+        p.resetTrail();
+        p.updateSize();
+        p.headMesh.position.copy(p.headPos);
+        p.headMesh.rotation.y = 0;
+      });
+
+      for (const ai of aiSnakes) {
+        let pos;
+        let attempts = 0;
+        do {
+          pos = new THREE.Vector3((Math.random()-0.5)*(arenaSize-10), baseSegSize/2, (Math.random()-0.5)*(arenaSize-10));
+          attempts++;
+          if (attempts > 100) break;
+        } while (pos.distanceTo(player1.headPos) < 40 || (twoPlayerMode && pos.distanceTo(player2.headPos) < 40));
+        ai.spawn(pos);
+      }
+      createGoldenApple(new THREE.Vector3((Math.random()-0.5)*(arenaSize-6), 0.5, (Math.random()-0.5)*(arenaSize-6)));
+    }
+
+    document.getElementById('respawnP1').addEventListener('click', () => { if (!player1.alive) player1.respawn(); });
+    document.getElementById('respawnP2').addEventListener('click', () => { if (twoPlayerMode && !player2.alive) player2.respawn(); });
+    document.getElementById('fullRestart').addEventListener('click', () => resetWorld());
+    const modeToggle = document.getElementById('modeToggle');
+    modeToggle.addEventListener('click', () => { twoPlayerMode = !twoPlayerMode; modeToggle.textContent = twoPlayerMode ? '👥 2‑Player Mode' : '🎮 1‑Player Mode'; resetWorld(); });
+
+    window.addEventListener('keydown', (e) => {
+      Sfx.init();
+      if (e.code === 'KeyA') playerKeys1.left = true;
+      if (e.code === 'KeyD') playerKeys1.right = true;
+      if (e.code === 'KeyW') playerKeys1.jump = true;
+      if (e.code === 'KeyS') playerKeys1.boost = true;
+      if (twoPlayerMode) {
+        if (e.code === 'ArrowLeft') { playerKeys2.left = true; e.preventDefault(); }
+        if (e.code === 'ArrowRight') { playerKeys2.right = true; e.preventDefault(); }
+        if (e.code === 'ArrowUp') { playerKeys2.jump = true; e.preventDefault(); }
+        if (e.code === 'ArrowDown') { playerKeys2.boost = true; e.preventDefault(); }
+      }
+      if (e.code === 'KeyR' && !player1.alive) player1.respawn();
+      if (e.code === 'KeyP' && !player2.alive && twoPlayerMode) player2.respawn();
+      if (e.code === 'Space') { e.preventDefault(); resetWorld(); }
+    });
+    window.addEventListener('keyup', (e) => {
+      if (e.code === 'KeyA') playerKeys1.left = false;
+      if (e.code === 'KeyD') playerKeys1.right = false;
+      if (e.code === 'KeyW') playerKeys1.jump = false;
+      if (e.code === 'KeyS') playerKeys1.boost = false;
+      if (e.code === 'ArrowLeft') playerKeys2.left = false;
+      if (e.code === 'ArrowRight') playerKeys2.right = false;
+      if (e.code === 'ArrowUp') playerKeys2.jump = false;
+      if (e.code === 'ArrowDown') playerKeys2.boost = false;
+    });
+
+    const cam1 = new THREE.PerspectiveCamera(45, 2, 0.5, 200);
+    const cam2 = new THREE.PerspectiveCamera(45, 2, 0.5, 200);
+
+    let lastTime = performance.now();
+    function animate(now) {
+      requestAnimationFrame(animate);
+      const delta = Math.min(0.1, (now - lastTime) / 1000); lastTime = now;
+
+      for (const player of players) { if (player.alive) player.handleInput(delta); }
+      const p2Ref = twoPlayerMode && player2.alive ? player2 : null;
+      player1.updatePhysics(delta, obstacles, solidWalls, p2Ref);
+      if (twoPlayerMode && player2.alive) player2.updatePhysics(delta, obstacles, solidWalls, player1);
+      for (const ai of aiSnakes) { if (ai.alive) ai.update(delta, [player1, player2], solidWalls); }
+      reaperKillAIs();
+      updateGoldenApple(delta);
+
+      while (powerups.length < MAX_POWERUPS) {
+        let pos;
+        do {
+          pos = new THREE.Vector3((Math.random()-0.5)*(arenaSize-6), 0.6, (Math.random()-0.5)*(arenaSize-6));
+        } while (
+          obstacles.some(o => new THREE.Box3().setFromObject(o).containsPoint(pos)) ||
+          solidWalls.some(w => new THREE.Box3().setFromObject(w).containsPoint(pos))
+        );
+        spawnPowerup(pos);
+      }
+
+      while (foods.length < MAX_APPLES) spawnApple();
+
+      const baseCamDistance = 22, baseCamHeight = 10;
+      if (player1.alive) {
+        const mul = 1 + player1.score * 0.005;
+        const camDist = Math.min(baseCamDistance * mul, 40);
+        const behind1 = new THREE.Vector3(-Math.sin(player1.yaw), 0, -Math.cos(player1.yaw)).normalize();
+        cam1.position.lerp(player1.headPos.clone().add(behind1.multiplyScalar(camDist).add(new THREE.Vector3(0, baseCamHeight * mul, 0))), 4*delta);
+        cam1.lookAt(player1.headPos.clone().add(new THREE.Vector3(0, 1.5, 0)));
+      }
+      if (twoPlayerMode && player2.alive) {
+        const mul = 1 + player2.score * 0.005;
+        const camDist = Math.min(baseCamDistance * mul, 40);
+        const behind2 = new THREE.Vector3(-Math.sin(player2.yaw), 0, -Math.cos(player2.yaw)).normalize();
+        cam2.position.lerp(player2.headPos.clone().add(behind2.multiplyScalar(camDist).add(new THREE.Vector3(0, baseCamHeight * mul, 0))), 4*delta);
+        cam2.lookAt(player2.headPos.clone().add(new THREE.Vector3(0, 1.5, 0)));
+      }
+
+      const w = window.innerWidth, h = window.innerHeight;
+      if (twoPlayerMode) {
+        const halfW = w / 2;
+        renderer.setScissorTest(true);
+        renderer.setViewport(0, 0, halfW, h); renderer.setScissor(0, 0, halfW, h); cam1.aspect = halfW / h; cam1.updateProjectionMatrix(); renderer.render(scene, cam1);
+        renderer.setViewport(halfW, 0, halfW, h); renderer.setScissor(halfW, 0, halfW, h); cam2.aspect = halfW / h; cam2.updateProjectionMatrix(); renderer.render(scene, cam2);
+        renderer.setScissorTest(false);
+      } else {
+        renderer.setViewport(0, 0, w, h); renderer.setScissorTest(false); cam1.aspect = w / h; cam1.updateProjectionMatrix(); renderer.render(scene, cam1);
+      }
+
+      drawMinimap();
+
+      const list = document.getElementById('liveList');
+      const entries = [];
+      if (player1.alive) entries.push({ name: '🔵 P1', score: player1.score, kills: player1.kills, cls: 'player1' });
+      if (twoPlayerMode && player2.alive) entries.push({ name: '🟣 P2', score: player2.score, kills: player2.kills, cls: 'player2' });
+      aiSnakes.forEach((ai, i) => {
+        if (ai.alive) entries.push({ name: ai.name, score: ai.score, kills: ai.kills, cls: 'ai' + i });
+      });
+      entries.sort((a,b) => b.score - a.score);
+      list.innerHTML = entries.map(e => `<li class="${e.cls}">${e.name}: ${e.score} (${e.kills}K)</li>`).join('');
+      document.getElementById('scoreP1').textContent = player1.score;
+      document.getElementById('scoreP2').textContent = twoPlayerMode ? player2.score : '-';
+    }
+
+    window.addEventListener('resize', () => renderer.setSize(window.innerWidth, window.innerHeight));
+    resetWorld();
+    requestAnimationFrame(animate);
+  </script>
+</body>
+</html>
