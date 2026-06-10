@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>🐍 3D Snake – Golden Ball 50, AI 20‑30%</title>
+  <title>🐍 3D Snake – Mobile Mode</title>
   <style>
     body { margin: 0; overflow: hidden; font-family: 'Segoe UI', sans-serif; }
     #ui {
@@ -36,15 +36,19 @@
       transform: translateX(-50%);
       display: flex; gap: 15px; z-index: 20;
     }
-    #buttons button, #modeToggle {
+    #buttons button, #modeToggle, #mobileToggle {
       padding: 10px 20px; font-size: 1rem;
       background: #2c3e50; color: white; border: 2px solid #4a6b8a;
       border-radius: 8px; cursor: pointer; box-shadow: 0 0 10px rgba(0,0,0,0.5);
       transition: 0.2s;
     }
-    #buttons button:hover, #modeToggle:hover { background: #3e566d; }
+    #buttons button:hover, #modeToggle:hover, #mobileToggle:hover { background: #3e566d; }
     #modeToggle {
       position: absolute; top: 20px; left: 50%;
+      transform: translateX(-50%); z-index: 20;
+    }
+    #mobileToggle {
+      position: absolute; top: 70px; left: 50%;
       transform: translateX(-50%); z-index: 20;
     }
     .instruction {
@@ -56,6 +60,38 @@
       width: 180px; height: 180px; border: 2px solid #4a6b8a; border-radius: 10px;
       background: rgba(0,0,0,0.6); z-index: 15;
     }
+    /* Mobile controls overlay */
+    #mobileControls {
+      display: none;
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      pointer-events: none; z-index: 30;
+    }
+    #mobileControls.active {
+      display: block;
+      pointer-events: auto;
+    }
+    .touch-area {
+      position: absolute; top: 0; bottom: 0;
+      width: 50%; background: transparent;
+    }
+    .touch-left { left: 0; }
+    .touch-right { right: 0; }
+    .mobile-btn {
+      position: absolute;
+      width: 70px; height: 70px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.3);
+      border: 2px solid white;
+      color: white;
+      font-size: 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: auto;
+      user-select: none;
+    }
+    #jumpBtn { bottom: 30px; left: 30px; }
+    #boostBtn { bottom: 30px; right: 30px; }
   </style>
 </head>
 <body>
@@ -72,10 +108,19 @@
     <button id="fullRestart">🔄 Restart Game</button>
   </div>
   <button id="modeToggle">👥 2‑Player Mode</button>
+  <button id="mobileToggle">📱 Mobile Mode</button>
   <div class="instruction">
     P1: WASD (hold S to boost) | P2: Arrows (hold ↓ to boost) | R/P respawn | Space restart
   </div>
   <canvas id="minimap" width="180" height="180"></canvas>
+
+  <!-- Mobile touch controls -->
+  <div id="mobileControls">
+    <div class="touch-area touch-left" id="touchLeft"></div>
+    <div class="touch-area touch-right" id="touchRight"></div>
+    <div class="mobile-btn" id="jumpBtn">⬆️</div>
+    <div class="mobile-btn" id="boostBtn">⚡</div>
+  </div>
 
   <script type="importmap">
     { "imports": { "three": "https://unpkg.com/three@0.126.0/build/three.module.js" } }
@@ -237,9 +282,9 @@
       }
     }
 
-    // Power‑ups (MORE!)
+    // Power‑ups (16)
     const powerups = [];
-    const MAX_POWERUPS = 16;   // doubled
+    const MAX_POWERUPS = 16;
     const powerupTypes = ['speed', 'turn', 'bonus', '2x'];
 
     function createPowerupLabel(type) {
@@ -757,7 +802,7 @@
       }
     }
 
-    // ---------- AI Snake (now with 20‑30% of top player score) ----------
+    // ---------- AI Snake (20‑30% of top player score) ----------
     class AISnake {
       constructor(color, personality, name) {
         this.color = color; this.personality = personality; this.name = name;
@@ -780,7 +825,6 @@
       spawn(pos) {
         this.die(true);
         this.headPos.copy(pos); this.yaw = Math.random()*Math.PI*2;
-        // Start with 20‑30% of the top player's score
         const maxPlayerScore = Math.max(player1.score, twoPlayerMode ? player2.score : 0);
         this.score = Math.floor(maxPlayerScore * (0.2 + Math.random() * 0.1));
         this.kills = 0;
@@ -1032,13 +1076,13 @@
           if (newPos.distanceTo(foods[i].position) < 1.5 * this.sizeMultiplier) {
             let pts = 1;
             if (foods[i].userData.type === 'blue') pts = 3;
-            else if (foods[i].userData.type === 'golden') pts = 5;   // static golden apple = 5
+            else if (foods[i].userData.type === 'golden') pts = 5;
             this.score += pts; scene.remove(foods[i]); foods.splice(i,1); this.grow(); this.updateSize();
             break;
           }
         }
         if (checkGoldenAppleCollision(newPos, 0.7 * this.sizeMultiplier)) {
-          this.score += 50;  // rolling golden ball = 50 for AI too
+          this.score += 50;
           this.updateSize();
           createGoldenApple(new THREE.Vector3((Math.random()-0.5)*(arenaSize-6), 0.5, (Math.random()-0.5)*(arenaSize-6)));
           Sfx.goldenApple();
@@ -1114,6 +1158,7 @@
 
     // ---------- Game objects & mode ----------
     let twoPlayerMode = true;
+    let mobileMode = false;
     const playerKeys1 = { left: false, right: false, jump: false, boost: false };
     const playerKeys2 = { left: false, right: false, jump: false, boost: false };
     const player1 = new PlayerSnake(0x00ffcc, -12, 0, playerKeys1);
@@ -1131,6 +1176,55 @@
       new AISnake(0xff8800, 'jumpy', '🦘 Bouncy'),
       new AISnake(0xff0000, 'killer', '💀 Reaper')
     ];
+
+    // ---------- Mobile Controls ----------
+    const mobileControls = document.getElementById('mobileControls');
+    const touchLeft = document.getElementById('touchLeft');
+    const touchRight = document.getElementById('touchRight');
+    const jumpBtn = document.getElementById('jumpBtn');
+    const boostBtn = document.getElementById('boostBtn');
+
+    function setMobileMode(active) {
+      mobileMode = active;
+      if (active) {
+        mobileControls.classList.add('active');
+        twoPlayerMode = false;  // force 1-player
+        document.getElementById('modeToggle').textContent = '🎮 1‑Player Mode';
+      } else {
+        mobileControls.classList.remove('active');
+        // Restore previous twoPlayerMode? We'll just keep it as it was.
+        // For simplicity, when turning off mobile, go back to 2-player mode?
+        // Let's just toggle 2-player mode off if it was on before? Better to leave as is.
+        document.getElementById('modeToggle').textContent = twoPlayerMode ? '👥 2‑Player Mode' : '🎮 1‑Player Mode';
+      }
+      resetWorld();
+    }
+
+    // Touch event handlers
+    touchLeft.addEventListener('touchstart', (e) => { e.preventDefault(); playerKeys1.left = true; });
+    touchLeft.addEventListener('touchend', (e) => { e.preventDefault(); playerKeys1.left = false; });
+    touchRight.addEventListener('touchstart', (e) => { e.preventDefault(); playerKeys1.right = true; });
+    touchRight.addEventListener('touchend', (e) => { e.preventDefault(); playerKeys1.right = false; });
+
+    jumpBtn.addEventListener('touchstart', (e) => { e.preventDefault(); playerKeys1.jump = true; });
+    jumpBtn.addEventListener('touchend', (e) => { e.preventDefault(); playerKeys1.jump = false; });
+    boostBtn.addEventListener('touchstart', (e) => { e.preventDefault(); playerKeys1.boost = true; });
+    boostBtn.addEventListener('touchend', (e) => { e.preventDefault(); playerKeys1.boost = false; });
+
+    // Also handle mouse clicks on touch areas for desktop testing
+    touchLeft.addEventListener('mousedown', () => { playerKeys1.left = true; });
+    touchLeft.addEventListener('mouseup', () => { playerKeys1.left = false; });
+    touchRight.addEventListener('mousedown', () => { playerKeys1.right = true; });
+    touchRight.addEventListener('mouseup', () => { playerKeys1.right = false; });
+    jumpBtn.addEventListener('mousedown', () => { playerKeys1.jump = true; });
+    jumpBtn.addEventListener('mouseup', () => { playerKeys1.jump = false; });
+    boostBtn.addEventListener('mousedown', () => { playerKeys1.boost = true; });
+    boostBtn.addEventListener('mouseup', () => { playerKeys1.boost = false; });
+
+    // Toggle button
+    document.getElementById('mobileToggle').addEventListener('click', () => {
+      setMobileMode(!mobileMode);
+    });
 
     // Minimap with apple clusters
     const minimapCanvas = document.getElementById('minimap');
@@ -1258,6 +1352,7 @@
         spawnPowerup(pos);
       }
 
+      // Reset players
       [player1, player2].forEach(p => {
         p.alive = true;
         p.score = 0;
@@ -1284,6 +1379,11 @@
         p.headMesh.rotation.y = 0;
       });
 
+      // If mobile mode or single player, kill player2
+      if (!twoPlayerMode || mobileMode) {
+        player2.die();
+      }
+
       for (const ai of aiSnakes) {
         let pos;
         let attempts = 0;
@@ -1291,20 +1391,26 @@
           pos = new THREE.Vector3((Math.random()-0.5)*(arenaSize-10), baseSegSize/2, (Math.random()-0.5)*(arenaSize-10));
           attempts++;
           if (attempts > 100) break;
-        } while (pos.distanceTo(player1.headPos) < 40 || (twoPlayerMode && pos.distanceTo(player2.headPos) < 40));
+        } while (pos.distanceTo(player1.headPos) < 40 || (twoPlayerMode && !mobileMode && player2.alive && pos.distanceTo(player2.headPos) < 40));
         ai.spawn(pos);
       }
       createGoldenApple(new THREE.Vector3((Math.random()-0.5)*(arenaSize-6), 0.5, (Math.random()-0.5)*(arenaSize-6)));
     }
 
     document.getElementById('respawnP1').addEventListener('click', () => { if (!player1.alive) player1.respawn(); });
-    document.getElementById('respawnP2').addEventListener('click', () => { if (twoPlayerMode && !player2.alive) player2.respawn(); });
+    document.getElementById('respawnP2').addEventListener('click', () => { if (twoPlayerMode && !mobileMode && !player2.alive) player2.respawn(); });
     document.getElementById('fullRestart').addEventListener('click', () => resetWorld());
     const modeToggle = document.getElementById('modeToggle');
-    modeToggle.addEventListener('click', () => { twoPlayerMode = !twoPlayerMode; modeToggle.textContent = twoPlayerMode ? '👥 2‑Player Mode' : '🎮 1‑Player Mode'; resetWorld(); });
+    modeToggle.addEventListener('click', () => {
+      if (mobileMode) return; // ignore in mobile mode
+      twoPlayerMode = !twoPlayerMode;
+      modeToggle.textContent = twoPlayerMode ? '👥 2‑Player Mode' : '🎮 1‑Player Mode';
+      resetWorld();
+    });
 
     window.addEventListener('keydown', (e) => {
       Sfx.init();
+      if (mobileMode) return; // ignore keyboard in mobile mode
       if (e.code === 'KeyA') playerKeys1.left = true;
       if (e.code === 'KeyD') playerKeys1.right = true;
       if (e.code === 'KeyW') playerKeys1.jump = true;
@@ -1316,10 +1422,11 @@
         if (e.code === 'ArrowDown') { playerKeys2.boost = true; e.preventDefault(); }
       }
       if (e.code === 'KeyR' && !player1.alive) player1.respawn();
-      if (e.code === 'KeyP' && !player2.alive && twoPlayerMode) player2.respawn();
+      if (e.code === 'KeyP' && !player2.alive && twoPlayerMode && !mobileMode) player2.respawn();
       if (e.code === 'Space') { e.preventDefault(); resetWorld(); }
     });
     window.addEventListener('keyup', (e) => {
+      if (mobileMode) return;
       if (e.code === 'KeyA') playerKeys1.left = false;
       if (e.code === 'KeyD') playerKeys1.right = false;
       if (e.code === 'KeyW') playerKeys1.jump = false;
@@ -1339,9 +1446,9 @@
       const delta = Math.min(0.1, (now - lastTime) / 1000); lastTime = now;
 
       for (const player of players) { if (player.alive) player.handleInput(delta); }
-      const p2Ref = twoPlayerMode && player2.alive ? player2 : null;
+      const p2Ref = (twoPlayerMode && !mobileMode && player2.alive) ? player2 : null;
       player1.updatePhysics(delta, obstacles, solidWalls, p2Ref);
-      if (twoPlayerMode && player2.alive) player2.updatePhysics(delta, obstacles, solidWalls, player1);
+      if (p2Ref) player2.updatePhysics(delta, obstacles, solidWalls, player1);
       for (const ai of aiSnakes) { if (ai.alive) ai.update(delta, [player1, player2], solidWalls); }
       reaperKillAIs();
       updateGoldenApple(delta);
@@ -1367,7 +1474,7 @@
         cam1.position.lerp(player1.headPos.clone().add(behind1.multiplyScalar(camDist).add(new THREE.Vector3(0, baseCamHeight * mul, 0))), 4*delta);
         cam1.lookAt(player1.headPos.clone().add(new THREE.Vector3(0, 1.5, 0)));
       }
-      if (twoPlayerMode && player2.alive) {
+      if (p2Ref) {
         const mul = 1 + player2.score * 0.005;
         const camDist = Math.min(baseCamDistance * mul, 40);
         const behind2 = new THREE.Vector3(-Math.sin(player2.yaw), 0, -Math.cos(player2.yaw)).normalize();
@@ -1376,7 +1483,7 @@
       }
 
       const w = window.innerWidth, h = window.innerHeight;
-      if (twoPlayerMode) {
+      if (twoPlayerMode && !mobileMode) {
         const halfW = w / 2;
         renderer.setScissorTest(true);
         renderer.setViewport(0, 0, halfW, h); renderer.setScissor(0, 0, halfW, h); cam1.aspect = halfW / h; cam1.updateProjectionMatrix(); renderer.render(scene, cam1);
@@ -1391,14 +1498,14 @@
       const list = document.getElementById('liveList');
       const entries = [];
       if (player1.alive) entries.push({ name: '🔵 P1', score: player1.score, kills: player1.kills, cls: 'player1' });
-      if (twoPlayerMode && player2.alive) entries.push({ name: '🟣 P2', score: player2.score, kills: player2.kills, cls: 'player2' });
+      if (twoPlayerMode && !mobileMode && player2.alive) entries.push({ name: '🟣 P2', score: player2.score, kills: player2.kills, cls: 'player2' });
       aiSnakes.forEach((ai, i) => {
         if (ai.alive) entries.push({ name: ai.name, score: ai.score, kills: ai.kills, cls: 'ai' + i });
       });
       entries.sort((a,b) => b.score - a.score);
       list.innerHTML = entries.map(e => `<li class="${e.cls}">${e.name}: ${e.score} (${e.kills}K)</li>`).join('');
       document.getElementById('scoreP1').textContent = player1.score;
-      document.getElementById('scoreP2').textContent = twoPlayerMode ? player2.score : '-';
+      document.getElementById('scoreP2').textContent = (twoPlayerMode && !mobileMode) ? player2.score : '-';
     }
 
     window.addEventListener('resize', () => renderer.setSize(window.innerWidth, window.innerHeight));
