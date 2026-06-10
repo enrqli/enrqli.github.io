@@ -3,53 +3,233 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>2P Roguelike · Keybinds & Level Buttons</title>
+    <title>2P Roguelike · Responsive Scaling</title>
     <style>
         * { margin:0; padding:0; box-sizing:border-box; user-select:none; }
-        body { background: #0a0a14; display: flex; justify-content: center; align-items: center; height: 100vh; font-family: 'Segoe UI', monospace; overflow: hidden; touch-action: pan-x pan-y; }
-        .game-container { position: relative; border: 3px solid #333; border-radius: 12px; box-shadow: 0 0 40px rgba(233,68,96,0.2); background: #000; }
-        canvas { display: block; border-radius: 9px; cursor: crosshair; touch-action: none; }
-        .top-bar { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; z-index: 20; background: rgba(0,0,0,0.6); border-radius: 30px; padding: 5px 12px; backdrop-filter: blur(4px); flex-wrap: wrap; justify-content: center; }
-        .top-bar button { background: rgba(0,0,0,0.8); border: 1px solid #555; color: #ccc; padding: 6px 14px; border-radius: 20px; cursor: pointer; font-size: 12px; font-weight: bold; transition: 0.2s; white-space: nowrap; }
+        body { background: #0a0a14; display: flex; justify-content: center; align-items: center; height: 100vh; width: 100vw; overflow: hidden; font-family: 'Segoe UI', monospace; }
+        .game-container {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 1000px;
+            height: 600px;
+            border: 3px solid #333;
+            border-radius: 12px;
+            box-shadow: 0 0 40px rgba(233,68,96,0.2);
+            background: #000;
+            transform: translate(-50%, -50%) scale(1);
+            transform-origin: center center;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            border-radius: 9px;
+            cursor: crosshair;
+            touch-action: none;
+        }
+        .top-bar {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 8px;
+            z-index: 20;
+            background: rgba(0,0,0,0.6);
+            border-radius: 30px;
+            padding: 5px 12px;
+            backdrop-filter: blur(4px);
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .top-bar button {
+            background: rgba(0,0,0,0.8);
+            border: 1px solid #555;
+            color: #ccc;
+            padding: 6px 14px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: bold;
+            transition: 0.2s;
+            white-space: nowrap;
+        }
         .top-bar button:hover { background: rgba(233,68,96,0.5); border-color: #e94560; color: #fff; }
         .restart-btn { border-color: #e94560; color: #e94560; } .restart-btn:hover { background: #e94560; color: #000; }
         .survival-btn { border-color: #33ff33; color: #33ff33; } .survival-btn:hover { background: #33ff33; color: #000; }
         .normal-btn { border-color: #f0a500; color: #f0a500; } .normal-btn:hover { background: #f0a500; color: #000; }
         .level2-btn { border-color: #ffaa00; color: #ffaa00; display: none; } .level2-btn:hover { background: #ffaa00; color: #000; }
         .home-btn { border-color: #8888cc; color: #8888cc; } .home-btn:hover { background: #8888cc; color: #000; }
-        .overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.9); z-index: 30; display: flex; justify-content: center; align-items: center; }
+        .overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.9);
+            z-index: 30;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
         .overlay.hidden { display: none; }
-        .panel { background: #16213e; border: 2px solid #444; border-radius: 16px; padding: 20px; max-width: 650px; width: 95%; color: #e0e0e0; max-height: 85vh; overflow-y: auto; }
+        .panel {
+            background: #16213e;
+            border: 2px solid #444;
+            border-radius: 16px;
+            padding: 20px;
+            max-width: 95%;
+            width: 95%;
+            color: #e0e0e0;
+            max-height: 85%;
+            overflow-y: auto;
+        }
         .shop-panel { max-width: 800px; }
         .homescreen-panel { max-width: 500px; text-align: center; }
-        .homescreen-title { font-size: 36px; color: #f0a500; text-shadow: 0 0 20px rgba(240,165,0,0.5); margin-bottom: 8px; letter-spacing: 1px; }
+        .homescreen-title {
+            font-size: 36px;
+            color: #f0a500;
+            text-shadow: 0 0 20px rgba(240,165,0,0.5);
+            margin-bottom: 8px;
+            letter-spacing: 1px;
+        }
         .homescreen-subtitle { color: #888; margin-bottom: 20px; font-size: 14px; }
         .homescreen-stats { margin-bottom: 16px; color: #ccc; font-size: 14px; line-height: 1.6; }
         .homescreen-buttons { display: flex; flex-direction: column; gap: 10px; align-items: center; }
-        .homescreen-btn { width: 220px; padding: 12px 24px; border-radius: 25px; font-size: 16px; font-weight: bold; cursor: pointer; border: 2px solid #555; transition: 0.2s; background: rgba(0,0,0,0.6); }
+        .homescreen-btn {
+            width: 220px;
+            padding: 12px 24px;
+            border-radius: 25px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            border: 2px solid #555;
+            transition: 0.2s;
+            background: rgba(0,0,0,0.6);
+        }
         .level1-hs-btn { color: #f0a500; border-color: #f0a500; } .level1-hs-btn:hover { background: #f0a500; color: #000; }
         .level2-hs-btn { color: #ffaa00; border-color: #ffaa00; } .level2-hs-btn:hover { background: #ffaa00; color: #000; }
         .survival-hs-btn { color: #33ff33; border-color: #33ff33; } .survival-hs-btn:hover { background: #33ff33; color: #000; }
         .shop-hs-btn { color: #66ccff; border-color: #66ccff; } .shop-hs-btn:hover { background: #66ccff; color: #000; }
         .settings-hs-btn { color: #ccc; border-color: #777; } .settings-hs-btn:hover { background: #777; color: #fff; }
         .homescreen-keys-hint { margin-top: 16px; color: #555; font-size: 11px; }
-        .btn { padding: 7px 16px; border-radius: 20px; cursor: pointer; font-size: 12px; border: 1px solid #555; background: #333; color: #ccc; }
+        .btn {
+            padding: 7px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 12px;
+            border: 1px solid #555;
+            background: #333;
+            color: #ccc;
+        }
         .btn:hover { background: #444; }
-        .btn-shop { background: #2a4c6e; padding: 6px 12px; border-radius: 20px; cursor: pointer; border: none; color: white; font-size: 12px; min-width: 80px; }
+        .btn-shop {
+            background: #2a4c6e;
+            padding: 6px 12px;
+            border-radius: 20px;
+            cursor: pointer;
+            border: none;
+            color: white;
+            font-size: 12px;
+            min-width: 80px;
+        }
         .upgrade-row { display: flex; justify-content: space-between; align-items: center; margin: 8px 0; gap: 6px; flex-wrap: wrap; }
         .victory-text { font-size: 32px; font-weight: bold; color: #f0a500; text-align: center; }
         .game-over-text { font-size: 32px; font-weight: bold; color: #ff4444; text-align: center; }
-        .utility-indicator { position: absolute; bottom: 10px; left: 10px; background: rgba(0,0,0,0.7); padding: 4px 10px; border-radius: 12px; font-size: 11px; color: #ffcc88; z-index: 15; }
-        .minimap { position: absolute; bottom: 10px; right: 10px; background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.3); border-radius: 8px; z-index: 15; }
-        .wave-indicator { position: absolute; top: 50px; left: 20px; background: rgba(0,0,0,0.7); color: #ffcc88; padding: 4px 12px; border-radius: 8px; font-size: 14px; font-weight: bold; z-index: 15; }
+        .utility-indicator {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.7);
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            color: #ffcc88;
+            z-index: 15;
+        }
+        .minimap {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.35);
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 8px;
+            z-index: 15;
+            width: 140px;
+            height: 90px;
+        }
+        .wave-indicator {
+            position: absolute;
+            top: 50px;
+            left: 20px;
+            background: rgba(0,0,0,0.7);
+            color: #ffcc88;
+            padding: 4px 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: bold;
+            z-index: 15;
+        }
         .btn-row { display: flex; gap: 8px; justify-content: center; margin-top: 12px; flex-wrap: wrap; }
-        .mobile-controls { position: absolute; bottom: 20px; left: 0; right: 0; display: none; justify-content: space-between; align-items: flex-end; padding: 0 20px; pointer-events: none; z-index: 25; }
+        .mobile-controls {
+            position: absolute;
+            bottom: 20px;
+            left: 0;
+            right: 0;
+            display: none;
+            justify-content: space-between;
+            align-items: flex-end;
+            padding: 0 15px;
+            pointer-events: none;
+            z-index: 25;
+        }
         .mobile-controls.active { display: flex; }
-        .dpad { display: grid; grid-template-columns: repeat(3,60px); grid-template-rows: repeat(3,60px); gap: 8px; background: rgba(0,0,0,0.5); border-radius: 20px; padding: 10px; pointer-events: auto; backdrop-filter: blur(4px); }
-        .dpad-btn { background: rgba(255,255,255,0.25); border: 1px solid rgba(255,255,255,0.5); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 28px; color: white; cursor: pointer; }
+        .dpad {
+            display: grid;
+            grid-template-columns: repeat(3, 44px);
+            grid-template-rows: repeat(3, 44px);
+            gap: 4px;
+            background: rgba(0,0,0,0.5);
+            border-radius: 20px;
+            padding: 8px;
+            pointer-events: auto;
+            backdrop-filter: blur(4px);
+        }
+        .dpad-btn {
+            background: rgba(255,255,255,0.25);
+            border: 1px solid rgba(255,255,255,0.5);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            color: white;
+            cursor: pointer;
+        }
         .dpad-btn:active { background: rgba(255,255,255,0.6); transform: scale(0.95); }
-        .action-buttons { display: flex; flex-wrap: wrap; gap: 10px; background: rgba(0,0,0,0.5); padding: 10px 15px; border-radius: 60px; pointer-events: auto; backdrop-filter: blur(4px); justify-content: center; }
-        .action-btn { width: 62px; height: 62px; background: rgba(233,68,96,0.8); border: 2px solid rgba(255,255,255,0.6); border-radius: 40px; display: flex; align-items: center; justify-content: center; font-size: 26px; color: white; cursor: pointer; }
+        .action-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            background: rgba(0,0,0,0.5);
+            padding: 8px 12px;
+            border-radius: 60px;
+            pointer-events: auto;
+            backdrop-filter: blur(4px);
+            justify-content: center;
+            max-width: 280px;
+        }
+        .action-btn {
+            width: 48px;
+            height: 48px;
+            background: rgba(233,68,96,0.8);
+            border: 2px solid rgba(255,255,255,0.6);
+            border-radius: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            color: white;
+            cursor: pointer;
+        }
         .action-btn:active { background: #e94560; transform: scale(0.94); }
         .util-btn { background: rgba(100,100,200,0.8); }
         .keybind-row { display: flex; justify-content: space-between; margin: 4px 0; }
@@ -57,7 +237,7 @@
     </style>
 </head>
 <body>
-<div class="game-container">
+<div class="game-container" id="gameContainer">
     <canvas id="gameCanvas"></canvas>
     <div class="utility-indicator" id="utilIndicator"></div>
     <canvas id="minimapCanvas" class="minimap" width="140" height="90"></canvas>
@@ -114,6 +294,7 @@
         </div>
     </div></div>
 </div>
+
 <script>
 (function(){
     const canvas = document.getElementById('gameCanvas');
@@ -140,6 +321,8 @@
     const settingsOverlay = document.getElementById('settingsOverlay');
     const homescreenOverlay = document.getElementById('homescreenOverlay');
     const homescreenStats = document.getElementById('homescreenStats');
+    const gameContainer = document.getElementById('gameContainer');
+
     const btnShopVictory = document.getElementById('btnShopVictory');
     const btnPlayAgain = document.getElementById('btnPlayAgain');
     const btnNextLevel = document.getElementById('btnNextLevel');
@@ -163,6 +346,18 @@
     const homeSurvivalBtn = document.getElementById('homeSurvivalBtn');
     const homeShopBtn = document.getElementById('homeShopBtn');
     const homeSettingsBtn = document.getElementById('homeSettingsBtn');
+
+    // --- Responsive scaling ---
+    function resizeGame() {
+        const availableWidth = window.innerWidth;
+        const availableHeight = window.innerHeight;
+        const gameWidth = 1000;
+        const gameHeight = 600;
+        const scale = Math.min(availableWidth / gameWidth, availableHeight / gameHeight);
+        gameContainer.style.transform = `translate(-50%, -50%) scale(${scale})`;
+    }
+    window.addEventListener('resize', resizeGame);
+    resizeGame();
 
     let sharedCoins = 0, level2Unlocked = false, survivalUnlocked = false, gameRunning = false, gameWon = false;
     let currentMode = 'normal', currentLevel = 1, bestTime = null, gameStartTime = 0, currentTime = 0;
