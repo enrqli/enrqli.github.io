@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>2P Roguelike</title>
+    <title>2P Roguelike · Keybinds & Level Buttons</title>
     <style>
         * { margin:0; padding:0; box-sizing:border-box; user-select:none; }
         body { background: #0a0a14; display: flex; justify-content: center; align-items: center; height: 100vh; font-family: 'Segoe UI', monospace; overflow: hidden; touch-action: pan-x pan-y; }
@@ -48,8 +48,8 @@
         .dpad { display: grid; grid-template-columns: repeat(3,60px); grid-template-rows: repeat(3,60px); gap: 8px; background: rgba(0,0,0,0.5); border-radius: 20px; padding: 10px; pointer-events: auto; backdrop-filter: blur(4px); }
         .dpad-btn { background: rgba(255,255,255,0.25); border: 1px solid rgba(255,255,255,0.5); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 28px; color: white; cursor: pointer; }
         .dpad-btn:active { background: rgba(255,255,255,0.6); transform: scale(0.95); }
-        .action-buttons { display: flex; gap: 16px; background: rgba(0,0,0,0.5); padding: 10px 20px; border-radius: 60px; pointer-events: auto; backdrop-filter: blur(4px); }
-        .action-btn { width: 70px; height: 70px; background: rgba(233,68,96,0.8); border: 2px solid rgba(255,255,255,0.6); border-radius: 40px; display: flex; align-items: center; justify-content: center; font-size: 28px; color: white; cursor: pointer; }
+        .action-buttons { display: flex; flex-wrap: wrap; gap: 10px; background: rgba(0,0,0,0.5); padding: 10px 15px; border-radius: 60px; pointer-events: auto; backdrop-filter: blur(4px); justify-content: center; }
+        .action-btn { width: 62px; height: 62px; background: rgba(233,68,96,0.8); border: 2px solid rgba(255,255,255,0.6); border-radius: 40px; display: flex; align-items: center; justify-content: center; font-size: 26px; color: white; cursor: pointer; }
         .action-btn:active { background: #e94560; transform: scale(0.94); }
         .util-btn { background: rgba(100,100,200,0.8); }
         .keybind-row { display: flex; justify-content: space-between; margin: 4px 0; }
@@ -79,6 +79,7 @@
             <div class="action-btn" data-key="pickup">📦</div>
             <div class="action-btn util-btn" data-key="util">✨</div>
             <div class="action-btn util-btn" data-key="swap">⚔️</div>
+            <div class="action-btn" data-key="key">🔑</div>
         </div>
     </div>
     <div id="homescreenOverlay" class="overlay">
@@ -208,10 +209,10 @@
     window.addEventListener('keydown', e => { keys[e.code] = true; });
     window.addEventListener('keyup', e => { keys[e.code] = false; });
 
-    function setMobileMode(enabled){ mobileMode = enabled; mobileControlsDiv.classList.toggle('active', enabled); canvas.style.touchAction = enabled ? 'none' : 'auto'; if(!enabled) for(let k of ['KeyW','KeyS','KeyA','KeyD','KeyF','KeyR','KeyV','Tab','KeyE']) keys[k] = false; localStorage.setItem('mobile_mode', enabled?'1':'0'); }
+    function setMobileMode(enabled){ mobileMode = enabled; mobileControlsDiv.classList.toggle('active', enabled); canvas.style.touchAction = enabled ? 'none' : 'auto'; if(!enabled) for(let k of ['KeyW','KeyS','KeyA','KeyD','KeyF','KeyR','KeyV','Tab','KeyE','KeyQ']) keys[k] = false; localStorage.setItem('mobile_mode', enabled?'1':'0'); }
     if(localStorage.getItem('mobile_mode')==='1') setMobileMode(true);
     mobileToggleBtn.onclick = () => setMobileMode(!mobileMode);
-    (function initMobile(){ const map = { up:'KeyW', down:'KeyS', left:'KeyA', right:'KeyD', shoot:'KeyF', reload:'KeyR', pickup:'KeyE', util:'KeyV', swap:'Tab' }; document.querySelectorAll('.dpad-btn, .action-btn').forEach(btn => { const a = btn.dataset.key; if(!a) return; const code = map[a]; if(!code) return; btn.addEventListener('pointerdown', e => { e.preventDefault(); if(mobileMode) keys[code] = true; }); btn.addEventListener('pointerup', e => { e.preventDefault(); if(mobileMode) keys[code] = false; }); btn.addEventListener('pointerleave', () => { if(mobileMode) keys[code] = false; }); }); })();
+    (function initMobile(){ const map = { up:'KeyW', down:'KeyS', left:'KeyA', right:'KeyD', shoot:'KeyF', reload:'KeyR', pickup:'KeyE', util:'KeyV', swap:'Tab', key:'KeyQ' }; document.querySelectorAll('.dpad-btn, .action-btn').forEach(btn => { const a = btn.dataset.key; if(!a) return; const code = map[a]; if(!code) return; btn.addEventListener('pointerdown', e => { e.preventDefault(); if(mobileMode) keys[code] = true; }); btn.addEventListener('pointerup', e => { e.preventDefault(); if(mobileMode) keys[code] = false; }); btn.addEventListener('pointerleave', () => { if(mobileMode) keys[code] = false; }); }); })();
 
     const CW=1000, CH=600, RW=440, RH=290, WL=22, PR=14;
     const WEAPONS = { pistol:{n:'Pistol',a:10,c:0.3,r:1.4,s:500,p:1,an:0,cl:'#ffe066',d:1}, shotgun:{n:'Shotgun',a:6,c:0.8,r:2.0,s:430,p:5,an:0.28,cl:'#ffaa44',d:0.9}, smg:{n:'SMG',a:20,c:0.14,r:1.8,s:580,p:1,an:0.08,cl:'#ffdd55',d:0.7}, laser:{n:'Laser',a:6,c:0.4,r:2.2,s:900,p:1,an:0,cl:'#00ffff',d:1.2,pierce:true}, rocket:{n:'Rocket',a:3,c:1.2,r:2.5,s:320,p:1,an:0,cl:'#ff8844',d:2.5,expl:true,rad:100}, spray:{n:'Spray',a:15,c:0.25,r:1.6,s:550,p:8,an:0.06,cl:'#88ff88',d:0.5}, sniper:{n:'Sniper',a:4,c:1.5,r:2.5,s:1200,p:1,an:0,cl:'#aa88ff',d:3.5,pierce:true,hardPierce:true} };
