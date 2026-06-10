@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>2P Roguelike · Keybinds & Level Buttons</title>
+    <title>2P Roguelike</title>
     <style>
         * { margin:0; padding:0; box-sizing:border-box; user-select:none; }
         body { background: #0a0a14; display: flex; justify-content: center; align-items: center; height: 100vh; font-family: 'Segoe UI', monospace; overflow: hidden; touch-action: pan-x pan-y; }
@@ -16,10 +16,23 @@
         .survival-btn { border-color: #33ff33; color: #33ff33; } .survival-btn:hover { background: #33ff33; color: #000; }
         .normal-btn { border-color: #f0a500; color: #f0a500; } .normal-btn:hover { background: #f0a500; color: #000; }
         .level2-btn { border-color: #ffaa00; color: #ffaa00; display: none; } .level2-btn:hover { background: #ffaa00; color: #000; }
+        .home-btn { border-color: #8888cc; color: #8888cc; } .home-btn:hover { background: #8888cc; color: #000; }
         .overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.9); z-index: 30; display: flex; justify-content: center; align-items: center; }
         .overlay.hidden { display: none; }
         .panel { background: #16213e; border: 2px solid #444; border-radius: 16px; padding: 20px; max-width: 650px; width: 95%; color: #e0e0e0; max-height: 85vh; overflow-y: auto; }
         .shop-panel { max-width: 800px; }
+        .homescreen-panel { max-width: 500px; text-align: center; }
+        .homescreen-title { font-size: 36px; color: #f0a500; text-shadow: 0 0 20px rgba(240,165,0,0.5); margin-bottom: 8px; letter-spacing: 1px; }
+        .homescreen-subtitle { color: #888; margin-bottom: 20px; font-size: 14px; }
+        .homescreen-stats { margin-bottom: 16px; color: #ccc; font-size: 14px; line-height: 1.6; }
+        .homescreen-buttons { display: flex; flex-direction: column; gap: 10px; align-items: center; }
+        .homescreen-btn { width: 220px; padding: 12px 24px; border-radius: 25px; font-size: 16px; font-weight: bold; cursor: pointer; border: 2px solid #555; transition: 0.2s; background: rgba(0,0,0,0.6); }
+        .level1-hs-btn { color: #f0a500; border-color: #f0a500; } .level1-hs-btn:hover { background: #f0a500; color: #000; }
+        .level2-hs-btn { color: #ffaa00; border-color: #ffaa00; } .level2-hs-btn:hover { background: #ffaa00; color: #000; }
+        .survival-hs-btn { color: #33ff33; border-color: #33ff33; } .survival-hs-btn:hover { background: #33ff33; color: #000; }
+        .shop-hs-btn { color: #66ccff; border-color: #66ccff; } .shop-hs-btn:hover { background: #66ccff; color: #000; }
+        .settings-hs-btn { color: #ccc; border-color: #777; } .settings-hs-btn:hover { background: #777; color: #fff; }
+        .homescreen-keys-hint { margin-top: 16px; color: #555; font-size: 11px; }
         .btn { padding: 7px 16px; border-radius: 20px; cursor: pointer; font-size: 12px; border: 1px solid #555; background: #333; color: #ccc; }
         .btn:hover { background: #444; }
         .btn-shop { background: #2a4c6e; padding: 6px 12px; border-radius: 20px; cursor: pointer; border: none; color: white; font-size: 12px; min-width: 80px; }
@@ -49,6 +62,7 @@
     <div class="utility-indicator" id="utilIndicator"></div>
     <canvas id="minimapCanvas" class="minimap" width="140" height="90"></canvas>
     <div class="top-bar">
+        <button id="homeBtn" class="home-btn">🏠 Home</button>
         <button id="restartRunBtn" class="restart-btn">↺ Restart</button>
         <button id="normalModeBtn" class="normal-btn">🏰 Level 1</button>
         <button id="level2ModeBtn" class="level2-btn">⭐ Level 2</button>
@@ -62,8 +76,24 @@
         <div class="action-buttons">
             <div class="action-btn" data-key="shoot">🔫</div>
             <div class="action-btn" data-key="reload">🔄</div>
+            <div class="action-btn" data-key="pickup">📦</div>
             <div class="action-btn util-btn" data-key="util">✨</div>
             <div class="action-btn util-btn" data-key="swap">⚔️</div>
+        </div>
+    </div>
+    <div id="homescreenOverlay" class="overlay">
+        <div class="panel homescreen-panel">
+            <h1 class="homescreen-title">⚔️ 2P ROGUELIKE ⚔️</h1>
+            <p class="homescreen-subtitle">Co-op Dungeon Crawler</p>
+            <div id="homescreenStats" class="homescreen-stats"></div>
+            <div class="homescreen-buttons">
+                <button id="homeLevel1Btn" class="homescreen-btn level1-hs-btn">🏰 Level 1</button>
+                <button id="homeLevel2Btn" class="homescreen-btn level2-hs-btn" style="display:none;">⭐ Level 2</button>
+                <button id="homeSurvivalBtn" class="homescreen-btn survival-hs-btn" style="display:none;">⚔️ Survival</button>
+                <button id="homeShopBtn" class="homescreen-btn shop-hs-btn">🛒 Shop</button>
+                <button id="homeSettingsBtn" class="homescreen-btn settings-hs-btn">⚙ Settings</button>
+            </div>
+            <p class="homescreen-keys-hint">WASD / Arrows · F / Period Shoot · R / Slash Reload · V / M Utility · E / P Pickup · Q / L Key · Tab / K Swap</p>
         </div>
     </div>
     <div id="settingsOverlay" class="overlay hidden"><div class="panel"><h2>⚙ SETTINGS</h2>
@@ -83,7 +113,6 @@
         </div>
     </div></div>
 </div>
-
 <script>
 (function(){
     const canvas = document.getElementById('gameCanvas');
@@ -92,6 +121,7 @@
     const minimapCtx = minimapCanvas.getContext('2d');
     const utilIndicator = document.getElementById('utilIndicator');
     const waveIndicator = document.getElementById('waveIndicator');
+    const homeBtn = document.getElementById('homeBtn');
     const restartRunBtn = document.getElementById('restartRunBtn');
     const normalModeBtn = document.getElementById('normalModeBtn');
     const level2ModeBtn = document.getElementById('level2ModeBtn');
@@ -107,6 +137,8 @@
     const victoryStats = document.getElementById('victoryStats');
     const shopOverlay = document.getElementById('shopOverlay');
     const settingsOverlay = document.getElementById('settingsOverlay');
+    const homescreenOverlay = document.getElementById('homescreenOverlay');
+    const homescreenStats = document.getElementById('homescreenStats');
     const btnShopVictory = document.getElementById('btnShopVictory');
     const btnPlayAgain = document.getElementById('btnPlayAgain');
     const btnNextLevel = document.getElementById('btnNextLevel');
@@ -125,6 +157,11 @@
     const shopLevel1Btn = document.getElementById('shopLevel1Btn');
     const shopLevel2Btn = document.getElementById('shopLevel2Btn');
     const shopSurvivalBtn = document.getElementById('shopSurvivalBtn');
+    const homeLevel1Btn = document.getElementById('homeLevel1Btn');
+    const homeLevel2Btn = document.getElementById('homeLevel2Btn');
+    const homeSurvivalBtn = document.getElementById('homeSurvivalBtn');
+    const homeShopBtn = document.getElementById('homeShopBtn');
+    const homeSettingsBtn = document.getElementById('homeSettingsBtn');
 
     let sharedCoins = 0, level2Unlocked = false, survivalUnlocked = false, gameRunning = false, gameWon = false;
     let currentMode = 'normal', currentLevel = 1, bestTime = null, gameStartTime = 0, currentTime = 0;
@@ -133,8 +170,8 @@
     let hasLeftStartRoom = false;
     let bossSurvivalCount = 0;
     let survivalHighscore = 0;
+    let gameInitialized = false;
 
-    // Default keybindings (editable)
     let keybinds = {
         p1_up: 'KeyW', p1_down: 'KeyS', p1_left: 'KeyA', p1_right: 'KeyD',
         p1_shoot: 'KeyF', p1_reload: 'KeyR', p1_util: 'KeyV', p1_pickup: 'KeyE', p1_swap: 'Tab', p1_key: 'KeyQ',
@@ -145,36 +182,36 @@
     function saveKeybinds(){ localStorage.setItem('rgKeybinds', JSON.stringify(keybinds)); }
     loadKeybinds();
 
-    function initAudio(){if(!audioCtx)try{audioCtx=new(window.AudioContext||window.webkitAudioContext)()}catch(e){}}
-    function playTone(f,t,d,v=0.08,r=true){if(!audioCtx||audioCtx.state==='suspended')audioCtx?.resume();const osc=audioCtx.createOscillator(),gain=audioCtx.createGain();osc.type=t;osc.frequency.value=f;gain.gain.setValueAtTime(v,audioCtx.currentTime);if(r)gain.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+d);osc.connect(gain);gain.connect(audioCtx.destination);osc.start();osc.stop(audioCtx.currentTime+d);}
+    function initAudio(){ if(!audioCtx) try{ audioCtx=new(window.AudioContext||window.webkitAudioContext)(); } catch(e){} }
+    function playTone(f,t,d,v=0.08,r=true){ if(!audioCtx||audioCtx.state==='suspended')audioCtx?.resume(); const osc=audioCtx.createOscillator(),gain=audioCtx.createGain(); osc.type=t; osc.frequency.value=f; gain.gain.setValueAtTime(v,audioCtx.currentTime); if(r)gain.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+d); osc.connect(gain); gain.connect(audioCtx.destination); osc.start(); osc.stop(audioCtx.currentTime+d); }
     const sfx={shoot:()=>playTone(800,'square',0.08),reload:()=>{playTone(400,'sine',0.15);setTimeout(()=>playTone(600,'sine',0.15),100)},explosion:()=>playTone(80,'sawtooth',0.4,0.18,false),pickup:()=>playTone(1200,'sine',0.1),heal:()=>playTone(500,'sine',0.3,0.07),barrier:()=>playTone(300,'square',0.2),grenade:()=>playTone(180,'triangle',0.2),melee:()=>playTone(100,'sawtooth',0.15,0.1,false),keyUse:()=>playTone(900,'sine',0.2),magnet:()=>playTone(600,'triangle',0.5,0.12),bossLaser:()=>playTone(200,'sawtooth',0.5,0.15,false)};
 
-    function loadCoins(){try{const s=localStorage.getItem('rgc3');if(s)sharedCoins=parseInt(s)||0}catch(e){}}
-    function saveCoins(){localStorage.setItem('rgc3',sharedCoins);}
-    function loadUnlocks(){try{level2Unlocked=localStorage.getItem('rgl23')==='1'}catch(e){};try{survivalUnlocked=localStorage.getItem('survivalUnlocked')==='1'}catch(e){};try{const bt=localStorage.getItem('rgbt3');if(bt)bestTime=parseFloat(bt)}catch(e){}}
-    function saveUnlocks(){localStorage.setItem('rgl23',level2Unlocked?'1':'0');localStorage.setItem('survivalUnlocked',survivalUnlocked?'1':'0');if(bestTime)localStorage.setItem('rgbt3',bestTime.toString());}
-    function loadPlayerCount(){try{const s=localStorage.getItem('playerCount');if(s)playerCount=parseInt(s)||2}catch(e){}}
-    function savePlayerCount(){localStorage.setItem('playerCount',playerCount.toString());}
-    function loadSurvivalHighscore(){try{const s=localStorage.getItem('rgSurvivalHS');if(s)survivalHighscore=parseInt(s)||0}catch(e){}}
-    function saveSurvivalHighscore(){localStorage.setItem('rgSurvivalHS',survivalHighscore.toString());}
+    function loadCoins(){ try{ const s=localStorage.getItem('rgc3'); if(s)sharedCoins=parseInt(s)||0; } catch(e){} }
+    function saveCoins(){ localStorage.setItem('rgc3',sharedCoins); }
+    function loadUnlocks(){ try{ level2Unlocked=localStorage.getItem('rgl23')==='1'; } catch(e){} try{ survivalUnlocked=localStorage.getItem('survivalUnlocked')==='1'; } catch(e){} try{ const bt=localStorage.getItem('rgbt3'); if(bt)bestTime=parseFloat(bt); } catch(e){} }
+    function saveUnlocks(){ localStorage.setItem('rgl23',level2Unlocked?'1':'0'); localStorage.setItem('survivalUnlocked',survivalUnlocked?'1':'0'); if(bestTime) localStorage.setItem('rgbt3',bestTime.toString()); }
+    function loadPlayerCount(){ try{ const s=localStorage.getItem('playerCount'); if(s)playerCount=parseInt(s)||2; } catch(e){} }
+    function savePlayerCount(){ localStorage.setItem('playerCount',playerCount.toString()); }
+    function loadSurvivalHighscore(){ try{ const s=localStorage.getItem('rgSurvivalHS'); if(s)survivalHighscore=parseInt(s)||0; } catch(e){} }
+    function saveSurvivalHighscore(){ localStorage.setItem('rgSurvivalHS',survivalHighscore.toString()); }
     loadCoins(); loadUnlocks(); loadPlayerCount(); loadSurvivalHighscore();
     playerCountBtn.textContent = playerCount === 2 ? '2 Players' : '1 Player';
     playerCountBtn.onclick = () => { playerCount = playerCount === 2 ? 1 : 2; playerCountBtn.textContent = playerCount === 2 ? '2 Players' : '1 Player'; savePlayerCount(); };
 
     let su={hp:0,d:0,sp:0,cl:0,sk:0,pc:{hp:0,d:0,sp:0,cl:0,sk:0}};
     let pwd=[{sw:'pistol',ow:['pistol']},{sw:'pistol',ow:['pistol']}];
-    function loadUpgrades(){try{const s=localStorage.getItem('rgu_full4');if(s){const d=JSON.parse(s);su=d.su||su;pwd=d.pwd||pwd}}catch(e){}}
-    function saveUpgrades(){localStorage.setItem('rgu_full4',JSON.stringify({su,pwd}));}
+    function loadUpgrades(){ try{ const s=localStorage.getItem('rgu_full4'); if(s){ const d=JSON.parse(s); su=d.su||su; pwd=d.pwd||pwd; } } catch(e){} }
+    function saveUpgrades(){ localStorage.setItem('rgu_full4',JSON.stringify({su,pwd})); }
     loadUpgrades();
 
     let keys = {};
     window.addEventListener('keydown', e => { keys[e.code] = true; });
     window.addEventListener('keyup', e => { keys[e.code] = false; });
 
-    function setMobileMode(enabled){ mobileMode = enabled; mobileControlsDiv.classList.toggle('active', enabled); canvas.style.touchAction = enabled ? 'none' : 'auto'; if(!enabled) for(let k of ['KeyW','KeyS','KeyA','KeyD','KeyF','KeyR','KeyV','Tab']) keys[k] = false; localStorage.setItem('mobile_mode', enabled?'1':'0'); }
+    function setMobileMode(enabled){ mobileMode = enabled; mobileControlsDiv.classList.toggle('active', enabled); canvas.style.touchAction = enabled ? 'none' : 'auto'; if(!enabled) for(let k of ['KeyW','KeyS','KeyA','KeyD','KeyF','KeyR','KeyV','Tab','KeyE']) keys[k] = false; localStorage.setItem('mobile_mode', enabled?'1':'0'); }
     if(localStorage.getItem('mobile_mode')==='1') setMobileMode(true);
     mobileToggleBtn.onclick = () => setMobileMode(!mobileMode);
-    (function initMobile(){ const map = {up:'KeyW', down:'KeyS', left:'KeyA', right:'KeyD', shoot:'KeyF', reload:'KeyR', util:'KeyV', swap:'Tab'}; document.querySelectorAll('.dpad-btn, .action-btn').forEach(btn => { const a = btn.dataset.key; if(!a) return; const code = map[a]; if(!code) return; btn.addEventListener('pointerdown', e => { e.preventDefault(); if(mobileMode) keys[code] = true; }); btn.addEventListener('pointerup', e => { e.preventDefault(); if(mobileMode) keys[code] = false; }); btn.addEventListener('pointerleave', () => { if(mobileMode) keys[code] = false; }); }); })();
+    (function initMobile(){ const map = { up:'KeyW', down:'KeyS', left:'KeyA', right:'KeyD', shoot:'KeyF', reload:'KeyR', pickup:'KeyE', util:'KeyV', swap:'Tab' }; document.querySelectorAll('.dpad-btn, .action-btn').forEach(btn => { const a = btn.dataset.key; if(!a) return; const code = map[a]; if(!code) return; btn.addEventListener('pointerdown', e => { e.preventDefault(); if(mobileMode) keys[code] = true; }); btn.addEventListener('pointerup', e => { e.preventDefault(); if(mobileMode) keys[code] = false; }); btn.addEventListener('pointerleave', () => { if(mobileMode) keys[code] = false; }); }); })();
 
     const CW=1000, CH=600, RW=440, RH=290, WL=22, PR=14;
     const WEAPONS = { pistol:{n:'Pistol',a:10,c:0.3,r:1.4,s:500,p:1,an:0,cl:'#ffe066',d:1}, shotgun:{n:'Shotgun',a:6,c:0.8,r:2.0,s:430,p:5,an:0.28,cl:'#ffaa44',d:0.9}, smg:{n:'SMG',a:20,c:0.14,r:1.8,s:580,p:1,an:0.08,cl:'#ffdd55',d:0.7}, laser:{n:'Laser',a:6,c:0.4,r:2.2,s:900,p:1,an:0,cl:'#00ffff',d:1.2,pierce:true}, rocket:{n:'Rocket',a:3,c:1.2,r:2.5,s:320,p:1,an:0,cl:'#ff8844',d:2.5,expl:true,rad:100}, spray:{n:'Spray',a:15,c:0.25,r:1.6,s:550,p:8,an:0.06,cl:'#88ff88',d:0.5}, sniper:{n:'Sniper',a:4,c:1.5,r:2.5,s:1200,p:1,an:0,cl:'#aa88ff',d:3.5,pierce:true,hardPierce:true} };
@@ -191,25 +228,9 @@
     function clampMap(x,y,r){ return {x:Math.max(r,Math.min(MW-r,x)), y:Math.max(r,Math.min(MH-r,y))}; }
     function spawnParticles(x,y,color,n=8){ for(let i=0;i<n;i++){ const a=Math.random()*Math.PI*2,s=80+Math.random()*200; particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:0.3+Math.random()*0.5,color,size:3+Math.random()*6}); } }
     function isExplored(x,y){ if(currentMode==='survival') return true; const r=roomAt(x,y); return r && explored[r.col] && explored[r.col][r.row]; }
+    function damageObstaclesInRadius(x,y,radius){ for(const o of obstacles){ if(!o.destructible) continue; const dist = Math.hypot(x - (o.x+o.w/2), y - (o.y+o.h/2)); if(dist < radius){ o.hp -= 3; if(o.hp <= 0){ const idx = obstacles.indexOf(o); if(idx !== -1){ obstacles.splice(idx,1); for(let i=0;i<4;i++) coins.push(new Coin(o.x+o.w/2+(Math.random()-0.5)*20, o.y+o.h/2+(Math.random()-0.5)*20)); } } } } }
 
-    function damageObstaclesInRadius(x,y,radius){
-        for(const o of obstacles){
-            if(!o.destructible) continue;
-            const dist = Math.hypot(x - (o.x+o.w/2), y - (o.y+o.h/2));
-            if(dist < radius){
-                o.hp -= 3;
-                if(o.hp <= 0){
-                    const idx = obstacles.indexOf(o);
-                    if(idx !== -1){
-                        obstacles.splice(idx,1);
-                        for(let i=0;i<4;i++) coins.push(new Coin(o.x+o.w/2+(Math.random()-0.5)*20, o.y+o.h/2+(Math.random()-0.5)*20));
-                    }
-                }
-            }
-        }
-    }
-
-    let GC,GR,MW,MH,doors,explored,walls,obstacles=[],spawners=[],enemies=[],bullets=[],particles=[],coins=[],healthPickups=[],weaponPickups=[],utilityPickups=[],meleePickups=[],keyPickups=[];
+    let GC,GR,MW,MH,doors,explored,walls=[],obstacles=[],spawners=[],enemies=[],bullets=[],particles=[],coins=[],healthPickups=[],weaponPickups=[],utilityPickups=[],meleePickups=[],keyPickups=[];
     let activeFields=[],activeBarriers=[],activeMines=[],grenades=[],weaponRacks=[],meleeEffects=[],explosionCircles=[],thrownEnemies=[],bossBombs=[];
     let players=[],bossDefeated=false,exitPos=null,camera={x:0,y:0},shake=0;
     let wave=0, waveTimer=0, waveInterval=18.0;
@@ -218,27 +239,12 @@
     let boxSpawnTimer = 0, boxSpawnInterval = 10;
 
     class Spawner {
-        constructor(x, y, spawnType = 'patrol', invincible = false) {
-            this.x = x; this.y = y; this.r = 12; this.alive = true;
-            this.spawnType = spawnType;
-            this.hp = invincible ? 99999 : 10;
-            this.invincible = invincible;
-            const typeColors = { patrol:'#cc3333', chaser:'#ff9966', tank:'#aa6666', summoner:'#cc88ff', boss:'#ff4444', miniboss:'#ff8844' };
-            this.color = typeColors[spawnType] || '#cc3333';
-        }
-        spawnEnemy() { if (!this.alive) return; enemies.push(new Enemy(this.x + (Math.random()-0.5)*20, this.y + (Math.random()-0.5)*20, 0, 0, this.spawnType)); }
-        hurt(d) { if (this.invincible) return; this.hp -= d; if (this.hp <= 0) { this.alive = false; spawnParticles(this.x, this.y, '#ffaa00', 8); for(let i=0;i<3;i++) coins.push(new Coin(this.x+(Math.random()-0.5)*20, this.y+(Math.random()-0.5)*20)); } }
-        draw(ctx, cam) {
-            if (!this.alive) return; const sx = this.x - cam.x + CW/2, sy = this.y - cam.y + CH/2;
-            ctx.fillStyle = this.color; ctx.beginPath(); ctx.arc(sx, sy, this.r, 0, Math.PI*2); ctx.fill();
-            ctx.fillStyle = '#fff'; ctx.font = 'bold 10px monospace'; ctx.textAlign = 'center';
-            ctx.fillText('S', sx, sy+4); ctx.textAlign = 'left';
-            if (this.invincible) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(sx, sy, this.r+2, 0, Math.PI*2); ctx.stroke(); }
-        }
+        constructor(x, y, spawnType = 'patrol', invincible = false) { this.x=x; this.y=y; this.r=12; this.alive=true; this.spawnType=spawnType; this.hp=invincible?99999:10; this.invincible=invincible; const typeColors={ patrol:'#cc3333', chaser:'#ff9966', tank:'#aa6666', summoner:'#cc88ff', boss:'#ff4444', miniboss:'#ff8844' }; this.color=typeColors[spawnType]||'#cc3333'; }
+        spawnEnemy() { if(!this.alive) return; enemies.push(new Enemy(this.x+(Math.random()-0.5)*20, this.y+(Math.random()-0.5)*20, 0, 0, this.spawnType)); }
+        hurt(d) { if(this.invincible) return; this.hp-=d; if(this.hp<=0){ this.alive=false; spawnParticles(this.x,this.y,'#ffaa00',8); for(let i=0;i<3;i++) coins.push(new Coin(this.x+(Math.random()-0.5)*20, this.y+(Math.random()-0.5)*20)); } }
+        draw(ctx,cam){ if(!this.alive) return; const sx=this.x-cam.x+CW/2, sy=this.y-cam.y+CH/2; ctx.fillStyle=this.color; ctx.beginPath(); ctx.arc(sx,sy,this.r,0,Math.PI*2); ctx.fill(); ctx.fillStyle='#fff'; ctx.font='bold 10px monospace'; ctx.textAlign='center'; ctx.fillText('S',sx,sy+4); ctx.textAlign='left'; if(this.invincible){ ctx.strokeStyle='#fff'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(sx,sy,this.r+2,0,Math.PI*2); ctx.stroke(); } }
     }
-
-    class MagnetPickup { constructor(x,y) { this.x=x; this.y=y; this.r=10; this.alive=true; }
-        draw(ctx,cam){ const sx=this.x-cam.x+CW/2, sy=this.y-cam.y+CH/2; ctx.fillStyle='#ffcc00'; ctx.beginPath(); ctx.arc(sx,sy,this.r,0,Math.PI*2); ctx.fill(); ctx.fillStyle='#000'; ctx.font='bold 12px monospace'; ctx.textAlign='center'; ctx.fillText('🧲',sx,sy+4); ctx.textAlign='left'; } }
+    class MagnetPickup { constructor(x,y){ this.x=x; this.y=y; this.r=10; this.alive=true; } draw(ctx,cam){ const sx=this.x-cam.x+CW/2, sy=this.y-cam.y+CH/2; ctx.fillStyle='#ffcc00'; ctx.beginPath(); ctx.arc(sx,sy,this.r,0,Math.PI*2); ctx.fill(); ctx.fillStyle='#000'; ctx.font='bold 12px monospace'; ctx.textAlign='center'; ctx.fillText('🧲',sx,sy+4); ctx.textAlign='left'; } }
 
     function generateNormalMap(level){
         if(level===1){ GC=3+Math.floor(Math.random()*2); GR=2+Math.floor(Math.random()*2); }
@@ -407,14 +413,8 @@
             let mx=0,my=0;
             if(t && md<350){ const dx=t.x-this.x, dy=t.y-this.y, m=Math.hypot(dx,dy)||1; mx=dx/m*this.spd*dt; my=dy/m*this.spd*dt; }
             else {
-                if(currentMode==='survival'){
-                    const dx = MW/2 - this.x, dy = MH/2 - this.y, m = Math.hypot(dx,dy)||1;
-                    mx = (dx/m * 0.5 + Math.cos(this.patrolAngle)*0.5) * this.spd * dt;
-                    my = (dy/m * 0.5 + Math.sin(this.patrolAngle)*0.5) * this.spd * dt;
-                } else {
-                    mx = Math.cos(this.patrolAngle) * 20 * dt;
-                    my = Math.sin(this.patrolAngle) * 20 * dt;
-                }
+                if(currentMode==='survival'){ const dx = MW/2 - this.x, dy = MH/2 - this.y, m = Math.hypot(dx,dy)||1; mx = (dx/m * 0.5 + Math.cos(this.patrolAngle)*0.5) * this.spd * dt; my = (dy/m * 0.5 + Math.sin(this.patrolAngle)*0.5) * this.spd * dt; }
+                else { mx = Math.cos(this.patrolAngle) * 20 * dt; my = Math.sin(this.patrolAngle) * 20 * dt; }
                 this.patrolAngle += dt * 0.3;
             }
             let nx=this.x+mx, ny=this.y+my; const cl=clampMap(nx,ny,this.r);
@@ -423,22 +423,13 @@
             if(t && md<this.r+t.radius && this.hitCooldown<=0 && t.alive){ let nearby = 1; for(const e of enemies){ if(e !== this && e.alive && Math.hypot(e.x - t.x, e.y - t.y) < e.r + t.radius){ nearby++; } } const baseCooldown = 0.55; this.hitCooldown = baseCooldown / Math.sqrt(nearby); t.hurt(); }
         }
         hurt(d){ if(this.immuneTimer>0) return false; this.hp-=d; this.flashTimer=0.2; if(this.hp<=0){ this.die(); return true; } return false; }
-        die(){
-            this.alive=false; spawnParticles(this.x,this.y,'#ff4444',5);
-            const cc=this.type==='boss'||this.type==='miniboss'?8:(this.type==='tank'?3:2); for(let i=0;i<cc;i++) coins.push(new Coin(this.x+(Math.random()-0.5)*20,this.y+(Math.random()-0.5)*20));
-            if(this.type==='boss'){ bossDefeated=true; magnetPickups.push(new MagnetPickup(this.x, this.y)); }
-            if(Math.random()<0.2) healthPickups.push(new Health(this.x,this.y));
-            if(Math.random()<0.12) utilityPickups.push(new UtilPickup(this.x,this.y,UT[Math.floor(Math.random()*4)]));
-            if(Math.random()<0.1) weaponPickups.push(new WPickup(this.x,this.y,Object.keys(WEAPONS)[Math.floor(Math.random()*Object.keys(WEAPONS).length)]));
-            if(Math.random()<0.08) meleePickups.push(new MeleePickup(this.x,this.y,MELEE_TYPES[Math.floor(Math.random()*4)]));
-            if(Math.random()<0.15) keyPickups.push(new KeyPickup(this.x,this.y));
-        }
+        die(){ this.alive=false; spawnParticles(this.x,this.y,'#ff4444',5); const cc=this.type==='boss'||this.type==='miniboss'?8:(this.type==='tank'?3:2); for(let i=0;i<cc;i++) coins.push(new Coin(this.x+(Math.random()-0.5)*20,this.y+(Math.random()-0.5)*20)); if(this.type==='boss'){ bossDefeated=true; magnetPickups.push(new MagnetPickup(this.x, this.y)); } if(Math.random()<0.2) healthPickups.push(new Health(this.x,this.y)); if(Math.random()<0.12) utilityPickups.push(new UtilPickup(this.x,this.y,UT[Math.floor(Math.random()*4)])); if(Math.random()<0.1) weaponPickups.push(new WPickup(this.x,this.y,Object.keys(WEAPONS)[Math.floor(Math.random()*Object.keys(WEAPONS).length)])); if(Math.random()<0.08) meleePickups.push(new MeleePickup(this.x,this.y,MELEE_TYPES[Math.floor(Math.random()*4)])); if(Math.random()<0.15) keyPickups.push(new KeyPickup(this.x,this.y)); }
         draw(ctx,cam){ if(!this.alive) return; const sx=this.x-cam.x+CW/2, sy=this.y-cam.y+CH/2; let clr=this.immuneTimer>0?'#888888':(this.flashTimer>0?'#ff2222':(this.type==='boss'?'#ff4444':this.type==='miniboss'?'#ff8844':this.type==='tank'?'#aa6666':this.type==='chaser'?'#ff9966':this.type==='summoner'?'#cc88ff':'#cc3333')); ctx.fillStyle=clr; ctx.beginPath(); ctx.arc(sx,sy,this.r,0,Math.PI*2); ctx.fill(); }
     }
     class Obstacle{ constructor(x,y,w,h){ this.x=x;this.y=y;this.w=w;this.h=h; this.destructible=true; this.hp=3; } draw(ctx,cam){ ctx.fillStyle='#8B5A2B'; ctx.fillRect(this.x-cam.x+CW/2,this.y-cam.y+CH/2,this.w,this.h); } }
     class Coin{ constructor(x,y){ this.x=x;this.y=y;this.r=5;this.alive=true; } draw(ctx,cam){ ctx.fillStyle='#f0c040'; ctx.beginPath(); ctx.arc(this.x-cam.x+CW/2,this.y-cam.y+CH/2,this.r,0,Math.PI*2); ctx.fill(); } }
     class Health{ constructor(x,y){ this.x=x;this.y=y;this.r=8;this.alive=true; } draw(ctx,cam){ const sx=this.x-cam.x+CW/2,sy=this.y-cam.y+CH/2; ctx.fillStyle='rgba(255,80,80,0.3)'; ctx.beginPath(); ctx.arc(sx,sy,this.r,0,Math.PI*2); ctx.fill(); ctx.fillStyle='#ff4d4d'; ctx.fillRect(sx-4,sy-1,8,2); ctx.fillRect(sx-1,sy-4,2,8); } }
-    class WPickup{ constructor(x,y,type){ this.x=x;this.y=y;this.type=type;this.alive=true;this.color=WEAPONS[type]?.cl||'#fff'; this.lifetime=30; } update(dt){ if(!this.alive)return; this.lifetime-=dt; if(this.lifetime<=0)this.alive=false; } draw(ctx,cam){ if(!this.alive) return; const sx=this.x-cam.x+CW/2,sy=this.y-cam.y+CH/2; ctx.fillStyle=this.color; ctx.fillRect(sx-10,sy-10,20,20); ctx.fillStyle='#000'; ctx.fillRect(sx-6,sy-6,12,12); ctx.fillStyle=this.color; ctx.fillRect(sx-4,sy-4,8,8); ctx.fillStyle='#fff'; ctx.font='bold 10px monospace'; ctx.fillText(WEAPONS[this.type]?.n||'?',sx,sy-14); ctx.strokeStyle='#fff'; ctx.strokeRect(sx-10,sy-10,20,20); } }
+    class WPickup{ constructor(x,y,type){ this.x=x;this.y=y;this.type=type;this.alive=true;this.color=WEAPONS[type]?.cl||'#fff'; this.lifetime=30; } update(dt){ if(!this.alive) return; this.lifetime-=dt; if(this.lifetime<=0) this.alive=false; } draw(ctx,cam){ if(!this.alive) return; const sx=this.x-cam.x+CW/2,sy=this.y-cam.y+CH/2; ctx.fillStyle=this.color; ctx.fillRect(sx-10,sy-10,20,20); ctx.fillStyle='#000'; ctx.fillRect(sx-6,sy-6,12,12); ctx.fillStyle=this.color; ctx.fillRect(sx-4,sy-4,8,8); ctx.fillStyle='#fff'; ctx.font='bold 10px monospace'; ctx.fillText(WEAPONS[this.type]?.n||'?',sx,sy-14); ctx.strokeStyle='#fff'; ctx.strokeRect(sx-10,sy-10,20,20); } }
     class UtilPickup{ constructor(x,y,type){ this.x=x;this.y=y;this.type=type;this.alive=true; } draw(ctx,cam){ const sx=this.x-cam.x+CW/2,sy=this.y-cam.y+CH/2; ctx.fillStyle='#aaddff'; ctx.beginPath(); for(let i=0;i<5;i++){ const a=i*Math.PI*2/5-Math.PI/2; ctx.lineTo(sx+Math.cos(a)*6,sy+Math.sin(a)*6); } ctx.closePath(); ctx.fill(); ctx.fillStyle='#fff'; ctx.font='bold 8px sans-serif'; ctx.fillText(UN[this.type]?.charAt(1)||'?',sx,sy+2); } }
     class WeaponRack{ constructor(x,y){ this.x=x;this.y=y;this.timer=8;this.alive=true; } update(dt){ if(!this.alive) return; this.timer-=dt; if(this.timer<=0){ weaponPickups.push(new WPickup(this.x,this.y,Object.keys(WEAPONS)[Math.floor(Math.random()*Object.keys(WEAPONS).length)])); this.timer=15; } } draw(ctx,cam){ ctx.fillStyle='#ccaa77'; ctx.fillRect(this.x-cam.x+CW/2-12,this.y-cam.y+CH/2-18,24,36); } }
     class MeleePickup{ constructor(x,y,type){ this.x=x;this.y=y;this.type=type;this.alive=true; } draw(ctx,cam){ const sx=this.x-cam.x+CW/2,sy=this.y-cam.y+CH/2; ctx.fillStyle='#cccccc'; ctx.fillRect(sx-3,sy-8,6,16); ctx.fillStyle='#ffcc00'; ctx.beginPath(); ctx.arc(sx,sy-8,3,0,Math.PI*2); ctx.fill(); ctx.fillStyle='#fff'; ctx.font='bold 8px monospace'; ctx.fillText(this.type?this.type.toUpperCase():'?',sx,sy-16); } }
@@ -446,11 +437,10 @@
     class ThrownEnemy{ constructor(x,y,vx,vy,d){ this.x=x;this.y=y;this.vx=vx;this.vy=vy;this.r=10;this.life=3;this.alive=true;this.dmg=d; } update(dt){ this.x+=this.vx*dt; this.y+=this.vy*dt; this.life-=dt; if(this.life<=0||this.x<0||this.x>MW||this.y<0||this.y>MH){ this.alive=false; return; } for(const w of walls) if(circleRect(this.x,this.y,this.r,w.x,w.y,w.w,w.h)){ this.explode(); return; } for(const p of players) if(p.alive&&Math.hypot(this.x-p.x,this.y-p.y)<this.r+p.radius){ p.hurt(this.dmg); this.explode(); return; } } explode(){ if(!this.alive) return; this.alive=false; spawnParticles(this.x,this.y,'#ff6644',5); shake=Math.max(shake,4); } draw(ctx,cam){ if(!this.alive) return; ctx.fillStyle='#cc4444'; ctx.beginPath(); ctx.arc(this.x-cam.x+CW/2,this.y-cam.y+CH/2,this.r,0,Math.PI*2); ctx.fill(); } }
 
     function initGame(mode, level=1){
-        currentMode=mode; currentLevel=level; gameRunning=true; gameWon=false;
+        currentMode=mode; currentLevel=level; gameRunning=true; gameWon=false; gameInitialized=true;
         players=[]; enemies=[]; spawners=[]; bullets=[]; particles=[]; coins=[]; healthPickups=[]; weaponPickups=[]; utilityPickups=[]; meleePickups=[]; keyPickups=[]; magnetPickups=[];
         activeFields=[]; activeBarriers=[]; activeMines=[]; grenades=[]; weaponRacks=[]; meleeEffects=[]; explosionCircles=[]; thrownEnemies=[]; bossBombs=[];
-        shake=0; bossDefeated=false; bossArea=null;
-        hasLeftStartRoom = false;
+        shake=0; bossDefeated=false; bossArea=null; hasLeftStartRoom = false;
         gameStartTime = performance.now()/1000;
         wave=0; waveTimer=0;
         if(mode==='normal'){
@@ -488,8 +478,28 @@
             if(playerCount>=2) players.push(new Player(1, startX+35, startY, '#ff6b6b'));
             startWaveSurvival(); waveIndicator.style.display='block'; camera.x=startX; camera.y=startY;
         }
-        victoryOverlay.classList.add('hidden'); gameOverOverlay.classList.add('hidden'); shopOverlay.classList.add('hidden'); settingsOverlay.classList.add('hidden');
+        victoryOverlay.classList.add('hidden'); gameOverOverlay.classList.add('hidden'); shopOverlay.classList.add('hidden'); settingsOverlay.classList.add('hidden'); homescreenOverlay.classList.add('hidden');
         updateUIButtons();
+    }
+
+    function goHome(){
+        gameRunning=false; gameWon=false; gameInitialized=false;
+        victoryOverlay.classList.add('hidden'); gameOverOverlay.classList.add('hidden'); shopOverlay.classList.add('hidden'); settingsOverlay.classList.add('hidden');
+        homescreenOverlay.classList.remove('hidden');
+        updateHomescreenStats();
+        updateUIButtons();
+        waveIndicator.style.display = 'none';
+    }
+
+    function updateHomescreenStats(){
+        let html = `💰 Coins: <b>${sharedCoins}</b>`;
+        if(bestTime !== null) html += ` · ⏱️ Best: <b>${bestTime.toFixed(1)}s</b>`;
+        if(survivalHighscore > 0) html += ` · ⚔️ Wave: <b>${survivalHighscore}</b>`;
+        html += `<br>🔓 Level 2: <b>${level2Unlocked ? '✅' : '🔒 Beat L1 fast!'}</b> · Survival: <b>${survivalUnlocked ? '✅' : '🔒 Beat L2!'}</b>`;
+        homescreenStats.innerHTML = html;
+        homeLevel2Btn.style.display = level2Unlocked ? 'inline-block' : 'none';
+        homeSurvivalBtn.style.display = survivalUnlocked ? 'inline-block' : 'none';
+        shopLevel2Btn.style.display = level2Unlocked ? 'inline-block' : 'none';
     }
 
     let lastTime=performance.now();
@@ -610,7 +620,9 @@
     }
 
     function render(){
-        ctx.clearRect(0,0,CW,CH); const shakeX=shake*(Math.random()-0.5)*2, shakeY=shake*(Math.random()-0.5)*2; const cam={x:camera.x+shakeX, y:camera.y+shakeY};
+        ctx.clearRect(0,0,CW,CH);
+        if(!gameInitialized && !gameRunning){ ctx.fillStyle='#0a0a14'; ctx.fillRect(0,0,CW,CH); ctx.fillStyle='#f0a500'; ctx.font='bold 28px monospace'; ctx.textAlign='center'; ctx.fillText('⚔️ 2P ROGUELIKE ⚔️', CW/2, CH/2-10); ctx.fillStyle='#666'; ctx.font='14px monospace'; ctx.fillText('Select a mode to begin', CW/2, CH/2+30); ctx.textAlign='left'; return; }
+        const shakeX=shake*(Math.random()-0.5)*2, shakeY=shake*(Math.random()-0.5)*2; const cam={x:camera.x+shakeX, y:camera.y+shakeY};
         if(currentMode==='normal'){ for(let r=0;r<GR;r++) for(let c=0;c<GC;c++){ const rm=getRoom(c,r); ctx.fillStyle=explored[c][r]?'#1a1a2e':'#000'; ctx.fillRect(rm.left-cam.x+CW/2, rm.top-cam.y+CH/2, RW, RH); } } else { for(let r=0;r<GR;r++) for(let c=0;c<GC;c++){ const rm=getRoom(c,r); ctx.fillStyle='#1a1a2e'; ctx.fillRect(rm.left-cam.x+CW/2, rm.top-cam.y+CH/2, RW, RH); } }
         for(const w of walls){ ctx.fillStyle = '#3a3a4a'; ctx.fillRect(w.x-cam.x+CW/2, w.y-cam.y+CH/2, w.w, w.h); }
         if(bossDefeated && exitPos && currentMode==='normal'){
@@ -691,33 +703,32 @@
             } }; });
         document.querySelectorAll('.buy-specific').forEach(b=>{ b.onclick=()=>{ const pIdx=parseInt(b.dataset.p); const w=b.dataset.weapon; const price=WPRICES[w]; if(sharedCoins>=price){ sharedCoins-=price; saveCoins(); if(!pwd[pIdx].ow.includes(w)) pwd[pIdx].ow.push(w); saveUpgrades(); showShop(); } }; });
         for(let idx=0;idx<2;idx++){ const sel=document.getElementById(`sg_${idx}`); if(sel) sel.onchange=()=>{ pwd[idx].sw=sel.value; saveUpgrades(); }; }
-        // Show/hide level 2 button in shop
         shopLevel2Btn.style.display = level2Unlocked ? 'inline-block' : 'none';
         shopOverlay.classList.remove('hidden'); gameRunning=false;
     }
 
     function updateUIButtons(){
-        if(currentMode === 'survival'){
-            shopTopBtn.style.display = 'inline-block';
-            survivalModeBtn.style.display = 'inline-block';
-            normalModeBtn.style.display = 'none';
-            level2ModeBtn.style.display = 'none';
+        if(!gameInitialized && !gameRunning){
+            homeBtn.style.display='none'; restartRunBtn.style.display='none'; normalModeBtn.style.display='none'; level2ModeBtn.style.display='none'; survivalModeBtn.style.display='none';
+            shopTopBtn.style.display='inline-block'; settingsBtn.style.display='inline-block';
         } else {
-            if(hasLeftStartRoom){
-                normalModeBtn.style.display = 'none';
-                level2ModeBtn.style.display = 'none';
-                shopTopBtn.style.display = 'none';
+            homeBtn.style.display='inline-block'; restartRunBtn.style.display='inline-block';
+            if(currentMode === 'survival'){
+                shopTopBtn.style.display = 'inline-block'; survivalModeBtn.style.display = 'inline-block';
+                normalModeBtn.style.display = 'none'; level2ModeBtn.style.display = 'none';
             } else {
-                normalModeBtn.style.display = 'inline-block';
-                if(level2Unlocked) level2ModeBtn.style.display = 'inline-block';
-                else level2ModeBtn.style.display = 'none';
-                shopTopBtn.style.display = 'inline-block';
+                if(hasLeftStartRoom){
+                    normalModeBtn.style.display = 'none'; level2ModeBtn.style.display = 'none'; shopTopBtn.style.display = 'none';
+                } else {
+                    normalModeBtn.style.display = 'inline-block'; if(level2Unlocked) level2ModeBtn.style.display = 'inline-block'; else level2ModeBtn.style.display = 'none';
+                    shopTopBtn.style.display = 'inline-block';
+                }
+                survivalModeBtn.style.display = 'inline-block';
             }
-            survivalModeBtn.style.display = 'inline-block';
+            settingsBtn.style.display='inline-block';
         }
     }
 
-    // Build keybind UI
     function buildKeybindUI(){
         keybindsContainer.innerHTML = '';
         const actions = {
@@ -750,32 +761,38 @@
         }
     }
 
-    // Wire shop level buttons
     shopLevel1Btn.onclick = () => { shopOverlay.classList.add('hidden'); initGame('normal', 1); };
     shopLevel2Btn.onclick = () => { shopOverlay.classList.add('hidden'); if(level2Unlocked) initGame('normal', 2); };
     shopSurvivalBtn.onclick = () => { shopOverlay.classList.add('hidden'); initGame('survival'); };
 
-    restartRunBtn.onclick=()=>{ initGame(currentMode, currentLevel); };
-    normalModeBtn.onclick=()=>{ initGame('normal', 1); };
-    level2ModeBtn.onclick=()=>{ if(level2Unlocked) initGame('normal', 2); };
-    survivalModeBtn.onclick=()=>{ initGame('survival'); };
-    shopTopBtn.onclick=()=>{ showShop(); };
-    btnShopVictory.onclick=()=>{ victoryOverlay.classList.add('hidden'); showShop(); };
-    btnPlayAgain.onclick=()=>{ victoryOverlay.classList.add('hidden'); initGame('normal',1); };
-    btnNextLevel.onclick=()=>{ victoryOverlay.classList.add('hidden'); initGame('normal',2); };
-    btnReplayLevel2.onclick=()=>{ victoryOverlay.classList.add('hidden'); initGame('normal',2); };
-    btnSurvivalUnlock.onclick=()=>{ victoryOverlay.classList.add('hidden'); initGame('survival'); };
-    btnGameOverRestart.onclick=()=>{ gameOverOverlay.classList.add('hidden'); initGame('survival'); };
-    btnGameOverShop.onclick=()=>{ gameOverOverlay.classList.add('hidden'); showShop(); };
-    btnGameOverLevel1.onclick=()=>{ gameOverOverlay.classList.add('hidden'); initGame('normal',1); };
-    btnGameOverLevel2.onclick=()=>{ gameOverOverlay.classList.add('hidden'); if(level2Unlocked) initGame('normal',2); };
-    btnLeaveShop.onclick=()=>{ shopOverlay.classList.add('hidden'); initGame(currentMode, currentLevel); };
-    btnFullReset.onclick=()=>{ localStorage.clear(); location.reload(); };
-    btnCloseSettings.onclick=()=>{ settingsOverlay.classList.add('hidden'); isSettingsOpen=false; gameRunning=true; };
-    settingsBtn.onclick=()=>{ initAudio(); isSettingsOpen=true; buildKeybindUI(); settingsOverlay.classList.remove('hidden'); gameRunning=false; };
+    homeLevel1Btn.onclick = () => { initGame('normal', 1); };
+    homeLevel2Btn.onclick = () => { if(level2Unlocked) initGame('normal', 2); };
+    homeSurvivalBtn.onclick = () => { initGame('survival'); };
+    homeShopBtn.onclick = () => { showShop(); };
+    homeSettingsBtn.onclick = () => { initAudio(); isSettingsOpen=true; buildKeybindUI(); settingsOverlay.classList.remove('hidden'); gameRunning=false; };
+
+    homeBtn.onclick = () => { goHome(); };
+    restartRunBtn.onclick = () => { initGame(currentMode, currentLevel); };
+    normalModeBtn.onclick = () => { initGame('normal', 1); };
+    level2ModeBtn.onclick = () => { if(level2Unlocked) initGame('normal', 2); };
+    survivalModeBtn.onclick = () => { initGame('survival'); };
+    shopTopBtn.onclick = () => { showShop(); };
+    btnShopVictory.onclick = () => { victoryOverlay.classList.add('hidden'); showShop(); };
+    btnPlayAgain.onclick = () => { victoryOverlay.classList.add('hidden'); initGame('normal',1); };
+    btnNextLevel.onclick = () => { victoryOverlay.classList.add('hidden'); initGame('normal',2); };
+    btnReplayLevel2.onclick = () => { victoryOverlay.classList.add('hidden'); initGame('normal',2); };
+    btnSurvivalUnlock.onclick = () => { victoryOverlay.classList.add('hidden'); initGame('survival'); };
+    btnGameOverRestart.onclick = () => { gameOverOverlay.classList.add('hidden'); initGame('survival'); };
+    btnGameOverShop.onclick = () => { gameOverOverlay.classList.add('hidden'); showShop(); };
+    btnGameOverLevel1.onclick = () => { gameOverOverlay.classList.add('hidden'); initGame('normal',1); };
+    btnGameOverLevel2.onclick = () => { gameOverOverlay.classList.add('hidden'); if(level2Unlocked) initGame('normal',2); };
+    btnLeaveShop.onclick = () => { shopOverlay.classList.add('hidden'); if(!gameInitialized){ goHome(); } else { gameRunning=true; updateUIButtons(); } };
+    btnFullReset.onclick = () => { localStorage.clear(); location.reload(); };
+    btnCloseSettings.onclick = () => { settingsOverlay.classList.add('hidden'); isSettingsOpen=false; if(!gameInitialized){ gameRunning=false; } else { gameRunning=true; } };
+    settingsBtn.onclick = () => { initAudio(); isSettingsOpen=true; buildKeybindUI(); settingsOverlay.classList.remove('hidden'); gameRunning=false; };
 
     canvas.width=CW; canvas.height=CH;
-    initAudio(); initGame('normal',1); updateUIButtons();
+    initAudio(); updateHomescreenStats(); updateUIButtons(); homescreenOverlay.classList.remove('hidden');
     requestAnimationFrame(function loop(ts){ const dt=Math.min((ts-lastTime)/1000,0.1); lastTime=ts; if(gameRunning&&!gameWon&&!isSettingsOpen) update(dt); render(); requestAnimationFrame(loop); });
 })();
 </script>
