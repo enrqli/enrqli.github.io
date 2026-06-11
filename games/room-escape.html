@@ -50,10 +50,10 @@
         .mobile-controls { position: absolute; bottom: 20px; left: 0; right: 0; display: none; justify-content: space-between; align-items: flex-end; padding: 0 15px; pointer-events: none; z-index: 25; }
         .mobile-controls.active { display: flex; }
         .joystick-container { width: 130px; height: 130px; background: rgba(0,0,0,0.5); border-radius: 70px; position: relative; pointer-events: auto; backdrop-filter: blur(4px); margin-right: 20px; }
-        .joystick-base { width: 100%; height: 100%; border-radius: 50%; background: rgba(255,255,255,0.1); border: 2px solid rgba(255,255,255,0.3); display: flex; align-items: center; justify-content: center; }
-        .joystick-thumb { width: 50px; height: 50px; border-radius: 50%; background: rgba(255,255,255,0.5); position: absolute; transform: translate(-50%, -50%); left: 50%; top: 50%; }
+        .joystick-base { width: 100%; height: 100%; border-radius: 50%; background: rgba(255,255,255,0.1); border: 2px solid rgba(255,255,255,0.3); display: flex; align-items: center; justify-content: center; touch-action: none; }
+        .joystick-thumb { width: 50px; height: 50px; border-radius: 50%; background: rgba(255,255,255,0.5); position: absolute; transform: translate(-50%, -50%); left: 50%; top: 50%; pointer-events: none; }
         .action-buttons { display: flex; flex-wrap: wrap; gap: 6px; background: rgba(0,0,0,0.5); padding: 8px 12px; border-radius: 60px; pointer-events: auto; backdrop-filter: blur(4px); justify-content: center; max-width: 280px; }
-        .action-btn { width: 48px; height: 48px; background: rgba(233,68,96,0.8); border: 2px solid rgba(255,255,255,0.6); border-radius: 40px; display: flex; align-items: center; justify-content: center; font-size: 22px; color: white; cursor: pointer; }
+        .action-btn { width: 48px; height: 48px; background: rgba(233,68,96,0.8); border: 2px solid rgba(255,255,255,0.6); border-radius: 40px; display: flex; align-items: center; justify-content: center; font-size: 22px; color: white; cursor: pointer; touch-action: manipulation; }
         .action-btn:active { background: #e94560; transform: scale(0.94); }
         .util-btn { background: rgba(100,100,200,0.8); }
         .keybind-row { display: flex; justify-content: space-between; margin: 4px 0; }
@@ -292,6 +292,28 @@
     mobileToggleBtn.onclick = () => setMobileMode(!mobileMode);
     setupJoystick();
 
+    const mobileActionMap = { shoot:'KeyF', reload:'KeyR', pickup:'KeyE', util:'KeyV', swap:'Tab', key:'KeyQ' };
+    function setupMobileButtons() {
+        document.querySelectorAll('.action-btn').forEach(btn => {
+            const a = btn.dataset.key;
+            if (!a) return;
+            const code = mobileActionMap[a];
+            if (!code) return;
+            btn.addEventListener('pointerdown', e => {
+                e.preventDefault();
+                if (mobileMode) keys[code] = true;
+            });
+            btn.addEventListener('pointerup', e => {
+                e.preventDefault();
+                keys[code] = false;
+            });
+            btn.addEventListener('pointerleave', () => {
+                keys[code] = false;
+            });
+        });
+    }
+    setupMobileButtons();
+
     const CW=1000, CH=600, RW=440, RH=290, WL=22, PR=14;
     const WEAPONS = { pistol:{n:'Pistol',a:10,c:0.3,r:1.4,s:500,p:1,an:0,cl:'#ffe066',d:1}, shotgun:{n:'Shotgun',a:6,c:0.8,r:2.0,s:430,p:5,an:0.28,cl:'#ffaa44',d:0.9}, smg:{n:'SMG',a:20,c:0.14,r:1.8,s:580,p:1,an:0.08,cl:'#ffdd55',d:0.7}, laser:{n:'Laser',a:6,c:0.4,r:2.2,s:900,p:1,an:0,cl:'#00ffff',d:1.2,pierce:true}, rocket:{n:'Rocket',a:3,c:1.2,r:2.5,s:320,p:1,an:0,cl:'#ff8844',d:2.5,expl:true,rad:100}, spray:{n:'Spray',a:15,c:0.25,r:1.6,s:550,p:8,an:0.06,cl:'#88ff88',d:0.5}, sniper:{n:'Sniper',a:4,c:1.5,r:2.5,s:1200,p:1,an:0,cl:'#aa88ff',d:3.5,pierce:true,hardPierce:true} };
     const WPRICES = { pistol:40, shotgun:60, smg:80, laser:100, rocket:120, spray:140, sniper:160 };
@@ -456,28 +478,32 @@
     class HealField{ constructor(x,y,o){ this.x=x;this.y=y;this.r=80;this.life=5;this.owner=o;this.alive=true; } update(dt){ this.life-=dt; if(this.life<=0) this.alive=false; for(const p of players) if(p.alive&&p.id===this.owner&&Math.hypot(p.x-this.x,p.y-this.y)<this.r) p.hp=Math.min(p.maxHp,p.hp+0.3*dt); } draw(ctx,cam){ if(!this.alive) return; ctx.globalAlpha=0.3; ctx.fillStyle='#88ff88'; ctx.beginPath(); ctx.arc(this.x-cam.x+CW/2,this.y-cam.y+CH/2,this.r,0,Math.PI*2); ctx.fill(); ctx.globalAlpha=1; } }
     class Barrier{ constructor(x,y,fx,fy){ const m=Math.hypot(fx,fy)||1; this.x=x+(fx/m)*25; this.y=y+(fy/m)*25; this.life=8; this.alive=true; this.w=Math.abs(fx)>Math.abs(fy)?40:20; this.h=this.w===40?20:40; } update(dt){ this.life-=dt; if(this.life<=0) this.alive=false; } draw(ctx,cam){ if(!this.alive) return; ctx.fillStyle='#88aaff'; ctx.fillRect(this.x-cam.x+CW/2-this.w/2,this.y-cam.y+CH/2-this.h/2,this.w,this.h); } }
     class BossLaserBeam {
-        constructor(x, y, targetX, targetY, bossR, isWarning = false) {
+        constructor(corners, isWarning = false) {
             this.alive = true;
             this.life = isWarning ? 1.0 : 0.6;
             this.isWarning = isWarning;
-            const dx = targetX - x, dy = targetY - y;
+            this.corners = corners;
+            this.damageInterval = 0.15;
+            this.lastDamageTime = 0;
+        }
+        static createFromBoss(bossX, bossY, targetX, targetY, bossR, isWarning = false) {
+            const dx = targetX - bossX, dy = targetY - bossY;
             const dist = Math.hypot(dx, dy) || 1;
             const dirX = dx / dist, dirY = dy / dist;
             const perpX = -dirY, perpY = dirX;
             const length = RW * 1.5;
             const halfWidth = bossR;
-            const startX = x + dirX * bossR * 0.5;
-            const startY = y + dirY * bossR * 0.5;
+            const startX = bossX + dirX * bossR * 0.5;
+            const startY = bossY + dirY * bossR * 0.5;
             const endX = startX + dirX * length;
             const endY = startY + dirY * length;
-            this.corners = [
+            const corners = [
                 {x: startX + perpX * halfWidth, y: startY + perpY * halfWidth},
                 {x: startX - perpX * halfWidth, y: startY - perpY * halfWidth},
                 {x: endX - perpX * halfWidth, y: endY - perpY * halfWidth},
                 {x: endX + perpX * halfWidth, y: endY + perpY * halfWidth}
             ];
-            this.damageInterval = 0.15;
-            this.lastDamageTime = 0;
+            return new BossLaserBeam(corners, isWarning);
         }
         update(dt, players) {
             this.life -= dt;
@@ -505,7 +531,7 @@
         }
         draw(ctx, cam) {
             if (!this.alive) return;
-            ctx.globalAlpha = this.isWarning ? 0.3 : 0.45;
+            ctx.globalAlpha = this.isWarning ? 0.35 : 0.45;
             ctx.fillStyle = this.isWarning ? '#ffaa00' : '#ff00ff';
             ctx.beginPath();
             ctx.moveTo(this.corners[0].x - cam.x + CW/2, this.corners[0].y - cam.y + CH/2);
@@ -513,7 +539,7 @@
             ctx.closePath();
             ctx.fill();
             if (this.isWarning) {
-                ctx.globalAlpha = 0.6;
+                ctx.globalAlpha = 0.7;
                 ctx.strokeStyle = '#ffcc00';
                 ctx.lineWidth = 2;
                 ctx.stroke();
@@ -527,7 +553,7 @@
             this.x=x; this.y=y; this.col=c; this.row=r; this.type=type; this.alive=true; this.flashTimer=0; this.immuneTimer=0;
             this.bossPhase=false; this.spawnerTimer=0; this.throwTimer=0; this.laserTimer=3; this.bombTimer=4; this.phaseTimer=0; this.phase=0;
             this.chargeTimer=0; this.charging=false; this.chargeSpeed=0; this.chargeDuration=0;
-            this.laserCharge = 0; this.laserCharging = false; this.laserTarget = null; this.laserWarningSpawned = false;
+            this.laserCharge = 0; this.laserCharging = false; this.laserWarningBeam = null;
             this.bombQueueCount = 0; this.bombQueueTimer = 0;
             if(type==='boss'){
                 this.spawnTimer = (currentMode==='normal'&&currentLevel===1)?3:2.5; this.chargeTimer = 6; this.laserTimer = 3; this.throwTimer = 2; this.bombTimer = 4;
@@ -561,23 +587,23 @@
                     if(this.laserTimer <= 0 && !this.laserCharging){
                         this.laserCharging = true;
                         this.laserCharge = 1.0;
-                        this.laserWarningSpawned = false;
-                        let t = null; for(const p of pl) if(p.alive){ t=p; break; } if(t) this.laserTarget = t;
+                        let t = null; for(const p of pl) if(p.alive){ t=p; break; }
+                        if(t){
+                            this.laserWarningBeam = BossLaserBeam.createFromBoss(this.x, this.y, t.x, t.y, this.r, true);
+                            laserWarnings.push(this.laserWarningBeam);
+                            sfx.laserWarning();
+                        }
                         sfx.bossLaserCharge();
                     }
                     if(this.laserCharging){
                         this.laserCharge -= dt;
-                        if (!this.laserWarningSpawned && this.laserTarget && this.laserTarget.alive) {
-                            laserWarnings.push(new BossLaserBeam(this.x, this.y, this.laserTarget.x, this.laserTarget.y, this.r, true));
-                            this.laserWarningSpawned = true;
-                            sfx.laserWarning();
-                        }
-                        if(this.laserCharge <= 0 && this.laserTarget && this.laserTarget.alive){
-                            laserBeams.push(new BossLaserBeam(this.x, this.y, this.laserTarget.x, this.laserTarget.y, this.r));
+                        if(this.laserCharge <= 0 && this.laserWarningBeam){
+                            const damageBeam = new BossLaserBeam(this.laserWarningBeam.corners, false);
+                            laserBeams.push(damageBeam);
                             sfx.bossLaser(); shake = 10;
-                            this.laserCharging = false; this.laserTarget = null; this.laserTimer = 3 + Math.random()*2;
-                        } else if(this.laserCharge <= 0 || !this.laserTarget || !this.laserTarget.alive){
-                            this.laserCharging = false; this.laserTarget = null; this.laserTimer = 1 + Math.random();
+                            this.laserCharging = false; this.laserWarningBeam = null; this.laserTimer = 3 + Math.random()*2;
+                        } else if(this.laserCharge <= 0 || !this.laserWarningBeam){
+                            this.laserCharging = false; this.laserWarningBeam = null; this.laserTimer = 1 + Math.random();
                         }
                     }
                 }
