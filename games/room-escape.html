@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>2P Roguelike · Laser Warning & Joystick</title>
+    <title>2P Roguelike · Shop Exit & Mobile Layout</title>
     <style>
         * { margin:0; padding:0; box-sizing:border-box; user-select:none; }
         body { background: #0a0a14; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; font-family: 'Segoe UI', monospace; }
@@ -44,18 +44,27 @@
         .victory-text { font-size: 32px; font-weight: bold; color: #f0a500; text-align: center; }
         .game-over-text { font-size: 32px; font-weight: bold; color: #ff4444; text-align: center; }
         .utility-indicator { position: absolute; bottom: 10px; left: 10px; background: rgba(0,0,0,0.7); padding: 4px 10px; border-radius: 12px; font-size: 11px; color: #ffcc88; z-index: 15; }
-        .minimap { position: absolute; bottom: 10px; right: 10px; background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.3); border-radius: 8px; z-index: 15; width: 140px; height: 90px; }
+        .minimap { position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.3); border-radius: 8px; z-index: 15; width: 140px; height: 90px; }
         .wave-indicator { position: absolute; top: 50px; left: 20px; background: rgba(0,0,0,0.7); color: #ffcc88; padding: 4px 12px; border-radius: 8px; font-size: 14px; font-weight: bold; z-index: 15; }
         .btn-row { display: flex; gap: 8px; justify-content: center; margin-top: 12px; flex-wrap: wrap; }
         .mobile-controls { position: absolute; bottom: 20px; left: 0; right: 0; display: none; justify-content: space-between; align-items: flex-end; padding: 0 15px; pointer-events: none; z-index: 25; }
         .mobile-controls.active { display: flex; }
-        .joystick-container { width: 130px; height: 130px; background: rgba(0,0,0,0.5); border-radius: 70px; position: relative; pointer-events: auto; backdrop-filter: blur(4px); margin-right: 20px; }
+        .mobile-left { display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: auto; }
+        .mobile-right { display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: auto; }
+        .move-key-row { display: flex; align-items: center; gap: 12px; }
+        .joystick-container { width: 130px; height: 130px; background: rgba(0,0,0,0.5); border-radius: 70px; position: relative; backdrop-filter: blur(4px); }
         .joystick-base { width: 100%; height: 100%; border-radius: 50%; background: rgba(255,255,255,0.1); border: 2px solid rgba(255,255,255,0.3); display: flex; align-items: center; justify-content: center; touch-action: none; }
         .joystick-thumb { width: 50px; height: 50px; border-radius: 50%; background: rgba(255,255,255,0.5); position: absolute; transform: translate(-50%, -50%); left: 50%; top: 50%; pointer-events: none; }
-        .action-buttons { display: flex; flex-wrap: wrap; gap: 6px; background: rgba(0,0,0,0.5); padding: 8px 12px; border-radius: 60px; pointer-events: auto; backdrop-filter: blur(4px); justify-content: center; max-width: 280px; }
-        .action-btn { width: 48px; height: 48px; background: rgba(233,68,96,0.8); border: 2px solid rgba(255,255,255,0.6); border-radius: 40px; display: flex; align-items: center; justify-content: center; font-size: 22px; color: white; cursor: pointer; touch-action: manipulation; }
-        .action-btn:active { background: #e94560; transform: scale(0.94); }
-        .util-btn { background: rgba(100,100,200,0.8); }
+        .shoot-area { position: relative; width: 130px; height: 130px; display: flex; align-items: center; justify-content: center; }
+        .action-btn { background: rgba(233,68,96,0.5); border: 2px solid rgba(255,255,255,0.5); border-radius: 40px; display: flex; align-items: center; justify-content: center; color: white; cursor: pointer; touch-action: manipulation; font-size: 22px; }
+        .action-btn:active { background: rgba(233,68,96,0.8); transform: scale(0.94); }
+        .util-btn { background: rgba(100,100,200,0.5); }
+        .shoot-main { width: 120px; height: 120px; border-radius: 65px; font-size: 36px; background: rgba(233,68,96,0.5); border: 3px solid rgba(255,255,255,0.5); }
+        .reload-top { width: 50px; height: 50px; border-radius: 25px; background: rgba(233,68,96,0.5); }
+        .swap-top { width: 50px; height: 50px; border-radius: 25px; background: rgba(100,100,200,0.5); }
+        .pickup-left { position: absolute; left: -25px; top: 50%; transform: translateY(-50%); width: 48px; height: 48px; border-radius: 30px; }
+        .util-top-left { position: absolute; top: -25px; left: -25px; width: 48px; height: 48px; border-radius: 30px; }
+        .key-btn { position: static; display: none; }
         .keybind-row { display: flex; justify-content: space-between; margin: 4px 0; }
         .keybind-row button { padding: 2px 8px; font-size: 11px; }
     </style>
@@ -76,18 +85,24 @@
     </div>
     <div class="wave-indicator" id="waveIndicator" style="display:none;">Wave: 0</div>
     <div class="mobile-controls" id="mobileControls">
-        <div class="joystick-container" id="joystickContainer">
-            <div class="joystick-base" id="joystickBase">
-                <div class="joystick-thumb" id="joystickThumb"></div>
+        <div class="mobile-left">
+            <div class="action-btn util-btn swap-top" data-key="swap">⚔️</div>
+            <div class="move-key-row">
+                <div class="joystick-container" id="joystickContainer">
+                    <div class="joystick-base" id="joystickBase">
+                        <div class="joystick-thumb" id="joystickThumb"></div>
+                    </div>
+                </div>
+                <div class="action-btn key-btn" data-key="key" id="keyBtnMobile">🔑</div>
             </div>
         </div>
-        <div class="action-buttons">
-            <div class="action-btn" data-key="shoot">🔫</div>
-            <div class="action-btn" data-key="reload">🔄</div>
-            <div class="action-btn" data-key="pickup">📦</div>
-            <div class="action-btn util-btn" data-key="util">✨</div>
-            <div class="action-btn util-btn" data-key="swap">⚔️</div>
-            <div class="action-btn" data-key="key">🔑</div>
+        <div class="mobile-right">
+            <div class="action-btn reload-top" data-key="reload">🔄</div>
+            <div class="shoot-area">
+                <div class="action-btn shoot-main" data-key="shoot">🔫</div>
+                <div class="action-btn pickup-left" data-key="pickup">📦</div>
+                <div class="action-btn util-btn util-top-left" data-key="util">✨</div>
+            </div>
         </div>
     </div>
     <div id="homescreenOverlay" class="overlay">
@@ -163,6 +178,7 @@
     const joystickContainer = document.getElementById('joystickContainer');
     const joystickBase = document.getElementById('joystickBase');
     const joystickThumb = document.getElementById('joystickThumb');
+    const keyBtnMobile = document.getElementById('keyBtnMobile');
 
     function resizeGame() {
         const availableWidth = window.innerWidth;
@@ -174,7 +190,7 @@
     window.addEventListener('resize', resizeGame);
     resizeGame();
 
-    let sharedCoins = 0, level2Unlocked = false, survivalUnlocked = false, gameRunning = false, gameWon = false;
+    let sharedCoins = 0, level2Unlocked = false, survivalUnlocked = false, gameRunning = false, gameWon = false, gameOver = false;
     let currentMode = 'normal', currentLevel = 1, bestTime = null, gameStartTime = 0, currentTime = 0;
     let mobileMode = false, isSettingsOpen = false, audioCtx = null;
     let playerCount = 2;
@@ -184,7 +200,7 @@
     let gameInitialized = false;
     let survivalHpMultiplier = 1;
     let survivalBombCount = 1;
-    let joystickActive = false, joystickPos = { x: 0, y: 0 }, joystickBaseRect = null;
+    let joystickActive = false, joystickBaseRect = null;
     let mobileMoveX = 0, mobileMoveY = 0;
 
     let keybinds = {
@@ -314,6 +330,19 @@
     }
     setupMobileButtons();
 
+    function updateKeyButtonVisibility() {
+        if (!mobileMode || !gameRunning || players.length === 0) {
+            if (keyBtnMobile) keyBtnMobile.style.display = 'none';
+            return;
+        }
+        const p1 = players[0];
+        if (p1 && p1.alive && p1.keys > 0) {
+            if (keyBtnMobile) keyBtnMobile.style.display = 'flex';
+        } else {
+            if (keyBtnMobile) keyBtnMobile.style.display = 'none';
+        }
+    }
+
     const CW=1000, CH=600, RW=440, RH=290, WL=22, PR=14;
     const WEAPONS = { pistol:{n:'Pistol',a:10,c:0.3,r:1.4,s:500,p:1,an:0,cl:'#ffe066',d:1}, shotgun:{n:'Shotgun',a:6,c:0.8,r:2.0,s:430,p:5,an:0.28,cl:'#ffaa44',d:0.9}, smg:{n:'SMG',a:20,c:0.14,r:1.8,s:580,p:1,an:0.08,cl:'#ffdd55',d:0.7}, laser:{n:'Laser',a:6,c:0.4,r:2.2,s:900,p:1,an:0,cl:'#00ffff',d:1.2,pierce:true}, rocket:{n:'Rocket',a:3,c:1.2,r:2.5,s:320,p:1,an:0,cl:'#ff8844',d:2.5,expl:true,rad:100}, spray:{n:'Spray',a:15,c:0.25,r:1.6,s:550,p:8,an:0.06,cl:'#88ff88',d:0.5}, sniper:{n:'Sniper',a:4,c:1.5,r:2.5,s:1200,p:1,an:0,cl:'#aa88ff',d:3.5,pierce:true,hardPierce:true} };
     const WPRICES = { pistol:40, shotgun:60, smg:80, laser:100, rocket:120, spray:140, sniper:160 };
@@ -383,7 +412,7 @@
     }
 
     function rebuildWalls(){ buildWalls(); }
-    function findClosestWall(px,py, range=80){ let closest = null, closestDist = range; for(const w of walls){ if(!w.c1 && !w.c2) continue; const cx = w.x + w.w/2, cy = w.y + w.h/2; const d = Math.hypot(px - cx, py - cy); if(d < closestDist){ closest = w; closestDist = d; } } return closest; }
+    function findClosestWall(px,py, range=120){ let closest = null, closestDist = range; for(const w of walls){ if(!w.c1 && !w.c2) continue; const cx = w.x + w.w/2, cy = w.y + w.h/2; const d = Math.hypot(px - cx, py - cy); if(d < closestDist){ closest = w; closestDist = d; } } return closest; }
     function useKeyOnWall(w){ if(!w) return; const opp = w.dir==='e'?'w':'n'; doors[w.c1][w.r1][w.dir] = true; doors[w.c2][w.r2][opp] = true; rebuildWalls(); sfx.keyUse(); }
 
     function generateSurvivalMap(){
@@ -467,7 +496,7 @@
         pickUpUtil(type){ if(!type || !UT.includes(type)) return; this.currentUtil=type; this.utilCharges=currentMode==='survival'?5:3; sfx.pickup(); }
         pickUpMelee(type){ if(!type || !MELEE_TYPES.includes(type)) return; this.meleeWeapon=type; sfx.pickup(); }
         pickUpKey(){ if(this.keys>=20) return; this.keys++; sfx.pickup(); }
-        useKey(){ if(this.keys<=0) return; const wi = findClosestWall(this.x,this.y,80); if(wi){ useKeyOnWall(wi); this.keys--; } }
+        useKey(){ if(this.keys<=0) return; const wi = findClosestWall(this.x,this.y,120); if(wi){ useKeyOnWall(wi); this.keys--; } }
         respawn(){ if(currentMode==='normal'){ const s=getRoom(0,0); this.x=s.cx; this.y=s.cy; } else { const center=getRoom(1,1); this.x=center.cx; this.y=center.cy; } this.hp=this.maxHp; this.alive=true; this.invuln=3.0; this.facingX=1; this.facingY=0; this.reloading=false; this.ammo=this.maxAmmo; if(!this.currentUtil) this.currentUtil=UT[Math.floor(Math.random()*UT.length)]; this.utilCharges=currentMode==='survival'?5:3; }
     }
 
@@ -668,7 +697,7 @@
     class ThrownEnemy{ constructor(x,y,vx,vy,d){ this.x=x;this.y=y;this.vx=vx;this.vy=vy;this.r=10;this.life=3;this.alive=true;this.dmg=d; } update(dt){ this.x+=this.vx*dt; this.y+=this.vy*dt; this.life-=dt; if(this.life<=0||this.x<0||this.x>MW||this.y<0||this.y>MH){ this.alive=false; return; } for(const w of walls) if(circleRect(this.x,this.y,this.r,w.x,w.y,w.w,w.h)){ this.explode(); return; } for(const p of players) if(p.alive&&Math.hypot(this.x-p.x,this.y-p.y)<this.r+p.radius){ p.hurt(this.dmg); this.explode(); return; } } explode(){ if(!this.alive) return; this.alive=false; spawnParticles(this.x,this.y,'#ff6644',5); shake=Math.max(shake,4); } draw(ctx,cam){ if(!this.alive) return; ctx.fillStyle='#cc4444'; ctx.beginPath(); ctx.arc(this.x-cam.x+CW/2,this.y-cam.y+CH/2,this.r,0,Math.PI*2); ctx.fill(); } }
 
     function initGame(mode, level=1){
-        currentMode=mode; currentLevel=level; gameRunning=true; gameWon=false; gameInitialized=true;
+        currentMode=mode; currentLevel=level; gameRunning=true; gameWon=false; gameOver=false; gameInitialized=true;
         players=[]; enemies=[]; spawners=[]; bullets=[]; particles=[]; coins=[]; healthPickups=[]; weaponPickups=[]; utilityPickups=[]; meleePickups=[]; keyPickups=[]; magnetPickups=[];
         activeFields=[]; activeBarriers=[]; activeMines=[]; grenades=[]; weaponRacks=[]; meleeEffects=[]; explosionCircles=[]; thrownEnemies=[]; bossBombs=[]; laserBeams=[]; laserWarnings=[];
         shake=0; bossDefeated=false; bossArea=null; hasLeftStartRoom = false;
@@ -714,7 +743,7 @@
     }
 
     function goHome(){
-        gameRunning=false; gameWon=false; gameInitialized=false;
+        gameRunning=false; gameWon=false; gameOver=false; gameInitialized=false;
         victoryOverlay.classList.add('hidden'); gameOverOverlay.classList.add('hidden'); shopOverlay.classList.add('hidden'); settingsOverlay.classList.add('hidden');
         homescreenOverlay.classList.remove('hidden');
         updateHomescreenStats();
@@ -838,12 +867,14 @@
             }
         }
         if(currentMode==='survival' && players.every(p=>!p.alive) && performance.now()/1000 - gameStartTime > 5){
-            gameRunning=false; if(wave > survivalHighscore){ survivalHighscore = wave; saveSurvivalHighscore(); }
+            gameRunning=false; gameOver=true;
+            if(wave > survivalHighscore){ survivalHighscore = wave; saveSurvivalHighscore(); }
             gameOverStats.innerHTML=`🏆 Wave ${wave}<br>⭐ Best: ${survivalHighscore}<br>🪙 Coins collected: ${sharedCoins}`;
             btnGameOverLevel2.style.display = level2Unlocked ? 'inline-block' : 'none';
             gameOverOverlay.classList.remove('hidden');
             hasLeftStartRoom = false; updateUIButtons();
         }
+        updateKeyButtonVisibility();
     }
 
     function drawPlayer(ctx,p,cam){
@@ -966,7 +997,18 @@
     btnGameOverShop.onclick=()=>{ gameOverOverlay.classList.add('hidden'); showShop(); };
     btnGameOverLevel1.onclick=()=>{ gameOverOverlay.classList.add('hidden'); initGame('normal',1); };
     btnGameOverLevel2.onclick=()=>{ gameOverOverlay.classList.add('hidden'); if(level2Unlocked) initGame('normal',2); };
-    btnLeaveShop.onclick=()=>{ shopOverlay.classList.add('hidden'); if(!gameInitialized){ goHome(); } else { gameRunning=true; updateUIButtons(); } };
+    btnLeaveShop.onclick=()=>{
+        shopOverlay.classList.add('hidden');
+        if(gameWon || gameOver){
+            gameWon = false; gameOver = false;
+            goHome();
+        } else if(!gameInitialized){
+            goHome();
+        } else {
+            gameRunning = true;
+            updateUIButtons();
+        }
+    };
     btnFullReset.onclick=()=>{ localStorage.clear(); location.reload(); };
     btnCloseSettings.onclick=()=>{ settingsOverlay.classList.add('hidden'); isSettingsOpen=false; if(!gameInitialized){ gameRunning=false; } else { gameRunning=true; } };
     settingsBtn.onclick=()=>{ initAudio(); isSettingsOpen=true; buildKeybindUI(); settingsOverlay.classList.remove('hidden'); gameRunning=false; };
