@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Catapult Siege – Ground Death & Fixed Levels</title>
+    <title>Catapult Siege – Bomb, Sounds & Taller Wall</title>
     <style>
         :root { --bg: #1a1a2e; }
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -72,6 +72,81 @@
             const levelBadge = document.getElementById('levelBadge');
             const instructionEl = document.getElementById('instruction');
 
+            // --- Sound System ---
+            let audioCtx = null;
+            function initAudio() {
+                if (!audioCtx) {
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+            }
+            function playSound(type) {
+                if (!audioCtx) return;
+                const now = audioCtx.currentTime;
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                switch(type) {
+                    case 'launch':
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(200, now);
+                        osc.frequency.exponentialRampToValueAtTime(400, now + 0.2);
+                        gain.gain.setValueAtTime(0.3, now);
+                        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                        osc.start(now); osc.stop(now + 0.3);
+                        break;
+                    case 'hit':
+                        osc.type = 'square';
+                        osc.frequency.setValueAtTime(80, now);
+                        osc.frequency.exponentialRampToValueAtTime(40, now + 0.15);
+                        gain.gain.setValueAtTime(0.2, now);
+                        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+                        osc.start(now); osc.stop(now + 0.2);
+                        break;
+                    case 'destroy':
+                        osc.type = 'sawtooth';
+                        osc.frequency.setValueAtTime(300, now);
+                        osc.frequency.exponentialRampToValueAtTime(50, now + 0.3);
+                        gain.gain.setValueAtTime(0.25, now);
+                        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+                        osc.start(now); osc.stop(now + 0.4);
+                        break;
+                    case 'explosion':
+                        osc.type = 'sawtooth';
+                        osc.frequency.setValueAtTime(150, now);
+                        osc.frequency.exponentialRampToValueAtTime(20, now + 0.5);
+                        gain.gain.setValueAtTime(0.4, now);
+                        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.6);
+                        osc.start(now); osc.stop(now + 0.6);
+                        break;
+                    case 'death':
+                        osc.type = 'triangle';
+                        osc.frequency.setValueAtTime(500, now);
+                        osc.frequency.exponentialRampToValueAtTime(100, now + 0.4);
+                        gain.gain.setValueAtTime(0.2, now);
+                        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+                        osc.start(now); osc.stop(now + 0.5);
+                        break;
+                    case 'win':
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(523, now);
+                        osc.frequency.setValueAtTime(659, now + 0.15);
+                        osc.frequency.setValueAtTime(784, now + 0.3);
+                        gain.gain.setValueAtTime(0.3, now);
+                        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.6);
+                        osc.start(now); osc.stop(now + 0.6);
+                        break;
+                    case 'lose':
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(400, now);
+                        osc.frequency.exponentialRampToValueAtTime(100, now + 0.5);
+                        gain.gain.setValueAtTime(0.2, now);
+                        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.6);
+                        osc.start(now); osc.stop(now + 0.6);
+                        break;
+                }
+            }
+
             const WIDTH = 920, HEIGHT = 520;
             canvas.width = WIDTH; canvas.height = HEIGHT;
             function resizeCanvas() {
@@ -95,6 +170,7 @@
             const MAX_ROCKS = 6;
             const WORLD_WIDTH = 1280;
             const MAX_TRAJECTORY_LENGTH = 460;
+            const TILT_THRESHOLD = 0.4;
 
             let gameState = 'aiming', rocksRemaining = MAX_ROCKS, score = 0, level = 1;
             let activeRock = null, dragPos = null, isDragging = false;
@@ -112,7 +188,9 @@
 
             function createBlock(x,y,w,h,material) {
                 const mat = MATERIALS[material] || MATERIALS.wood;
-                return {x,y,w,h,hp:mat.hp,maxHp:mat.hp,color:mat.color,material,destroyed:false,falling:false,vy:0,vx:0};
+                return {x,y,w,h,hp:mat.hp,maxHp:mat.hp,color:mat.color,material,
+                    destroyed:false, falling:false, vy:0, vx:0,
+                    angle:0, angularVelocity:0, tilting:false};
             }
             function createEnemy(x,y,type) {
                 let radius = 13;
@@ -171,8 +249,30 @@
                 const rng = seededRandom(castleSeed);
                 const startX = 960 + Math.floor(rng()*60);
                 const plankH = 15, pillarW = 22, gap = 2;
-
                 const addBlock = (x,y,w,h,material) => blocks.push(createBlock(x,y,w,h,material));
+
+                // Special level 5: tall wall + bomb pig
+                if (level === 5) {
+                    const wallX = startX + 120;
+                    const wallH = 160; // much taller wall
+                    for (let y = GROUND_Y - wallH; y < GROUND_Y; y += plankH + gap) {
+                        addBlock(wallX, y, pillarW, plankH, 'stone');
+                        addBlock(wallX + pillarW + gap, y, pillarW, plankH, 'stone');
+                    }
+                    const platX = wallX + 80;
+                    addBlock(platX, GROUND_Y - 40, 80, plankH, 'wood');
+                    const bomb = createEnemy(platX + 40, GROUND_Y - 40 - 14, 'round_black');
+                    enemies.push(bomb);
+                    placeEnemyOnBlock(bomb, blocks);
+                    addRandomEnemy(platX + 20, GROUND_Y - 40);
+                    addRandomEnemy(platX + 60, GROUND_Y - 40);
+                    addSmallBluePack(platX + 40, GROUND_Y - 70);
+                    while (enemies.length < 6) {
+                        const ex = startX + rng() * 200;
+                        addRandomEnemy(ex, GROUND_Y - 30 - rng() * 80);
+                    }
+                    return;
+                }
 
                 const template = Math.floor(rng() * 6);
                 switch(template) {
@@ -287,7 +387,7 @@
                 activeRock = null; dragPos = null; isDragging = false;
                 particles = []; screenShake = 0; settleTimer = 0; trajectoryPoints = [];
                 lastTrajectory = null; cameraX = 0; targetCameraX = 0;
-                castleSeed = level * 7777; // deterministic for first 10 levels
+                castleSeed = level * 7777; // deterministic first 10
                 generateAngryBirdsStructure(); updateUI();
                 restartBtn.classList.remove('visible'); instructionEl.style.opacity = '1';
             }
@@ -296,7 +396,7 @@
                 activeRock = null; dragPos = null; isDragging = false;
                 particles = []; screenShake = 0; settleTimer = 0; trajectoryPoints = [];
                 lastTrajectory = null; cameraX = 0; targetCameraX = 0;
-                castleSeed = level * 7777; // deterministic
+                castleSeed = level * 7777;
                 generateAngryBirdsStructure(); updateUI();
                 restartBtn.classList.remove('visible'); instructionEl.style.opacity = '1';
             }
@@ -314,6 +414,7 @@
             }
 
             function handleMouseDown(e) {
+                initAudio();
                 if(gameState !== 'aiming') return;
                 const worldPos = screenToWorld(e.clientX, e.clientY);
                 const dist = Math.hypot(worldPos.x - CATAPULT_X, worldPos.y - CATAPULT_Y);
@@ -361,6 +462,7 @@
                     rocksRemaining--;
                     gameState = 'flying';
                     dragPos = null; trajectoryPoints = [];
+                    playSound('launch');
                     updateUI();
                 } else if(isPanning) {
                     isPanning = false;
@@ -376,6 +478,7 @@
             });
             canvas.addEventListener('touchstart', (e)=>{
                 e.preventDefault();
+                initAudio();
                 if(e.touches.length === 1) handleMouseDown(e.touches[0]);
             }, {passive: false});
             canvas.addEventListener('touchmove', (e)=>{
@@ -440,6 +543,7 @@
                         settleTimer = 45;
                     }
                 }
+                // Damage blocks only – not enemies
                 for (const block of blocks) {
                     if (block.destroyed) continue;
                     const dist = Math.hypot(block.x+block.w/2 - x, block.y+block.h/2 - y);
@@ -448,14 +552,9 @@
                         if (block.hp <= 0) destroyBlock(block);
                     }
                 }
-                for (const enemy of enemies) {
-                    if (!enemy.alive) continue;
-                    if (Math.hypot(enemy.x - x, enemy.y - y) < radius) {
-                        killEnemy(enemy, false);
-                    }
-                }
                 spawnParticles(x, y, 30, ['#ff6600','#ff0000','#ffff00','#000000'], 8, [2,10]);
                 screenShake = Math.max(screenShake, 12);
+                playSound('explosion');
             }
 
             function spawnEnemyDeath(enemy) {
@@ -469,7 +568,9 @@
             }
             function destroyBlock(block) {
                 if(block.destroyed) return; block.destroyed=true; spawnBlockDebris(block);
-                score+=block.maxHp*15; screenShake=Math.max(screenShake,4+block.maxHp); updateUI();
+                score+=block.maxHp*15; screenShake=Math.max(screenShake,4+block.maxHp);
+                playSound('destroy');
+                updateUI();
             }
             function killEnemy(enemy, explodeBlack = true) {
                 if(!enemy.alive) return;
@@ -478,13 +579,30 @@
                     explodeAt(enemy.x, enemy.y, 60);
                 }
                 spawnEnemyDeath(enemy);
-                score+=100; screenShake=Math.max(screenShake,7); updateUI();
+                score+=100; screenShake=Math.max(screenShake,7);
+                playSound('death');
+                updateUI();
             }
+
+            function getSupportSides(block) {
+                let leftSupported = false, rightSupported = false;
+                for (const other of blocks) {
+                    if (other === block || other.destroyed || other.falling || other.tilting) continue;
+                    const otherTop = other.y;
+                    if (Math.abs((block.y + block.h) - otherTop) < 4) {
+                        if (other.x < block.x + 2 && other.x + other.w > block.x + 2) leftSupported = true;
+                        if (other.x < block.x + block.w - 2 && other.x + other.w > block.x + block.w - 2) rightSupported = true;
+                    }
+                }
+                if (block.y + block.h >= GROUND_Y - 2) leftSupported = rightSupported = true;
+                return {left: leftSupported, right: rightSupported};
+            }
+
             function checkBlockSupport(block) {
-                if(block.destroyed||block.falling) return true;
+                if(block.destroyed||block.falling || block.tilting) return true;
                 if(block.y+block.h>=GROUND_Y-2) return true;
                 for(const other of blocks) {
-                    if(other===block||other.destroyed||other.falling) continue;
+                    if(other===block||other.destroyed||other.falling||other.tilting) continue;
                     if(Math.abs((block.y+block.h)-other.y)<4) {
                         const overlapLeft=Math.max(block.x,other.x), overlapRight=Math.min(block.x+block.w,other.x+other.w);
                         if(overlapRight-overlapLeft>16) return true;
@@ -492,29 +610,55 @@
                 }
                 return false;
             }
+
             function markUnsupportedBlocks() {
                 let changed=true, iterations=0;
                 while(changed && iterations<10) {
                     changed=false; iterations++;
                     for(const block of blocks) {
-                        if(block.destroyed||block.falling) continue;
-                        if(!checkBlockSupport(block)) { block.falling=true; block.vy=1.5; block.vx=(Math.random()-0.5)*1.5; changed=true; }
+                        if(block.destroyed||block.falling||block.tilting) continue;
+                        const supported = checkBlockSupport(block);
+                        if (!supported) {
+                            const sides = getSupportSides(block);
+                            if (sides.left && !sides.right) {
+                                block.tilting = true; block.angularVelocity = 0.02;
+                            } else if (!sides.left && sides.right) {
+                                block.tilting = true; block.angularVelocity = -0.02;
+                            } else {
+                                block.falling = true; block.vy = 1.5; block.vx = (Math.random()-0.5)*1.5;
+                            }
+                            changed = true;
+                        }
                     }
                 }
             }
+
+            function updateTiltingBlocks() {
+                for (const block of blocks) {
+                    if (!block.tilting || block.destroyed) continue;
+                    block.angularVelocity += 0.001;
+                    block.angle += block.angularVelocity;
+                    if (Math.abs(block.angle) > TILT_THRESHOLD) {
+                        block.tilting = false;
+                        block.falling = true;
+                        block.vy = 1;
+                        block.vx = (Math.random()-0.5)*0.5;
+                    }
+                }
+            }
+
             function updateEnemyPhysics() {
                 for(const enemy of enemies) {
                     if(!enemy.alive) continue;
                     enemy.vy += GRAVITY;
                     enemy.x += enemy.vx;
                     enemy.y += enemy.vy;
-                    // Enemy dies when hitting the ground
                     if(enemy.y + enemy.radius >= GROUND_Y) {
                         killEnemy(enemy, true);
                         continue;
                     }
                     for(const block of blocks) {
-                        if(block.destroyed) continue;
+                        if(block.destroyed || block.tilting) continue;
                         const res = circleRectCollision(enemy.x, enemy.y, enemy.radius, block.x, block.y, block.w, block.h);
                         if(res.hit) {
                             enemy.x += res.nx * res.overlap;
@@ -536,6 +680,7 @@
                     if(enemy.y > HEIGHT + 100) enemy.alive = false;
                 }
             }
+
             function updateFallingBlocks() {
                 for(const block of blocks) {
                     if(!block.falling||block.destroyed) continue;
@@ -553,7 +698,7 @@
                         markUnsupportedBlocks();
                     }
                     for(const other of blocks) {
-                        if(other===block||other.destroyed||other.falling) continue;
+                        if(other===block||other.destroyed||other.falling||other.tilting) continue;
                         if(block.y+block.h>=other.y && block.y+block.h<=other.y+other.h+6 && block.vy>0) {
                             const overlapLeft=Math.max(block.x,other.x), overlapRight=Math.min(block.x+block.w,other.x+other.w);
                             if(overlapRight-overlapLeft>14) {
@@ -566,12 +711,13 @@
                     if(block.y>HEIGHT+100) { block.destroyed=true; block.falling=false; }
                 }
             }
+
             function updateActiveRock() {
                 if(!activeRock||!activeRock.active) return;
                 const rock=activeRock; rock.vy+=GRAVITY; rock.x+=rock.vx; rock.y+=rock.vy;
                 let collided=false;
                 for(const block of blocks) {
-                    if(block.destroyed||block.falling) continue;
+                    if(block.destroyed||block.falling||block.tilting) continue;
                     const res=circleRectCollision(rock.x,rock.y,rock.radius,block.x,block.y,block.w,block.h);
                     if(res.hit) {
                         rock.x+=res.nx*res.overlap; rock.y+=res.ny*res.overlap;
@@ -579,7 +725,7 @@
                         if(dot<0) { rock.vx-=2*dot*res.nx; rock.vy-=2*dot*res.ny; rock.vx*=BOUNCE_DAMPING; rock.vy*=BOUNCE_DAMPING; }
                         block.hp-=Math.abs(dot)*0.55;
                         if(block.hp<=0) { destroyBlock(block); markUnsupportedBlocks(); }
-                        else spawnParticles(res.closestX,res.closestY,3,[block.color,'#ddd'],1.5,[1,3]);
+                        else { spawnParticles(res.closestX,res.closestY,3,[block.color,'#ddd'],1.5,[1,3]); playSound('hit'); }
                         rock.bounces++; collided=true; break;
                     }
                 }
@@ -594,24 +740,34 @@
                     rock.active=false; gameState='settling'; settleTimer=45;
                 }
             }
+
             function updateParticles() {
                 for(let i=particles.length-1;i>=0;i--) { const p=particles[i]; p.vy+=GRAVITY*0.6; p.x+=p.vx; p.y+=p.vy; p.life--; p.rotation+=p.rotSpeed; if(p.life<=0) particles.splice(i,1); }
             }
+
             function checkWinLose() {
                 if(enemies.every(e=>!e.alive)) {
                     gameState='won'; score+=rocksRemaining*50+level*100; updateUI();
-                    restartBtn.textContent='🏆 Level '+level+' Cleared! Next →'; restartBtn.classList.add('visible'); instructionEl.style.opacity='0'; return true;
+                    restartBtn.textContent='🏆 Level '+level+' Cleared! Next →'; restartBtn.classList.add('visible'); instructionEl.style.opacity='0';
+                    playSound('win');
+                    return true;
                 }
                 if(rocksRemaining<=0&&gameState==='settling'&&settleTimer<=0) {
                     if(!blocks.some(b=>b.falling&&!b.destroyed)) {
-                        if(enemies.some(e=>e.alive)) { gameState='lost'; restartBtn.textContent='😞 Try Again'; restartBtn.classList.add('visible'); instructionEl.style.opacity='0'; return true; }
+                        if(enemies.some(e=>e.alive)) {
+                            gameState='lost'; restartBtn.textContent='😞 Try Again'; restartBtn.classList.add('visible'); instructionEl.style.opacity='0';
+                            playSound('lose');
+                            return true;
+                        }
                     }
                 }
                 return false;
             }
+
             function update() {
                 if(screenShake>0) screenShake*=0.85; if(screenShake<0.1) screenShake=0;
                 updateParticles();
+                updateTiltingBlocks();
                 updateEnemyPhysics();
                 updateFallingBlocks();
 
@@ -626,6 +782,7 @@
                 if(gameState==='settling') {
                     settleTimer--;
                     updateFallingBlocks();
+                    updateTiltingBlocks();
                     updateEnemyPhysics();
                     if(settleTimer<=0) {
                         if(!checkWinLose()) {
@@ -637,8 +794,10 @@
                             } else if(enemies.every(e=>!e.alive)) {
                                 gameState='won'; score+=level*100; updateUI();
                                 restartBtn.textContent='🏆 Level '+level+' Cleared! Next →'; restartBtn.classList.add('visible');
+                                playSound('win');
                             } else {
                                 gameState='lost'; restartBtn.textContent='😞 Try Again'; restartBtn.classList.add('visible'); instructionEl.style.opacity='0';
+                                playSound('lose');
                             }
                         }
                     }
@@ -693,13 +852,25 @@
             }
             function drawBlock(block) {
                 if(block.destroyed) return;
-                const {x,y,w,h,hp,maxHp,color,falling}=block;
+                const {x,y,w,h,hp,maxHp,color,falling,angle} = block;
+                ctx.save();
+                const cx = x + w/2, cy = y + h/2;
+                ctx.translate(cx, cy);
+                ctx.rotate(angle);
                 const factor=1-(hp/maxHp)*0.4;
-                ctx.fillStyle=color; ctx.fillRect(x,y,w,h);
-                const hl=ctx.createLinearGradient(x,y,x,y+h); hl.addColorStop(0,'rgba(255,255,255,0.25)'); hl.addColorStop(1,'rgba(0,0,0,0.15)'); ctx.fillStyle=hl; ctx.fillRect(x,y,w,h);
-                ctx.strokeStyle='rgba(0,0,0,0.3)'; ctx.lineWidth=1.5; ctx.strokeRect(x,y,w,h);
-                if(hp<maxHp) { ctx.strokeStyle='rgba(0,0,0,0.3)'; ctx.lineWidth=0.8; for(let i=0;i<maxHp-Math.ceil(hp);i++) { ctx.beginPath(); ctx.moveTo(x+w*0.3,y+h*0.3); ctx.lineTo(x+w*0.5,y+h*0.6); ctx.stroke(); } }
-                if(falling) { ctx.strokeStyle='rgba(255,150,50,0.6)'; ctx.lineWidth=2; ctx.setLineDash([4,3]); ctx.strokeRect(x-2,y-2,w+4,h+4); ctx.setLineDash([]); }
+                ctx.fillStyle=color;
+                ctx.fillRect(-w/2, -h/2, w, h);
+                const hl=ctx.createLinearGradient(-w/2,-h/2,-w/2,h/2);
+                hl.addColorStop(0,'rgba(255,255,255,0.25)'); hl.addColorStop(1,'rgba(0,0,0,0.15)');
+                ctx.fillStyle=hl; ctx.fillRect(-w/2,-h/2,w,h);
+                ctx.strokeStyle='rgba(0,0,0,0.3)'; ctx.lineWidth=1.5; ctx.strokeRect(-w/2,-h/2,w,h);
+                if(hp<maxHp) {
+                    ctx.strokeStyle='rgba(0,0,0,0.3)'; ctx.lineWidth=0.8;
+                    for(let i=0;i<maxHp-Math.ceil(hp);i++) {
+                        ctx.beginPath(); ctx.moveTo(-w/2+w*0.3,-h/2+h*0.3); ctx.lineTo(-w/2+w*0.5,-h/2+h*0.6); ctx.stroke();
+                    }
+                }
+                ctx.restore();
             }
             function drawEnemy(enemy) {
                 if(!enemy.alive) return;
@@ -716,15 +887,22 @@
                     ctx.beginPath(); ctx.arc(6, -4, 2, 0, Math.PI*2); ctx.fill();
                     ctx.beginPath(); ctx.moveTo(-8, 4); ctx.lineTo(8, 4); ctx.lineWidth=2; ctx.strokeStyle='#000'; ctx.stroke();
                 } else if (type === 'round_black') {
-                    ctx.fillStyle = '#222'; ctx.beginPath(); ctx.arc(0, 0, radius, 0, Math.PI*2); ctx.fill();
+                    // Bomb shape: dark circle with a lit fuse and skull
+                    ctx.fillStyle = '#1a1a1a';
+                    ctx.beginPath(); ctx.arc(0, 0, radius*0.9, 0, Math.PI*2); ctx.fill();
+                    // Skull (simplified)
                     ctx.fillStyle = '#fff';
-                    ctx.beginPath(); ctx.arc(-4, -3, 3.5, 0, Math.PI*2); ctx.fill();
-                    ctx.beginPath(); ctx.arc(4, -3, 3.5, 0, Math.PI*2); ctx.fill();
-                    ctx.fillStyle = '#000';
-                    ctx.beginPath(); ctx.arc(-4, -3, 1.8, 0, Math.PI*2); ctx.fill();
-                    ctx.beginPath(); ctx.arc(4, -3, 1.8, 0, Math.PI*2); ctx.fill();
-                    ctx.fillStyle = '#ff8800'; ctx.beginPath(); ctx.arc(0, -radius, 3, 0, Math.PI*2); ctx.fill();
-                    ctx.fillStyle = '#ffff00'; ctx.beginPath(); ctx.arc(0, -radius, 1.5, 0, Math.PI*2); ctx.fill();
+                    ctx.beginPath(); ctx.arc(0, -2, radius*0.4, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#1a1a1a';
+                    ctx.beginPath(); ctx.arc(-2, -2, radius*0.15, 0, Math.PI*2); ctx.fill();
+                    ctx.beginPath(); ctx.arc(2, -2, radius*0.15, 0, Math.PI*2); ctx.fill();
+                    ctx.fillRect(-1.5, -1, 3, 1.5);
+                    // Fuse
+                    ctx.strokeStyle = '#8B4513'; ctx.lineWidth = 2;
+                    ctx.beginPath(); ctx.moveTo(0, -radius*0.9); ctx.lineTo(radius*0.4, -radius*1.3);
+                    ctx.stroke();
+                    ctx.fillStyle = '#ff8800'; ctx.beginPath(); ctx.arc(radius*0.4, -radius*1.3, 3, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#ffff00'; ctx.beginPath(); ctx.arc(radius*0.4, -radius*1.3, 1.5, 0, Math.PI*2); ctx.fill();
                 } else if (type === 'triangle_yellow') {
                     ctx.fillStyle = '#ffdd00';
                     ctx.beginPath(); ctx.moveTo(0, -radius); ctx.lineTo(-radius*0.8, radius*0.6); ctx.lineTo(radius*0.8, radius*0.6); ctx.closePath(); ctx.fill();
@@ -766,6 +944,35 @@
                 ctx.beginPath(); ctx.arc(0, 0, radius, 0, Math.PI*2); ctx.stroke();
                 ctx.restore();
             }
+            function drawAmmoQueue() {
+                if (gameState !== 'aiming' && gameState !== 'flying' && gameState !== 'settling') return;
+                const queueX = CATAPULT_X - 40;
+                const startY = CATAPULT_Y + 40;
+                const spacing = 18;
+                for (let i = 0; i < rocksRemaining; i++) {
+                    const y = startY + i * spacing;
+                    const alpha = 0.5;
+                    const scale = 0.7;
+                    ctx.save();
+                    ctx.globalAlpha = alpha;
+                    ctx.translate(queueX, y);
+                    ctx.scale(scale, scale);
+                    ctx.fillStyle = '#66bb66';
+                    ctx.beginPath(); ctx.arc(0, 0, ROCK_RADIUS*0.7, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#88cc88';
+                    ctx.beginPath(); ctx.ellipse(0, 3, 4, 2.5, 0, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#2d6a2d';
+                    ctx.beginPath(); ctx.arc(-1.5, 3, 1, 0, Math.PI*2); ctx.fill();
+                    ctx.beginPath(); ctx.arc(1.5, 3, 1, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#fff';
+                    ctx.beginPath(); ctx.arc(-3, -2, 2, 0, Math.PI*2); ctx.fill();
+                    ctx.beginPath(); ctx.arc(3, -2, 2, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#000';
+                    ctx.beginPath(); ctx.arc(-2.5, -2, 1, 0, Math.PI*2); ctx.fill();
+                    ctx.beginPath(); ctx.arc(3.5, -2, 1, 0, Math.PI*2); ctx.fill();
+                    ctx.restore();
+                }
+            }
             function drawLastTrajectory() {
                 if(!lastTrajectory || lastTrajectory.length<2) return;
                 ctx.strokeStyle='rgba(200,255,200,0.3)'; ctx.lineWidth=2; ctx.setLineDash([6,8]);
@@ -802,6 +1009,7 @@
                 }
                 drawParticles();
                 ctx.restore();
+                drawAmmoQueue();
                 drawGameOverMessage();
                 if(gameState==='aiming'&&!isDragging&&!activeRock) {
                     const pulse=0.4+Math.sin(Date.now()*0.005)*0.25;
