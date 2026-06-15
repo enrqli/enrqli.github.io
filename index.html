@@ -249,6 +249,15 @@
             letter-spacing: 1px;
         }
 
+        /* View counter loading style */
+        #viewCountDisplay {
+            transition: all 0.3s;
+        }
+        .counter-loading {
+            opacity: 0.5;
+            font-size: 1.2rem !important;
+        }
+
         .section {
             position: relative;
             z-index: 1;
@@ -652,6 +661,10 @@
                 <div class="stat-label">Platforms</div>
             </div>
             <div class="stat">
+                <div class="stat-number" id="viewCountDisplay">…</div>
+                <div class="stat-label">👀 Views</div>
+            </div>
+            <div class="stat">
                 <div class="stat-number">5+</div>
                 <div class="stat-label">Players</div>
             </div>
@@ -807,6 +820,32 @@
             playUrl: '#',
             videoLink: '#',
         }*/];
+
+        // ─────────────────────────────────────
+        // VIEW COUNTER (CountAPI with fallback to localStorage)
+        // ─────────────────────────────────────
+        async function updateViewCounter() {
+            const counterEl = document.getElementById('viewCountDisplay');
+            const namespace = 'mygameportfolio';
+            // Unique key based on the hostname (so count is separate per domain)
+            const key = window.location.hostname.replace(/\./g, '-') + '-views';
+            
+            try {
+                const response = await fetch(`https://api.countapi.xyz/hit/${namespace}/${key}`);
+                if (!response.ok) throw new Error('CountAPI response not ok');
+                const data = await response.json();
+                counterEl.textContent = data.value.toLocaleString();
+                counterEl.classList.remove('counter-loading');
+            } catch (error) {
+                console.warn('View counter API failed, falling back to localStorage:', error);
+                let localCount = localStorage.getItem('portfolioViewCount') || 0;
+                localCount = parseInt(localCount) + 1;
+                localStorage.setItem('portfolioViewCount', localCount);
+                counterEl.textContent = localCount.toLocaleString();
+                counterEl.classList.remove('counter-loading');
+                counterEl.title = 'Local view count (not global)';
+            }
+        }
 
         // ─────────────────────────────────────
         // RENDER GAME CARDS
@@ -990,8 +1029,8 @@
         // INIT
         // ─────────────────────────────────────
         renderGames();
-        console.log('🎮 Game portfolio ready!');
-        console.log('💡 To make the play window work, replace each game\'s playUrl with the full URL to your HTML5 game.');
+        updateViewCounter();  // Start the view counter
+        console.log('🎮 Game portfolio ready! View counter active.');
     </script>
 </body>
 </html>
