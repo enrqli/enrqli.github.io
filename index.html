@@ -249,7 +249,7 @@
             letter-spacing: 1px;
         }
 
-        /* View counter loading style */
+        /* Live counter transition */
         #viewCountDisplay {
             transition: all 0.3s;
         }
@@ -751,7 +751,7 @@
             gradient: 'linear-gradient(135deg, #1a0533 0%, #0d1b3e 50%, #0a0a2e 100%)',
             tag: 'Featured',
             tagClass: 'tag-featured',
-            playUrl: 'games/room-escape.html',          // <-- Replace with your game URL, e.g. https://mygames.com/cosmic-drift/
+            playUrl: 'games/room-escape.html',
             videoLink: '#',
         }, {
             id: 2,
@@ -786,66 +786,61 @@
             tagClass: 'tag-new',
             playUrl: 'games/happy_pigs.html',
             videoLink: '#',
-        }/*, {
-            id: 4,
-            title: 'Skyward Bound',
-            genre: 'Platformer',
-            description: 'Leap between floating islands in a hand-painted world. Master wind currents, collect star fragments, and reach the highest peak.',
-            icon: '🪽',
-            gradient: 'linear-gradient(135deg, #0a1a2e 0%, #152540 50%, #0a1628 100%)',
-            tag: 'New',
-            tagClass: 'tag-new',
-            playUrl: '#',
-            videoLink: '#',
-        }, {
-            id: 5,
-            title: 'Shadow Protocol',
-            genre: 'Stealth / Strategy',
-            description: 'Infiltrate high-security facilities as a cybernetic agent. Use gadgets, shadows, and wit to complete missions without detection.',
-            icon: '🕶️',
-            gradient: 'linear-gradient(135deg, #0f0f0f 0%, #1a1a1a 50%, #0a0a0a 100%)',
-            tag: 'Featured',
-            tagClass: 'tag-featured',
-            playUrl: '#',
-            videoLink: '#',
-        }, {
-            id: 6,
-            title: 'Tiny Tactics',
-            genre: 'Turn-Based / Strategy',
-            description: 'Command a squad of adorable but fierce creatures in grid-based tactical battles. Each unit evolves mid-battle — plan carefully!',
-            icon: '🧩',
-            gradient: 'linear-gradient(135deg, #1a1a0a 0%, #1f1f10 50%, #14140a 100%)',
-            tag: '',
-            tagClass: '',
-            playUrl: '#',
-            videoLink: '#',
-        }*/];
+        }];
 
         // ─────────────────────────────────────
-        // VIEW COUNTER (CountAPI with fallback to localStorage)
+        // VIEW COUNTER (CountAPI with live polling)
         // ─────────────────────────────────────
-        async function updateViewCounter() {
-            const counterEl = document.getElementById('viewCountDisplay');
-            const namespace = 'mygameportfolio';
-            // Unique key based on the hostname (so count is separate per domain)
-            const key = window.location.hostname.replace(/\./g, '-') + '-views';
-            
+        const counterEl = document.getElementById('viewCountDisplay');
+        const namespace = 'mygameportfolio';
+        const key = window.location.hostname.replace(/\./g, '-') + '-views';
+        let pollInterval = null;
+
+        // Increment the counter once per visit (called only on page load)
+        async function incrementViewCounter() {
             try {
                 const response = await fetch(`https://api.countapi.xyz/hit/${namespace}/${key}`);
-                if (!response.ok) throw new Error('CountAPI response not ok');
+                if (!response.ok) throw new Error('CountAPI hit failed');
                 const data = await response.json();
-                counterEl.textContent = data.value.toLocaleString();
+                updateCounterDisplay(data.value);
                 counterEl.classList.remove('counter-loading');
             } catch (error) {
-                console.warn('View counter API failed, falling back to localStorage:', error);
+                console.warn('Increment failed, using localStorage fallback:', error);
                 let localCount = localStorage.getItem('portfolioViewCount') || 0;
                 localCount = parseInt(localCount) + 1;
                 localStorage.setItem('portfolioViewCount', localCount);
-                counterEl.textContent = localCount.toLocaleString();
+                updateCounterDisplay(localCount);
                 counterEl.classList.remove('counter-loading');
                 counterEl.title = 'Local view count (not global)';
             }
         }
+
+        // Fetch the current count without incrementing (for live updates)
+        async function fetchViewCount() {
+            try {
+                const response = await fetch(`https://api.countapi.xyz/get/${namespace}/${key}`);
+                if (!response.ok) throw new Error('CountAPI get failed');
+                const data = await response.json();
+                updateCounterDisplay(data.value);
+            } catch (error) {
+                // If fetch fails, do nothing (keep current display)
+                console.debug('Live fetch failed (keeping current count):', error);
+            }
+        }
+
+        function updateCounterDisplay(value) {
+            counterEl.textContent = Number(value).toLocaleString();
+        }
+
+        function startLiveUpdates() {
+            // Fetch every 10 seconds so the count stays current
+            pollInterval = setInterval(fetchViewCount, 10000);
+        }
+
+        // Initialize: increment once, then start live polling
+        incrementViewCounter().then(() => {
+            startLiveUpdates();
+        });
 
         // ─────────────────────────────────────
         // RENDER GAME CARDS
@@ -934,10 +929,8 @@
 
         function openPlayOverlay(game) {
             playTitle.textContent = game.title;
-            // If playUrl is '#' or empty, show a placeholder message
             if (!game.playUrl || game.playUrl === '#') {
                 gameIframe.src = 'about:blank';
-                // Optionally show a message inside the iframe – we'll use a data URI
                 const msg = `<html><body style="background:#111;color:#fff;display:flex;align-items:center;justify-content:center;font-family:sans-serif;height:100%;margin:0;"><p>🎮 Game URL not set.<br>Add your game's URL in the <code>playUrl</code> field.</p></body></html>`;
                 gameIframe.src = 'data:text/html;charset=utf-8,' + encodeURIComponent(msg);
             } else {
@@ -950,7 +943,6 @@
         function closePlayOverlay() {
             playOverlay.classList.remove('active');
             document.body.style.overflow = '';
-            // Stop the game from running in background by resetting src
             gameIframe.src = '';
         }
 
@@ -959,7 +951,6 @@
             if (e.target === playOverlay) closePlayOverlay();
         });
 
-        // Fullscreen button for the iframe
         fullscreenBtn.addEventListener('click', () => {
             if (gameIframe.requestFullscreen) {
                 gameIframe.requestFullscreen();
@@ -973,9 +964,7 @@
         // ─────────────────────────────────────
         // EVENT HANDLERS FOR PLAY BUTTONS
         // ─────────────────────────────────────
-        // Card "Play" buttons
         gamesGrid.addEventListener('click', (e) => {
-            // Play button on card
             const playBtn = e.target.closest('.btn-play-card');
             if (playBtn) {
                 e.preventDefault();
@@ -985,7 +974,6 @@
                 return;
             }
 
-            // Details button
             const detailsBtn = e.target.closest('.btn-details');
             if (detailsBtn) {
                 const gameId = parseInt(detailsBtn.getAttribute('data-id'));
@@ -994,7 +982,6 @@
                 return;
             }
 
-            // Whole card click (but not on buttons/links)
             const card = e.target.closest('.game-card');
             if (card && !e.target.closest('a') && !e.target.closest('button')) {
                 const gameId = parseInt(card.getAttribute('data-game-id'));
@@ -1003,11 +990,10 @@
             }
         });
 
-        // Modal "Play Now" button
         modalPlayBtn.addEventListener('click', () => {
             if (currentModalGame) {
                 openPlayOverlay(currentModalGame);
-                closeDetailsModal(); // optionally close details modal
+                closeDetailsModal();
             }
         });
 
@@ -1029,8 +1015,7 @@
         // INIT
         // ─────────────────────────────────────
         renderGames();
-        updateViewCounter();  // Start the view counter
-        console.log('🎮 Game portfolio ready! View counter active.');
+        console.log('🎮 Game portfolio ready! View counter live-updating every 10s.');
     </script>
 </body>
 </html>
