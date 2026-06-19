@@ -214,7 +214,7 @@
                 return block;
             }
 
-            // ===== STRUCTURE GENERATION (unchanged, included for completeness) =====
+            // ===== STRUCTURE GENERATION (unchanged) =====
             function generateBigSpreadStructure(startX, levelScale) {
                 const rng = seededRandom(castleSeed);
                 const baseX = startX;
@@ -848,18 +848,16 @@
                         if (block.destroyed || block.falling || block.tilting) continue;
                         const sides = getSupportSides(block);
                         if (!sides.left && !sides.right) {
-                            // No support → fall
                             block.falling = true; block.vy = 1.5; block.vx = (Math.random() - 0.5) * 1.5;
                             changed = true;
                         } else if (!sides.left || !sides.right) {
-                            // One side supported → tilt around that side
                             block.tilting = true;
                             if (sides.left && !sides.right) {
                                 block.pivotSide = 'left';
                                 block.pivotX = block.x;
                                 block.pivotY = block.y + block.h;
                                 block.angularVelocity = 0.02;
-                            } else { // !sides.left && sides.right
+                            } else {
                                 block.pivotSide = 'right';
                                 block.pivotX = block.x + block.w;
                                 block.pivotY = block.y + block.h;
@@ -871,11 +869,75 @@
                 }
             }
 
+            // NEW HELPER: get axis-aligned bounding box of a rotated block
+            function getRotatedAABB(block) {
+                const cx = block.x + block.w/2, cy = block.y + block.h/2;
+                const corners = [
+                    { x: -block.w/2, y: -block.h/2 },
+                    { x:  block.w/2, y: -block.h/2 },
+                    { x:  block.w/2, y:  block.h/2 },
+                    { x: -block.w/2, y:  block.h/2 }
+                ];
+                let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+                const cos = Math.cos(block.angle), sin = Math.sin(block.angle);
+                for (const c of corners) {
+                    const rx = cx + c.x * cos - c.y * sin;
+                    const ry = cy + c.x * sin + c.y * cos;
+                    if (rx < minX) minX = rx;
+                    if (ry < minY) minY = ry;
+                    if (rx > maxX) maxX = rx;
+                    if (ry > maxY) maxY = ry;
+                }
+                return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+            }
+
+            function updateEnemyPhysics() {
+                for (const enemy of enemies) {
+                    if (!enemy.alive) continue;
+                    enemy.vy += GRAVITY;
+                    enemy.x += enemy.vx;
+                    enemy.y += enemy.vy;
+                    if (enemy.y + enemy.radius >= GROUND_Y) {
+                        killEnemy(enemy, true);
+                        continue;
+                    }
+                    for (const block of blocks) {
+                        if (block.destroyed) continue;
+                        let bx, by, bw, bh;
+                        if (block.tilting) {
+                            const aabb = getRotatedAABB(block);
+                            bx = aabb.x; by = aabb.y; bw = aabb.w; bh = aabb.h;
+                        } else if (block.falling) {
+                            continue;
+                        } else {
+                            bx = block.x; by = block.y; bw = block.w; bh = block.h;
+                        }
+                        const res = circleRectCollision(enemy.x, enemy.y, enemy.radius, bx, by, bw, bh);
+                        if (res.hit) {
+                            enemy.x += res.nx * res.overlap;
+                            enemy.y += res.ny * res.overlap;
+                            if (Math.abs(res.ny) > 0.5 && enemy.vy > 0) {
+                                enemy.vy = Math.min(enemy.vy, 0);
+                                enemy.vx *= 0.9;
+                            } else {
+                                const dot = enemy.vx * res.nx + enemy.vy * res.ny;
+                                if (dot < 0) {
+                                    enemy.vx -= dot * res.nx;
+                                    enemy.vy -= dot * res.ny;
+                                    enemy.vx *= 0.5;
+                                    enemy.vy *= 0.5;
+                                }
+                            }
+                        }
+                    }
+                    if (enemy.y > HEIGHT + 100) enemy.alive = false;
+                }
+            }
+
             function updateTiltingBlocks() {
                 for (const block of blocks) {
                     if (!block.tilting || block.destroyed) continue;
 
-                    // Check if the pivot side still has support
                     const sides = getSupportSides(block);
                     if ((block.pivotSide === 'left' && !sides.left) || (block.pivotSide === 'right' && !sides.right)) {
                         block.tilting = false;
@@ -936,7 +998,7 @@
                         continue;
                     }
 
-                    // Block collision (far corner hits another block)
+                    // Block collision
                     let hitBlock = null;
                     for (const other of blocks) {
                         if (other === block || other.destroyed || other.falling || other.tilting) continue;
@@ -946,8 +1008,26 @@
                             break;
                         }
                     }
-                    if (hitBlock) {
-                        const targetY = hitBlock.y - block.h;
+                    // Enemy collision (far corner hits an enemy)
+                    let hitEnemy = null;
+                    for (const enemy of enemies) {
+                        if (!enemy.alive) continue;
+                        const dist = Math.hypot(farCornerX - enemy.x, farCornerY - enemy.y);
+                        if (dist < enemy.radius) {
+                            hitEnemy = enemy;
+                            break;
+                        }
+                    }
+
+                    if (hitBlock || hitEnemy) {
+                        let targetY;
+                        if (hitBlock) {
+                            targetY = hitBlock.y - block.h;
+                        } else {
+                            killEnemy(hitEnemy, true);
+                            targetY = hitEnemy.y - enemy.radius - block.h;
+                        }
+
                         let targetAngle = block.angle;
                         for (let step = 0; step < 20; step++) {
                             const testAngle = targetAngle;
@@ -983,202 +1063,45 @@
                 }
             }
 
-            // ===== REST OF UPDATE & RENDER (unchanged) =====
-            function getRotatedAABB(block) {
-    // Returns the axis-aligned bounding box of the rotated block
-    const cx = block.x + block.w/2, cy = block.y + block.h/2;
-    const corners = [
-        { x: -block.w/2, y: -block.h/2 },
-        { x:  block.w/2, y: -block.h/2 },
-        { x:  block.w/2, y:  block.h/2 },
-        { x: -block.w/2, y:  block.h/2 }
-    ];
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    const cos = Math.cos(block.angle), sin = Math.sin(block.angle);
-    for (const c of corners) {
-        const rx = cx + c.x * cos - c.y * sin;
-        const ry = cy + c.x * sin + c.y * cos;
-        if (rx < minX) minX = rx;
-        if (ry < minY) minY = ry;
-        if (rx > maxX) maxX = rx;
-        if (ry > maxY) maxY = ry;
-    }
-    return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
-}
-
-function updateEnemyPhysics() {
-    for (const enemy of enemies) {
-        if (!enemy.alive) continue;
-        enemy.vy += GRAVITY;
-        enemy.x += enemy.vx;
-        enemy.y += enemy.vy;
-        if (enemy.y + enemy.radius >= GROUND_Y) {
-            killEnemy(enemy, true);
-            continue;
-        }
-        for (const block of blocks) {
-            if (block.destroyed) continue;
-            // For tilting blocks, use rotated AABB; otherwise use original rect
-            let bx, by, bw, bh;
-            if (block.tilting) {
-                const aabb = getRotatedAABB(block);
-                bx = aabb.x; by = aabb.y; bw = aabb.w; bh = aabb.h;
-            } else if (block.falling) {
-                continue; // falling blocks handled separately
-            } else {
-                bx = block.x; by = block.y; bw = block.w; bh = block.h;
-            }
-            const res = circleRectCollision(enemy.x, enemy.y, enemy.radius, bx, by, bw, bh);
-            if (res.hit) {
-                enemy.x += res.nx * res.overlap;
-                enemy.y += res.ny * res.overlap;
-                if (Math.abs(res.ny) > 0.5 && enemy.vy > 0) {
-                    enemy.vy = Math.min(enemy.vy, 0);
-                    enemy.vx *= 0.9;
-                } else {
-                    const dot = enemy.vx * res.nx + enemy.vy * res.ny;
-                    if (dot < 0) {
-                        enemy.vx -= dot * res.nx;
-                        enemy.vy -= dot * res.ny;
-                        enemy.vx *= 0.5;
-                        enemy.vy *= 0.5;
+            // ===== REST OF UPDATE & RENDER =====
+            function updateFallingBlocks() {
+                for(const block of blocks) {
+                    if(!block.falling||block.destroyed) continue;
+                    block.vy+=GRAVITY; block.y+=block.vy; block.x+=block.vx;
+                    for(const enemy of enemies) {
+                        if(!enemy.alive) continue;
+                        const blockCX = block.x + block.w/2, blockCY = block.y + block.h/2;
+                        const blockHalfDiag = Math.hypot(block.w, block.h)/2;
+                        if (circleCircleCollision(blockCX, blockCY, blockHalfDiag, enemy.x, enemy.y, enemy.radius)) {
+                            if (block.vy > 0 && block.y + block.h > enemy.y - enemy.radius) {
+                                block.y = enemy.y - enemy.radius - block.h;
+                                block.vy = 0; block.vx = 0; block.falling = false;
+                                screenShake = Math.max(screenShake, 1);
+                                markUnsupportedBlocks();
+                                break;
+                            }
+                        }
+                    }
+                    if(block.falling) {
+                        if(block.y+block.h>=GROUND_Y) {
+                            block.y=GROUND_Y-block.h; block.falling=false; block.vy=0; block.vx=0;
+                            screenShake=Math.max(screenShake,3);
+                            markUnsupportedBlocks();
+                        }
+                        for(const other of blocks) {
+                            if(other===block||other.destroyed||other.falling||other.tilting) continue;
+                            if(block.y+block.h>=other.y && block.y+block.h<=other.y+other.h+6 && block.vy>0) {
+                                const overlapLeft=Math.max(block.x,other.x), overlapRight=Math.min(block.x+block.w,other.x+other.w);
+                                if(overlapRight-overlapLeft>14) {
+                                    block.y=other.y-block.h; block.falling=false; block.vy=0; block.vx=0;
+                                    markUnsupportedBlocks(); break;
+                                }
+                            }
+                        }
+                        if(block.y>HEIGHT+100) { block.destroyed=true; block.falling=false; }
                     }
                 }
             }
-        }
-        if (enemy.y > HEIGHT + 100) enemy.alive = false;
-    }
-}
-            function updateTiltingBlocks() {
-    for (const block of blocks) {
-        if (!block.tilting || block.destroyed) continue;
-
-        // Check if the pivot side still has support
-        const sides = getSupportSides(block);
-        if ((block.pivotSide === 'left' && !sides.left) || (block.pivotSide === 'right' && !sides.right)) {
-            block.tilting = false;
-            block.pivotX = block.pivotY = block.pivotSide = null;
-            block.falling = true;
-            block.vy = 1;
-            block.vx = (Math.random() - 0.5) * 0.5;
-            continue;
-        }
-
-        const oldAngle = block.angle;
-        const oldCX = block.x + block.w/2, oldCY = block.y + block.h/2;
-
-        block.angularVelocity += 0.001;
-        block.angle += block.angularVelocity;
-        const deltaAngle = block.angle - oldAngle;
-
-        const cos = Math.cos(deltaAngle), sin = Math.sin(deltaAngle);
-        const dx = oldCX - block.pivotX, dy = oldCY - block.pivotY;
-        const newCX = block.pivotX + dx * cos - dy * sin;
-        const newCY = block.pivotY + dx * sin + dy * cos;
-        block.x = newCX - block.w/2;
-        block.y = newCY - block.h/2;
-
-        let farCornerX, farCornerY;
-        if (block.pivotSide === 'left') {
-            farCornerX = block.x + block.w;
-            farCornerY = block.y + block.h;
-        } else {
-            farCornerX = block.x;
-            farCornerY = block.y + block.h;
-        }
-
-        // Ground collision
-        if (farCornerY >= GROUND_Y) {
-            let targetAngle = block.angle;
-            for (let step = 0; step < 20; step++) {
-                const testAngle = targetAngle;
-                const testCos = Math.cos(testAngle - oldAngle), testSin = Math.sin(testAngle - oldAngle);
-                const testCX = block.pivotX + dx * testCos - dy * testSin;
-                const testCY = block.pivotY + dx * testSin + dy * testCos;
-                const testY = testCY - block.h/2;
-                const farY = (block.pivotSide === 'left') ? testY + block.h : testY + block.h;
-                if (farY > GROUND_Y) targetAngle -= 0.01;
-                else break;
-            }
-            block.angle = targetAngle;
-            const finalCos = Math.cos(targetAngle - oldAngle), finalSin = Math.sin(targetAngle - oldAngle);
-            const finalCX = block.pivotX + dx * finalCos - dy * finalSin;
-            const finalCY = block.pivotY + dx * finalSin + dy * finalCos;
-            block.x = finalCX - block.w/2;
-            block.y = finalCY - block.h/2;
-            block.tilting = false;
-            block.pivotX = block.pivotY = block.pivotSide = null;
-            block.angularVelocity = 0;
-            screenShake = Math.max(screenShake, 2);
-            markUnsupportedBlocks();
-            continue;
-        }
-
-        // Block collision (far corner hits another block)
-        let hitBlock = null;
-        for (const other of blocks) {
-            if (other === block || other.destroyed || other.falling || other.tilting) continue;
-            if (farCornerX > other.x && farCornerX < other.x + other.w &&
-                farCornerY > other.y && farCornerY < other.y + other.h) {
-                hitBlock = other;
-                break;
-            }
-        }
-        // Enemy collision (far corner hits an enemy)
-        let hitEnemy = null;
-        for (const enemy of enemies) {
-            if (!enemy.alive) continue;
-            const dist = Math.hypot(farCornerX - enemy.x, farCornerY - enemy.y);
-            if (dist < enemy.radius) {
-                hitEnemy = enemy;
-                break;
-            }
-        }
-
-        if (hitBlock || hitEnemy) {
-            let targetY;
-            if (hitBlock) {
-                targetY = hitBlock.y - block.h;
-            } else {
-                // enemy collision – kill enemy and stop tilt at enemy's top
-                killEnemy(hitEnemy, true);
-                targetY = hitEnemy.y - enemy.radius - block.h; // place block above enemy
-            }
-
-            let targetAngle = block.angle;
-            for (let step = 0; step < 20; step++) {
-                const testAngle = targetAngle;
-                const testCos = Math.cos(testAngle - oldAngle), testSin = Math.sin(testAngle - oldAngle);
-                const testCX = block.pivotX + dx * testCos - dy * testSin;
-                const testCY = block.pivotY + dx * testSin + dy * testCos;
-                const testY = testCY - block.h/2;
-                const farY = (block.pivotSide === 'left') ? testY + block.h : testY + block.h;
-                if (farY > targetY) targetAngle -= 0.01;
-                else break;
-            }
-            block.angle = targetAngle;
-            const finalCos = Math.cos(targetAngle - oldAngle), finalSin = Math.sin(targetAngle - oldAngle);
-            const finalCX = block.pivotX + dx * finalCos - dy * finalSin;
-            const finalCY = block.pivotY + dx * finalSin + dy * finalCos;
-            block.x = finalCX - block.w/2;
-            block.y = finalCY - block.h/2;
-            block.tilting = false;
-            block.pivotX = block.pivotY = block.pivotSide = null;
-            block.angularVelocity = 0;
-            screenShake = Math.max(screenShake, 1);
-            markUnsupportedBlocks();
-            continue;
-        }
-
-        if (Math.abs(block.angle) > Math.PI/2) {
-            block.tilting = false;
-            block.pivotX = block.pivotY = block.pivotSide = null;
-            block.falling = true;
-            block.vy = 1;
-            block.vx = (Math.random() - 0.5) * 0.5;
-        }
-    }
-}
             function updateActiveRocks() {
                 for (const rock of activeRocks) {
                     if (!rock.active) continue;
