@@ -4,7 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>My Game Portfolio</title>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
     <style>
+        /* ════════════ SAME STYLES AS BEFORE ════════════ */
         :root {
             --bg: #0a0a0f;
             --surface: #14141f;
@@ -20,16 +26,8 @@
             --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        html {
-            scroll-behavior: smooth;
-        }
-
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
         body {
             font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
             background: var(--bg);
@@ -37,714 +35,118 @@
             line-height: 1.6;
             overflow-x: hidden;
         }
+        body::before, body::after { content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0; }
+        body::before { background: radial-gradient(ellipse at 20% 20%, rgba(124, 58, 237, 0.06) 0%, transparent 60%), radial-gradient(ellipse at 80% 60%, rgba(245, 158, 11, 0.04) 0%, transparent 60%), radial-gradient(ellipse at 50% 80%, rgba(124, 58, 237, 0.05) 0%, transparent 50%); }
+        body::after { background-image: linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px); background-size: 50px 50px; }
 
-        body::before {
-            content: '';
-            position: fixed;
-            inset: 0;
-            background:
-                radial-gradient(ellipse at 20% 20%, rgba(124, 58, 237, 0.06) 0%, transparent 60%),
-                radial-gradient(ellipse at 80% 60%, rgba(245, 158, 11, 0.04) 0%, transparent 60%),
-                radial-gradient(ellipse at 50% 80%, rgba(124, 58, 237, 0.05) 0%, transparent 50%);
-            pointer-events: none;
-            z-index: 0;
-        }
+        .navbar { position: sticky; top: 0; z-index: 100; background: rgba(10,10,15,0.75); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-bottom: 1px solid var(--border); padding: 0 2rem; transition: var(--transition); }
+        .navbar-inner { max-width: 1200px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; height: 64px; }
+        .logo { font-size: 1.5rem; font-weight: 800; color: #fff; text-decoration: none; display: flex; align-items: center; gap: 10px; }
+        .logo-icon { width: 38px; height: 38px; background: var(--accent); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; box-shadow: 0 0 24px rgba(124,58,237,0.4); }
+        .nav-links { display: flex; list-style: none; gap: 2rem; align-items: center; }
+        .nav-links a { color: var(--text-muted); text-decoration: none; font-weight: 500; font-size: 0.95rem; transition: var(--transition); position: relative; }
+        .nav-links a:hover { color: #fff; }
+        .nav-links a::after { content: ''; position: absolute; bottom: -4px; left: 0; width: 0; height: 2px; background: var(--accent-glow); border-radius: 2px; transition: width 0.3s; }
+        .nav-links a:hover::after { width: 100%; }
+        .btn-contact-nav { background: var(--accent); color: #fff !important; padding: 8px 20px; border-radius: 25px; font-weight: 600 !important; transition: var(--transition); border: none; cursor: pointer; font-size: 0.9rem; }
+        .btn-contact-nav:hover { background: #8b5cf6; box-shadow: 0 0 28px rgba(124,58,237,0.5); transform: translateY(-1px); }
+        .btn-contact-nav::after { display: none !important; }
+        .menu-toggle { display: none; background: none; border: none; cursor: pointer; flex-direction: column; gap: 5px; padding: 8px; z-index: 101; }
+        .menu-toggle span { display: block; width: 26px; height: 2.5px; background: #fff; border-radius: 3px; transition: var(--transition); }
 
-        body::after {
-            content: '';
-            position: fixed;
-            inset: 0;
-            background-image:
-                linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
-            background-size: 50px 50px;
-            pointer-events: none;
-            z-index: 0;
-        }
+        .hero { position: relative; z-index: 1; text-align: center; padding: 100px 2rem 80px; max-width: 800px; margin: 0 auto; }
+        .hero-badge { display: inline-block; background: rgba(124,58,237,0.15); color: var(--accent-glow); padding: 6px 18px; border-radius: 25px; font-size: 0.85rem; font-weight: 600; margin-bottom: 1.5rem; border: 1px solid rgba(124,58,237,0.3); }
+        .hero h1 { font-size: clamp(2.4rem, 5vw, 3.8rem); font-weight: 900; letter-spacing: -1.5px; line-height: 1.1; margin-bottom: 1rem; color: #fff; }
+        .hero h1 .highlight { background: linear-gradient(135deg, var(--accent-glow), var(--gold)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+        .hero p { font-size: 1.15rem; color: var(--text-muted); max-width: 550px; margin: 0 auto 2rem; }
+        .hero-stats { display: flex; justify-content: center; gap: 3rem; flex-wrap: wrap; margin-top: 1rem; }
+        .stat { text-align: center; }
+        .stat-number { font-size: 2.2rem; font-weight: 800; color: #fff; }
+        .stat-label { font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; }
 
-        .navbar {
-            position: sticky;
-            top: 0;
-            z-index: 100;
-            background: rgba(10, 10, 15, 0.75);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border-bottom: 1px solid var(--border);
-            padding: 0 2rem;
-            transition: var(--transition);
-        }
+        .section { position: relative; z-index: 1; max-width: 1200px; margin: 0 auto; padding: 60px 2rem 80px; }
+        .section-header { text-align: center; margin-bottom: 50px; }
+        .section-header h2 { font-size: 2.2rem; font-weight: 800; color: #fff; margin-bottom: 0.5rem; }
+        .section-header p { color: var(--text-muted); font-size: 1rem; }
 
-        .navbar-inner {
-            max-width: 1200px;
-            margin: 0 auto;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            height: 64px;
-        }
+        .games-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 28px; }
+        .game-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; transition: var(--transition); cursor: pointer; display: flex; flex-direction: column; }
+        .game-card:hover { transform: translateY(-6px); border-color: var(--accent); box-shadow: 0 20px 50px rgba(0,0,0,0.5), 0 0 0 1px rgba(124,58,237,0.2); }
+        .game-card-image { position: relative; width: 100%; height: 200px; overflow: hidden; background: var(--surface); }
+        .game-card-image .placeholder-bg { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 3.5rem; transition: var(--transition); }
+        .game-card:hover .placeholder-bg { transform: scale(1.06); }
+        .overlay-tag { position: absolute; top: 14px; right: 14px; background: rgba(0,0,0,0.7); backdrop-filter: blur(8px); color: #fff; padding: 5px 14px; border-radius: 20px; font-size: 0.78rem; font-weight: 600; border: 1px solid rgba(255,255,255,0.15); }
+        .tag-new { background: rgba(34,197,94,0.85) !important; }
+        .tag-featured { background: rgba(245,158,11,0.85) !important; }
+        .game-card-body { padding: 22px 20px 18px; flex: 1; display: flex; flex-direction: column; }
+        .game-card-body h3 { font-size: 1.25rem; font-weight: 700; color: #fff; margin-bottom: 6px; }
+        .genre { font-size: 0.8rem; color: var(--accent-glow); font-weight: 500; text-transform: uppercase; margin-bottom: 10px; }
+        .game-card-rating { margin: 8px 0; color: var(--gold); font-size: 0.9rem; letter-spacing: 1px; }
+        .description { font-size: 0.9rem; color: var(--text-muted); line-height: 1.55; flex: 1; }
+        .game-card-footer { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+        .btn { padding: 9px 18px; border-radius: 25px; font-weight: 600; font-size: 0.85rem; cursor: pointer; border: none; transition: var(--transition); text-decoration: none; display: inline-block; }
+        .btn-primary { background: var(--accent); color: #fff; }
+        .btn-primary:hover { background: #8b5cf6; box-shadow: 0 0 22px rgba(124,58,237,0.45); transform: translateY(-1px); }
+        .btn-outline { background: transparent; color: #fff; border: 1.5px solid var(--border); }
+        .btn-outline:hover { border-color: #fff; background: rgba(255,255,255,0.04); }
 
-        .logo {
-            font-size: 1.5rem;
-            font-weight: 800;
-            letter-spacing: -0.5px;
-            color: #fff;
-            text-decoration: none;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
+        /* modals, etc. same as before... I'll keep them concise but include all necessary styles */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); backdrop-filter: blur(6px); z-index: 200; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.35s; }
+        .modal-overlay.active { opacity: 1; pointer-events: auto; }
+        .modal { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 36px 30px; max-width: 600px; width: 90%; text-align: left; position: relative; box-shadow: 0 30px 60px rgba(0,0,0,0.7); transform: translateY(20px); transition: transform 0.35s; max-height: 80vh; overflow-y: auto; }
+        .modal-overlay.active .modal { transform: translateY(0); }
+        .modal-close { position: absolute; top: 14px; right: 18px; background: none; border: none; color: #fff; font-size: 1.6rem; cursor: pointer; opacity: 0.6; transition: var(--transition); }
+        .modal-close:hover { opacity: 1; }
+        .play-overlay { z-index: 210; }
+        .play-container { width: 95%; max-width: 1000px; height: 80vh; display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; box-shadow: 0 30px 60px rgba(0,0,0,0.7); }
+        .play-header { display: flex; justify-content: space-between; align-items: center; padding: 14px 20px; background: var(--card); border-bottom: 1px solid var(--border); }
+        .play-header h3 { color: #fff; font-size: 1.1rem; font-weight: 600; margin: 0; }
+        .play-actions { display: flex; gap: 10px; }
+        .btn-icon { background: transparent; border: 1px solid var(--border); color: #fff; width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: var(--transition); font-size: 1.1rem; }
+        .btn-icon:hover { background: rgba(255,255,255,0.08); border-color: #fff; }
+        .play-iframe-wrapper { flex: 1; background: #000; }
+        .play-iframe-wrapper iframe { width: 100%; height: 100%; border: none; display: block; }
 
-        .logo-icon {
-            width: 38px;
-            height: 38px;
-            background: var(--accent);
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.2rem;
-            box-shadow: 0 0 24px rgba(124, 58, 237, 0.4);
-        }
+        .comments-section { margin-top: 20px; border-top: 1px solid var(--border); padding-top: 16px; }
+        .comments-section h4 { font-size: 1rem; color: #fff; margin-bottom: 12px; }
+        .comments-list { max-height: 180px; overflow-y: auto; margin-bottom: 12px; display: flex; flex-direction: column; gap: 10px; }
+        .comment-item { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 14px; position: relative; }
+        .comment-author { font-size: 0.85rem; font-weight: 600; color: var(--accent-glow); margin-right: 8px; }
+        .comment-time { font-size: 0.7rem; color: var(--text-muted); float: right; }
+        .comment-text { font-size: 0.9rem; color: var(--text); margin-top: 4px; line-height: 1.4; }
+        .star-rating { color: var(--gold); font-size: 0.9rem; letter-spacing: 2px; margin-top: 4px; }
+        .delete-comment-btn { position: absolute; top: 6px; right: 10px; background: none; border: none; color: #ff4444; cursor: pointer; font-size: 1rem; display: none; opacity: 0.7; transition: var(--transition); }
+        .delete-comment-btn:hover { opacity: 1; }
+        .comment-form { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-start; }
+        .comment-form input, .comment-form textarea { background: var(--card); border: 1px solid var(--border); color: #fff; padding: 8px 12px; border-radius: var(--radius-sm); font-size: 0.85rem; outline: none; transition: var(--transition); }
+        .comment-form input:focus, .comment-form textarea:focus { border-color: var(--accent); }
+        .comment-form input { flex: 1 1 120px; min-width: 100px; }
+        .comment-form textarea { flex: 3 1 200px; resize: vertical; }
+        .rating-input { display: flex; align-items: center; gap: 2px; font-size: 1.2rem; color: var(--gold); cursor: pointer; user-select: none; }
+        .rating-input span { transition: var(--transition); }
+        .rating-input span:hover, .rating-input span.active { text-shadow: 0 0 10px var(--gold); }
 
-        .nav-links {
-            display: flex;
-            list-style: none;
-            gap: 2rem;
-            align-items: center;
-        }
+        .admin-link { color: var(--text-muted); cursor: pointer; font-size: 0.85rem; text-decoration: underline; margin-left: 8px; }
+        .admin-link:hover { color: #fff; }
 
-        .nav-links a {
-            color: var(--text-muted);
-            text-decoration: none;
-            font-weight: 500;
-            font-size: 0.95rem;
-            transition: var(--transition);
-            position: relative;
-        }
+        .about-section { position: relative; z-index: 1; max-width: 1200px; margin: 0 auto; padding: 40px 2rem 80px; }
+        .about-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 40px 36px; display: flex; gap: 30px; align-items: center; flex-wrap: wrap; }
+        .about-avatar { width: 100px; height: 100px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), var(--gold)); display: flex; align-items: center; justify-content: center; font-size: 2.5rem; flex-shrink: 0; }
+        .about-text h3 { font-size: 1.5rem; color: #fff; margin-bottom: 6px; }
+        .about-text p { color: var(--text-muted); max-width: 600px; line-height: 1.7; }
+        .about-text .btn { margin-top: 14px; }
 
-        .nav-links a:hover {
-            color: #fff;
-        }
-
-        .nav-links a::after {
-            content: '';
-            position: absolute;
-            bottom: -4px;
-            left: 0;
-            width: 0;
-            height: 2px;
-            background: var(--accent-glow);
-            border-radius: 2px;
-            transition: width 0.3s;
-        }
-
-        .nav-links a:hover::after {
-            width: 100%;
-        }
-
-        .btn-contact-nav {
-            background: var(--accent);
-            color: #fff !important;
-            padding: 8px 20px;
-            border-radius: 25px;
-            font-weight: 600 !important;
-            transition: var(--transition);
-            border: none;
-            cursor: pointer;
-            font-size: 0.9rem;
-        }
-        .btn-contact-nav:hover {
-            background: #8b5cf6;
-            box-shadow: 0 0 28px rgba(124, 58, 237, 0.5);
-            transform: translateY(-1px);
-        }
-        .btn-contact-nav::after {
-            display: none !important;
-        }
-
-        .menu-toggle {
-            display: none;
-            background: none;
-            border: none;
-            cursor: pointer;
-            flex-direction: column;
-            gap: 5px;
-            padding: 8px;
-            z-index: 101;
-        }
-        .menu-toggle span {
-            display: block;
-            width: 26px;
-            height: 2.5px;
-            background: #fff;
-            border-radius: 3px;
-            transition: var(--transition);
-        }
-
-        .hero {
-            position: relative;
-            z-index: 1;
-            text-align: center;
-            padding: 100px 2rem 80px;
-            max-width: 800px;
-            margin: 0 auto;
-        }
-
-        .hero-badge {
-            display: inline-block;
-            background: rgba(124, 58, 237, 0.15);
-            color: var(--accent-glow);
-            padding: 6px 18px;
-            border-radius: 25px;
-            font-size: 0.85rem;
-            font-weight: 600;
-            letter-spacing: 0.5px;
-            margin-bottom: 1.5rem;
-            border: 1px solid rgba(124, 58, 237, 0.3);
-        }
-
-        .hero h1 {
-            font-size: clamp(2.4rem, 5vw, 3.8rem);
-            font-weight: 900;
-            letter-spacing: -1.5px;
-            line-height: 1.1;
-            margin-bottom: 1rem;
-            color: #fff;
-        }
-        .hero h1 .highlight {
-            background: linear-gradient(135deg, var(--accent-glow), var(--gold));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .hero p {
-            font-size: 1.15rem;
-            color: var(--text-muted);
-            max-width: 550px;
-            margin: 0 auto 2rem;
-            line-height: 1.7;
-        }
-
-        .hero-stats {
-            display: flex;
-            justify-content: center;
-            gap: 3rem;
-            flex-wrap: wrap;
-            margin-top: 1rem;
-        }
-        .stat {
-            text-align: center;
-        }
-        .stat-number {
-            font-size: 2.2rem;
-            font-weight: 800;
-            color: #fff;
-            letter-spacing: -1px;
-        }
-        .stat-label {
-            font-size: 0.85rem;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        .section {
-            position: relative;
-            z-index: 1;
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 60px 2rem 80px;
-        }
-
-        .section-header {
-            text-align: center;
-            margin-bottom: 50px;
-        }
-        .section-header h2 {
-            font-size: 2.2rem;
-            font-weight: 800;
-            letter-spacing: -1px;
-            color: #fff;
-            margin-bottom: 0.5rem;
-        }
-        .section-header p {
-            color: var(--text-muted);
-            font-size: 1rem;
-        }
-
-        .games-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-            gap: 28px;
-        }
-
-        .game-card {
-            background: var(--card);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            overflow: hidden;
-            transition: var(--transition);
-            cursor: pointer;
-            position: relative;
-            display: flex;
-            flex-direction: column;
-        }
-        .game-card:hover {
-            transform: translateY(-6px);
-            border-color: var(--accent);
-            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(124, 58, 237, 0.2);
-        }
-
-        .game-card-image {
-            position: relative;
-            width: 100%;
-            height: 200px;
-            overflow: hidden;
-            background: var(--surface);
-        }
-        .game-card-image .placeholder-bg {
-            width: 100%;
-            height: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 3.5rem;
-            transition: var(--transition);
-        }
-        .game-card:hover .placeholder-bg {
-            transform: scale(1.06);
-        }
-        .game-card-image .overlay-tag {
-            position: absolute;
-            top: 14px;
-            right: 14px;
-            background: rgba(0, 0, 0, 0.7);
-            backdrop-filter: blur(8px);
-            color: #fff;
-            padding: 5px 14px;
-            border-radius: 20px;
-            font-size: 0.78rem;
-            font-weight: 600;
-            letter-spacing: 0.5px;
-            border: 1px solid rgba(255, 255, 255, 0.15);
-        }
-        .tag-new {
-            background: rgba(34, 197, 94, 0.85) !important;
-            border-color: rgba(34, 197, 94, 0.4) !important;
-        }
-        .tag-featured {
-            background: rgba(245, 158, 11, 0.85) !important;
-            border-color: rgba(245, 158, 11, 0.4) !important;
-        }
-
-        .game-card-body {
-            padding: 22px 20px 18px;
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-        }
-        .game-card-body h3 {
-            font-size: 1.25rem;
-            font-weight: 700;
-            color: #fff;
-            margin-bottom: 6px;
-            letter-spacing: -0.3px;
-        }
-        .game-card-body .genre {
-            font-size: 0.8rem;
-            color: var(--accent-glow);
-            font-weight: 500;
-            letter-spacing: 0.5px;
-            text-transform: uppercase;
-            margin-bottom: 10px;
-        }
-        .game-card-body .description {
-            font-size: 0.9rem;
-            color: var(--text-muted);
-            line-height: 1.55;
-            flex: 1;
-        }
-        .game-card-rating {
-            margin: 8px 0;
-            color: var(--gold);
-            font-size: 0.9rem;
-            letter-spacing: 1px;
-        }
-        .game-card-footer {
-            display: flex;
-            gap: 10px;
-            margin-top: 16px;
-            flex-wrap: wrap;
-        }
-        .btn {
-            padding: 9px 18px;
-            border-radius: 25px;
-            font-weight: 600;
-            font-size: 0.85rem;
-            cursor: pointer;
-            border: none;
-            transition: var(--transition);
-            text-decoration: none;
-            display: inline-block;
-            letter-spacing: 0.3px;
-        }
-        .btn-primary {
-            background: var(--accent);
-            color: #fff;
-        }
-        .btn-primary:hover {
-            background: #8b5cf6;
-            box-shadow: 0 0 22px rgba(124, 58, 237, 0.45);
-            transform: translateY(-1px);
-        }
-        .btn-outline {
-            background: transparent;
-            color: #fff;
-            border: 1.5px solid var(--border);
-        }
-        .btn-outline:hover {
-            border-color: #fff;
-            background: rgba(255, 255, 255, 0.04);
-        }
-
-        /* ── MODALS ────────────────────── */
-        .modal-overlay {
-            position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.75);
-            backdrop-filter: blur(6px);
-            z-index: 200;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.35s;
-        }
-        .modal-overlay.active {
-            opacity: 1;
-            pointer-events: auto;
-        }
-        .modal {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 36px 30px;
-            max-width: 600px;
-            width: 90%;
-            text-align: left;
-            position: relative;
-            box-shadow: 0 30px 60px rgba(0, 0, 0, 0.7);
-            transform: translateY(20px);
-            transition: transform 0.35s;
-            max-height: 80vh;
-            overflow-y: auto;
-        }
-        .modal-overlay.active .modal {
-            transform: translateY(0);
-        }
-        .modal-close {
-            position: absolute;
-            top: 14px;
-            right: 18px;
-            background: none;
-            border: none;
-            color: #fff;
-            font-size: 1.6rem;
-            cursor: pointer;
-            opacity: 0.6;
-            transition: var(--transition);
-        }
-        .modal-close:hover {
-            opacity: 1;
-        }
-
-        /* Play overlay specific */
-        .play-overlay {
-            z-index: 210;
-        }
-        .play-container {
-            width: 95%;
-            max-width: 1000px;
-            height: 80vh;
-            display: flex;
-            flex-direction: column;
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            overflow: hidden;
-            box-shadow: 0 30px 60px rgba(0, 0, 0, 0.7);
-            position: relative;
-        }
-        .play-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 14px 20px;
-            background: var(--card);
-            border-bottom: 1px solid var(--border);
-        }
-        .play-header h3 {
-            color: #fff;
-            font-size: 1.1rem;
-            font-weight: 600;
-            margin: 0;
-        }
-        .play-actions {
-            display: flex;
-            gap: 10px;
-        }
-        .btn-icon {
-            background: transparent;
-            border: 1px solid var(--border);
-            color: #fff;
-            width: 36px;
-            height: 36px;
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: var(--transition);
-            font-size: 1.1rem;
-        }
-        .btn-icon:hover {
-            background: rgba(255,255,255,0.08);
-            border-color: #fff;
-        }
-        .play-iframe-wrapper {
-            flex: 1;
-            background: #000;
-            position: relative;
-        }
-        .play-iframe-wrapper iframe {
-            width: 100%;
-            height: 100%;
-            border: none;
-            display: block;
-        }
-
-        /* ── COMMENTS SECTION ─────────── */
-        .comments-section {
-            margin-top: 20px;
-            border-top: 1px solid var(--border);
-            padding-top: 16px;
-        }
-        .comments-section h4 {
-            font-size: 1rem;
-            color: #fff;
-            margin-bottom: 12px;
-        }
-        .comments-list {
-            max-height: 180px;
-            overflow-y: auto;
-            margin-bottom: 12px;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-        .comment-item {
-            background: var(--card);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-sm);
-            padding: 10px 14px;
-            position: relative;
-        }
-        .comment-author {
-            font-size: 0.85rem;
-            font-weight: 600;
-            color: var(--accent-glow);
-            margin-right: 8px;
-        }
-        .comment-time {
-            font-size: 0.7rem;
-            color: var(--text-muted);
-            float: right;
-        }
-        .comment-text {
-            font-size: 0.9rem;
-            color: var(--text);
-            margin-top: 4px;
-            line-height: 1.4;
-        }
-        .star-rating {
-            color: var(--gold);
-            font-size: 0.9rem;
-            letter-spacing: 2px;
-            margin-top: 4px;
-        }
-        .delete-comment-btn {
-            position: absolute;
-            top: 6px;
-            right: 10px;
-            background: none;
-            border: none;
-            color: #ff4444;
-            cursor: pointer;
-            font-size: 1rem;
-            display: none;
-            opacity: 0.7;
-            transition: var(--transition);
-        }
-        .delete-comment-btn:hover {
-            opacity: 1;
-        }
-        .comment-form {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            align-items: flex-start;
-        }
-        .comment-form input,
-        .comment-form textarea {
-            background: var(--card);
-            border: 1px solid var(--border);
-            color: #fff;
-            padding: 8px 12px;
-            border-radius: var(--radius-sm);
-            font-size: 0.85rem;
-            outline: none;
-            transition: var(--transition);
-        }
-        .comment-form input:focus,
-        .comment-form textarea:focus {
-            border-color: var(--accent);
-        }
-        .comment-form input {
-            flex: 1 1 120px;
-            min-width: 100px;
-        }
-        .comment-form textarea {
-            flex: 3 1 200px;
-            resize: vertical;
-        }
-        .comment-form .btn {
-            flex: 0 0 auto;
-        }
-        .rating-input {
-            display: flex;
-            align-items: center;
-            gap: 2px;
-            font-size: 1.2rem;
-            color: var(--gold);
-            cursor: pointer;
-            user-select: none;
-        }
-        .rating-input span {
-            transition: var(--transition);
-        }
-        .rating-input span:hover,
-        .rating-input span.active {
-            text-shadow: 0 0 10px var(--gold);
-        }
-
-        /* Admin link */
-        .admin-link {
-            color: var(--text-muted);
-            cursor: pointer;
-            font-size: 0.85rem;
-            text-decoration: underline;
-            margin-left: 8px;
-        }
-        .admin-link:hover {
-            color: #fff;
-        }
-
-        /* ── ABOUT ────────────────────── */
-        .about-section {
-            position: relative;
-            z-index: 1;
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 40px 2rem 80px;
-        }
-        .about-card {
-            background: var(--card);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 40px 36px;
-            display: flex;
-            gap: 30px;
-            align-items: center;
-            flex-wrap: wrap;
-        }
-        .about-avatar {
-            width: 100px;
-            height: 100px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, var(--accent), var(--gold));
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 2.5rem;
-            flex-shrink: 0;
-        }
-        .about-text h3 {
-            font-size: 1.5rem;
-            color: #fff;
-            margin-bottom: 6px;
-        }
-        .about-text p {
-            color: var(--text-muted);
-            max-width: 600px;
-            line-height: 1.7;
-        }
-        .about-text .btn {
-            margin-top: 14px;
-        }
-
-        .footer {
-            position: relative;
-            z-index: 1;
-            text-align: center;
-            padding: 40px 2rem;
-            border-top: 1px solid var(--border);
-            color: var(--text-muted);
-            font-size: 0.9rem;
-        }
-        .footer a {
-            color: var(--accent-glow);
-            text-decoration: none;
-        }
+        .footer { position: relative; z-index: 1; text-align: center; padding: 40px 2rem; border-top: 1px solid var(--border); color: var(--text-muted); font-size: 0.9rem; }
+        .footer a { color: var(--accent-glow); text-decoration: none; }
 
         @media (max-width: 768px) {
-            .nav-links {
-                position: fixed;
-                top: 0;
-                right: -100%;
-                width: 260px;
-                height: 100vh;
-                background: rgba(20, 20, 31, 0.97);
-                backdrop-filter: blur(20px);
-                flex-direction: column;
-                padding: 100px 30px 40px;
-                gap: 1.5rem;
-                transition: right 0.4s;
-                border-left: 1px solid var(--border);
-                z-index: 100;
-            }
-            .nav-links.open {
-                right: 0;
-            }
-            .menu-toggle {
-                display: flex;
-            }
-            .games-grid {
-                grid-template-columns: 1fr;
-            }
-            .hero-stats {
-                gap: 1.5rem;
-            }
-            .about-card {
-                flex-direction: column;
-                text-align: center;
-            }
-            .play-container {
-                width: 100%;
-                height: 90vh;
-                border-radius: 0;
-            }
+            .nav-links { position: fixed; top: 0; right: -100%; width: 260px; height: 100vh; background: rgba(20,20,31,0.97); backdrop-filter: blur(20px); flex-direction: column; padding: 100px 30px 40px; gap: 1.5rem; transition: right 0.4s; border-left: 1px solid var(--border); z-index: 100; }
+            .nav-links.open { right: 0; }
+            .menu-toggle { display: flex; }
+            .games-grid { grid-template-columns: 1fr; }
+            .hero-stats { gap: 1.5rem; }
+            .about-card { flex-direction: column; text-align: center; }
+            .play-container { width: 100%; height: 90vh; border-radius: 0; }
         }
     </style>
 </head>
@@ -787,11 +189,9 @@
             </div>
             <div class="stat">
                 <div class="stat-number" id="viewCountDisplay1">
-                    <!-- hitwebcounter Code START -->
-                    <a href="https://www.hitwebcounter.com/" target="_blank" rel="noopener" title="https://www.hitwebcounter.com/">
-                        <img src="https://www.hitwebcounter.com/counter/counter.php?page=21504264&amp;style=0010&amp;nbdigits=4&amp;type=page" alt="https://www.hitwebcounter.com/" decoding="async" style="border:0;max-width:100%;height:auto;" />
+                    <a href="https://www.hitwebcounter.com/" target="_blank" rel="noopener">
+                        <img src="https://www.hitwebcounter.com/counter/counter.php?page=21504264&amp;style=0010&amp;nbdigits=4&amp;type=page" alt="hitwebcounter" style="border:0;max-width:100%;height:auto;" />
                     </a>
-                    <!-- hitwebcounter Code END -->
                 </div>
                 <div class="stat-label">👀 Views</div>
             </div>
@@ -808,9 +208,7 @@
             <h2>🎮 My Games</h2>
             <p>Hover for quick info — click "Details" or the card to learn more, "Play" to launch instantly</p>
         </div>
-        <div class="games-grid" id="gamesGrid">
-            <!-- Cards injected by JS -->
-        </div>
+        <div class="games-grid" id="gamesGrid"></div>
     </section>
 
     <!-- ═══════════════ ABOUT ═══════════════ -->
@@ -829,7 +227,7 @@
         </div>
     </section>
 
-    <!-- ═══════════════ FOOTER / CONTACT ═══════════════ -->
+    <!-- ═══════════════ FOOTER ═══════════════ -->
     <footer class="footer" id="contact">
         <p>
             📧 <a href="mailto:yourname@example.com">yourname@example.com</a> &nbsp;|&nbsp;
@@ -847,8 +245,7 @@
             <button class="modal-close" id="modalClose">&times;</button>
             <h3 id="modalTitle"></h3>
             <p id="modalDesc"></p>
-            <!-- Comments section with rating -->
-            <div class="comments-section" id="commentsSection">
+            <div class="comments-section">
                 <h4>💬 Comments & Ratings</h4>
                 <div class="comments-list" id="commentsList"></div>
                 <div class="comment-form">
@@ -870,7 +267,7 @@
         </div>
     </div>
 
-    <!-- ═══════════════ PLAY OVERLAY (IN-PAGE GAME WINDOW) ═══════════════ -->
+    <!-- ═══════════════ PLAY OVERLAY ═══════════════ -->
     <div class="modal-overlay play-overlay" id="playOverlay">
         <div class="play-container">
             <div class="play-header">
@@ -887,256 +284,87 @@
     </div>
 
     <script>
+        // ══════════════════ PASTE YOUR FIREBASE CONFIG HERE ══════════════════
+        const firebaseConfig = {
+  apiKey: "AIzaSyA5KsAVFj_l0IX9Ngge9AMY7NHFTreytEs",
+  authDomain: "vibe-coded-games-a63d1.firebaseapp.com",
+  databaseURL: "https://vibe-coded-games-a63d1-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "vibe-coded-games-a63d1",
+  storageBucket: "vibe-coded-games-a63d1.firebasestorage.app",
+  messagingSenderId: "982363867916",
+  appId: "1:982363867916:web:090a565ebc30824c4a5729"
+};
+        // ═══════════════════════════════════════════════════════════════════
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
         // ─────────────────────────────────────
         // GAME DATA
         // ─────────────────────────────────────
-        const games = [{
-            id: 1,
-            title: 'Rooms Escape',
-            genre: 'Shooting / Multiplayer',
-            description: '2P co-op roguelite where you clear rooms, upgrade weapons, and defeat bosses to escape.',
-            icon: '🔑',
-            gradient: 'linear-gradient(135deg, #1a0533 0%, #0d1b3e 50%, #0a0a2e 100%)',
-            tag: 'Featured',
-            tagClass: 'tag-featured',
-            playUrl: 'games/room-escape.html',
-        }, {
-            id: 2,
-            title: 'Snake',
-            genre: 'Snake / Adventure',
-            description: 'Snake',
-            icon: '🐍',
-            gradient: 'linear-gradient(135deg, #1a2a0a 0%, #0f1f1a 50%, #0a1a14 100%)',
-            tag: 'New',
-            tagClass: 'tag-new',
-            playUrl: 'games/snake.html',
-        }, {
-            id: 3,
-            title: '3D snake',
-            genre: 'Snake / Multiplayer',
-            description: 'A chaotic 3D snake arena where you jump, boost, and battle AI snakes while collecting colorful apples and power‑ups, with a live minimap and split‑screen co‑op.',
-            icon: '🐍',
-            gradient: 'linear-gradient(135deg, #2a0a0a 0%, #1f1010 50%, #1a0a0a 100%)',
-            tag: 'Popular',
-            tagClass: '',
-            playUrl: 'games/3D-snake.html',
-        }, {
-            id: 4,
-            title: 'Happy Pigs',
-            genre: 'Casual / Fun',
-            description: 'Slingshot green pigs to destroy the birds!',
-            icon: '🐷',
-            gradient: 'linear-gradient(135deg, #2a0a0a 0%, #1f1010 50%, #1a0a0a 100%)',
-            tag: 'New',
-            tagClass: 'tag-new',
-            playUrl: 'games/happy_pigs.html',
-        }];
+        const games = [
+            { id: 1, title: 'Rooms Escape', genre: 'Shooting / Multiplayer', description: '2P co-op roguelite where you clear rooms, upgrade weapons, and defeat bosses to escape.', icon: '🔑', gradient: 'linear-gradient(135deg, #1a0533 0%, #0d1b3e 50%, #0a0a2e 100%)', tag: 'Featured', tagClass: 'tag-featured', playUrl: 'games/room-escape.html' },
+            { id: 2, title: 'Snake', genre: 'Snake / Adventure', description: 'Snake', icon: '🐍', gradient: 'linear-gradient(135deg, #1a2a0a 0%, #0f1f1a 50%, #0a1a14 100%)', tag: 'New', tagClass: 'tag-new', playUrl: 'games/snake.html' },
+            { id: 3, title: '3D snake', genre: 'Snake / Multiplayer', description: 'A chaotic 3D snake arena where you jump, boost, and battle AI snakes while collecting colorful apples and power‑ups, with a live minimap and split‑screen co‑op.', icon: '🐍', gradient: 'linear-gradient(135deg, #2a0a0a 0%, #1f1010 50%, #1a0a0a 100%)', tag: 'Popular', tagClass: '', playUrl: 'games/3D-snake.html' },
+            { id: 4, title: 'Happy Pigs', genre: 'Casual / Fun', description: 'Slingshot green pigs to destroy the birds!', icon: '🐷', gradient: 'linear-gradient(135deg, #2a0a0a 0%, #1f1010 50%, #1a0a0a 100%)', tag: 'New', tagClass: 'tag-new', playUrl: 'games/happy_pigs.html' }
+        ];
 
         // ─────────────────────────────────────
-        // ADMIN ACCESS: Secret URL parameter
+        // ADMIN ACCESS (secret URL parameter)
         // ─────────────────────────────────────
-        const ADMIN_SECRET = 'my-secret-admin-key-2026'; // Change this to something long & random
+        const ADMIN_SECRET = 'my-secret-admin-key-2026';  // change this
         let isAdmin = false;
-        let currentModalGameId = null;
-
-        // Check for admin URL parameter ?admin=...
         const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.get('admin') === ADMIN_SECRET) {
-            isAdmin = true;
+        if (urlParams.get('admin') === ADMIN_SECRET) isAdmin = true;
+
+        // ─────────────────────────────────────
+        // USER ID (for deleting own comments)
+        // ─────────────────────────────────────
+        let myUserId = localStorage.getItem('myFirebaseUserId');
+        if (!myUserId) {
+            myUserId = 'user_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 8);
+            localStorage.setItem('myFirebaseUserId', myUserId);
         }
 
         // ─────────────────────────────────────
-        // COMMENTS (localStorage) + RATING
+        // RATING CALCULATION (from Firebase)
         // ─────────────────────────────────────
-        function getComments(gameId) {
-            const stored = localStorage.getItem(`comments_${gameId}`);
-            return stored ? JSON.parse(stored) : [];
-        }
-
-        function saveComments(gameId, comments) {
-            localStorage.setItem(`comments_${gameId}`, JSON.stringify(comments));
-        }
-
-        function getAverageRating(gameId) {
-            const comments = getComments(gameId);
-            const rated = comments.filter(c => c.rating > 0);
-            if (rated.length === 0) return 0;
-            const sum = rated.reduce((acc, c) => acc + c.rating, 0);
-            return sum / rated.length;
-        }
-
-        function generateStars(rating) {
-            const full = Math.round(rating); // round to nearest whole star for display
-            return '★'.repeat(full) + '☆'.repeat(5 - full);
-        }
-
-        function updateGameRatingDisplay(gameId) {
+        function updateGameRatingDisplay(gameId, commentsObj) {
             const cardRatingEl = document.querySelector(`.game-card-rating[data-game-id="${gameId}"]`);
             if (!cardRatingEl) return;
-            const avg = getAverageRating(gameId);
-            if (avg === 0) {
+            const comments = commentsObj ? Object.values(commentsObj) : [];
+            const rated = comments.filter(c => c.rating > 0);
+            if (rated.length === 0) {
                 cardRatingEl.textContent = 'No ratings yet';
             } else {
-                cardRatingEl.textContent = generateStars(avg) + ` (${avg.toFixed(1)})`;
+                const sum = rated.reduce((acc, c) => acc + c.rating, 0);
+                const avg = sum / rated.length;
+                const full = Math.round(avg);
+                cardRatingEl.textContent = '★'.repeat(full) + '☆'.repeat(5 - full) + ` (${avg.toFixed(1)})`;
             }
-        }
-
-        function updateAllGameRatings() {
-            games.forEach(game => updateGameRatingDisplay(game.id));
-        }
-
-        // ─────────────────────────────────────
-        // COMMENT RENDERING (modal)
-        // ─────────────────────────────────────
-        function renderComments(gameId) {
-            const list = document.getElementById('commentsList');
-            const comments = getComments(gameId);
-            const userCommentIds = JSON.parse(localStorage.getItem(`my_comment_ids_${gameId}`) || '[]');
-            list.innerHTML = '';
-            if (comments.length === 0) {
-                list.innerHTML = '<p style="color:var(--text-muted); font-size:0.85rem;">No comments yet. Be the first!</p>';
-                return;
-            }
-            // Show newest first
-            [...comments].reverse().forEach((comment) => {
-                const originalIndex = comments.indexOf(comment); // reverse mapping
-                const div = document.createElement('div');
-                div.className = 'comment-item';
-                const timeStr = new Date(comment.timestamp).toLocaleString();
-                const displayName = comment.name && comment.name.trim() ? comment.name : 'Anonymous';
-                let starsHtml = '';
-                if (comment.rating && comment.rating > 0) {
-                    starsHtml = '<div class="star-rating">' +
-                        '★'.repeat(comment.rating) + '☆'.repeat(5 - comment.rating) +
-                        '</div>';
-                }
-                // Delete button logic: admin can delete any, user can delete own comment (if they have the id stored)
-                const userCanDelete = !isAdmin && userCommentIds.includes(comment.id);
-                const showDelete = isAdmin || userCanDelete;
-                div.innerHTML = `
-                    <span class="comment-author">${escapeHTML(displayName)}</span>
-                    <span class="comment-time">${timeStr}</span>
-                    <button class="delete-comment-btn" data-comment-index="${originalIndex}" style="display:${showDelete ? 'block' : 'none'}">✕</button>
-                    ${starsHtml}
-                    <div class="comment-text">${escapeHTML(comment.text)}</div>
-                `;
-                list.appendChild(div);
-            });
-
-            // Attach delete events
-            document.querySelectorAll('.delete-comment-btn').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    const idx = parseInt(btn.getAttribute('data-comment-index'));
-                    deleteComment(gameId, idx);
-                });
-            });
-        }
-
-        function deleteComment(gameId, index) {
-            const comments = getComments(gameId);
-            if (index < 0 || index >= comments.length) return;
-            const commentToDelete = comments[index];
-            // If user is deleting their own comment, remove its id from their list
-            if (!isAdmin) {
-                const userCommentIds = JSON.parse(localStorage.getItem(`my_comment_ids_${gameId}`) || '[]');
-                const updatedIds = userCommentIds.filter(id => id !== commentToDelete.id);
-                localStorage.setItem(`my_comment_ids_${gameId}`, JSON.stringify(updatedIds));
-            }
-            comments.splice(index, 1);
-            saveComments(gameId, comments);
-            renderComments(gameId);
-            updateGameRatingDisplay(gameId);
-        }
-
-        function escapeHTML(str) {
-            const div = document.createElement('div');
-            div.textContent = str;
-            return div.innerHTML;
-        }
-
-        function addComment(gameId, name, text, rating) {
-            const comments = getComments(gameId);
-            const newComment = {
-                id: Date.now().toString(36) + Math.random().toString(36).substr(2, 8),
-                name: name.trim() || '',
-                text: text.trim(),
-                rating: rating || 0,
-                timestamp: Date.now()
-            };
-            comments.push(newComment);
-            saveComments(gameId, comments);
-            // Store comment id in user's list for future deletion
-            const userCommentIds = JSON.parse(localStorage.getItem(`my_comment_ids_${gameId}`) || '[]');
-            userCommentIds.push(newComment.id);
-            localStorage.setItem(`my_comment_ids_${gameId}`, JSON.stringify(userCommentIds));
-            renderComments(gameId);
-            updateGameRatingDisplay(gameId);
-        }
-
-        // ─────────────────────────────────────
-        // STAR RATING INPUT HANDLING
-        // ─────────────────────────────────────
-        let selectedRating = 0;
-        const ratingStars = document.getElementById('ratingStars');
-        const starSpans = ratingStars.querySelectorAll('span');
-
-        function updateStarDisplay(value) {
-            starSpans.forEach(span => {
-                const starValue = parseInt(span.getAttribute('data-value'));
-                span.textContent = starValue <= value ? '★' : '☆';
-                if (starValue <= value) {
-                    span.classList.add('active');
-                } else {
-                    span.classList.remove('active');
-                }
-            });
-        }
-
-        starSpans.forEach(span => {
-            span.addEventListener('click', () => {
-                selectedRating = parseInt(span.getAttribute('data-value'));
-                updateStarDisplay(selectedRating);
-            });
-            span.addEventListener('mouseenter', () => {
-                const hoverValue = parseInt(span.getAttribute('data-value'));
-                updateStarDisplay(hoverValue);
-            });
-        });
-        ratingStars.addEventListener('mouseleave', () => {
-            updateStarDisplay(selectedRating);
-        });
-
-        function resetRating() {
-            selectedRating = 0;
-            updateStarDisplay(0);
         }
 
         // ─────────────────────────────────────
         // RENDER GAME CARDS
         // ─────────────────────────────────────
         const gamesGrid = document.getElementById('gamesGrid');
-
         function renderGames() {
             gamesGrid.innerHTML = '';
             games.forEach(game => {
-                const avgRating = getAverageRating(game.id);
-                const ratingHtml = avgRating > 0 
-                    ? generateStars(avgRating) + ` (${avgRating.toFixed(1)})`
-                    : 'No ratings yet';
                 const card = document.createElement('div');
                 card.className = 'game-card';
                 card.setAttribute('data-game-id', game.id);
+                // initial rating placeholder, will be updated by Firebase listener
                 card.innerHTML = `
                     <div class="game-card-image">
-                        <div class="placeholder-bg" style="background:${game.gradient};">
-                            ${game.icon}
-                        </div>
+                        <div class="placeholder-bg" style="background:${game.gradient};">${game.icon}</div>
                         ${game.tag ? `<span class="overlay-tag ${game.tagClass}">${game.tag}</span>` : ''}
                     </div>
                     <div class="game-card-body">
                         <h3>${game.title}</h3>
                         <span class="genre">${game.genre}</span>
-                        <div class="game-card-rating" data-game-id="${game.id}">${ratingHtml}</div>
+                        <div class="game-card-rating" data-game-id="${game.id}">Loading...</div>
                         <p class="description">${game.description}</p>
                         <div class="game-card-footer">
                             <button class="btn btn-primary btn-details" data-id="${game.id}">Details</button>
@@ -1146,71 +374,174 @@
                 `;
                 gamesGrid.appendChild(card);
             });
-
             document.getElementById('gameCount').textContent = games.length;
+
+            // Listen for rating changes on each game's comments
+            games.forEach(game => {
+                db.ref('games/' + game.id + '/comments').on('value', (snapshot) => {
+                    updateGameRatingDisplay(game.id, snapshot.val());
+                });
+            });
         }
 
         // ─────────────────────────────────────
-        // DETAILS MODAL
+        // COMMENTS MODAL RENDERING
         // ─────────────────────────────────────
-        const modalOverlay = document.getElementById('modalOverlay');
-        const modalTitle = document.getElementById('modalTitle');
-        const modalDesc = document.getElementById('modalDesc');
-        const modalPlayBtn = document.getElementById('modalPlayBtn');
-        const modalClose = document.getElementById('modalClose');
-        const submitCommentBtn = document.getElementById('submitComment');
-        const commentNameInput = document.getElementById('commentName');
-        const commentTextInput = document.getElementById('commentText');
+        let currentModalGameId = null;
+        let commentsListener = null;
 
         function openDetailsModal(game) {
             currentModalGameId = game.id;
             modalTitle.textContent = game.title;
-            modalDesc.textContent = game.description +
-                '\n\nGenre: ' + game.genre +
-                '\n\nThis is one of my proudest creations. I hope you enjoy playing it as much as I enjoyed building it!';
-            
+            modalDesc.textContent = game.description + '\n\nGenre: ' + game.genre;
+            // Reset form
             commentNameInput.value = '';
             commentTextInput.value = '';
-            resetRating();
-            renderComments(game.id);
-            
+            selectedRating = 0;
+            updateStarDisplay(0);
+
+            // Remove old listener
+            if (commentsListener) {
+                db.ref('games/' + currentModalGameId + '/comments').off('value', commentsListener);
+            }
+            // Listen for comments
+            const commentsRef = db.ref('games/' + game.id + '/comments');
+            commentsListener = commentsRef.on('value', (snapshot) => {
+                renderComments(snapshot.val() || {});
+            });
+
             modalOverlay.classList.add('active');
             document.body.style.overflow = 'hidden';
         }
 
+        function renderComments(commentsObj) {
+            const list = document.getElementById('commentsList');
+            list.innerHTML = '';
+            const commentsArray = Object.entries(commentsObj).map(([key, val]) => ({ key, ...val }));
+            if (commentsArray.length === 0) {
+                list.innerHTML = '<p style="color:var(--text-muted); font-size:0.85rem;">No comments yet. Be the first!</p>';
+                return;
+            }
+            // sort newest first
+            commentsArray.sort((a, b) => b.timestamp - a.timestamp);
+            commentsArray.forEach(comment => {
+                const div = document.createElement('div');
+                div.className = 'comment-item';
+                const timeStr = new Date(comment.timestamp).toLocaleString();
+                const displayName = comment.name?.trim() || 'Anonymous';
+                let starsHtml = '';
+                if (comment.rating > 0) {
+                    starsHtml = '<div class="star-rating">' + '★'.repeat(comment.rating) + '☆'.repeat(5 - comment.rating) + '</div>';
+                }
+                const canDelete = isAdmin || (comment.uid === myUserId);
+                div.innerHTML = `
+                    <span class="comment-author">${escapeHTML(displayName)}</span>
+                    <span class="comment-time">${timeStr}</span>
+                    <button class="delete-comment-btn" data-comment-key="${comment.key}" style="display:${canDelete ? 'block' : 'none'}">✕</button>
+                    ${starsHtml}
+                    <div class="comment-text">${escapeHTML(comment.text)}</div>
+                `;
+                list.appendChild(div);
+            });
+
+            // Attach delete events
+            document.querySelectorAll('.delete-comment-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const key = btn.getAttribute('data-comment-key');
+                    if (key && currentModalGameId) {
+                        db.ref('games/' + currentModalGameId + '/comments/' + key).remove();
+                    }
+                });
+            });
+        }
+
+        function escapeHTML(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        // ─────────────────────────────────────
+        // ADD COMMENT
+        // ─────────────────────────────────────
+        function addComment(gameId, name, text, rating) {
+            const commentsRef = db.ref('games/' + gameId + '/comments');
+            commentsRef.push({
+                name: name.trim() || '',
+                text: text.trim(),
+                rating: rating || 0,
+                timestamp: Date.now(),
+                uid: myUserId
+            });
+        }
+
+        // ─────────────────────────────────────
+        // STAR RATING INPUT
+        // ─────────────────────────────────────
+        let selectedRating = 0;
+        const ratingStars = document.getElementById('ratingStars');
+        const starSpans = ratingStars.querySelectorAll('span');
+
+        function updateStarDisplay(value) {
+            starSpans.forEach(span => {
+                const starValue = parseInt(span.getAttribute('data-value'));
+                span.textContent = starValue <= value ? '★' : '☆';
+                span.classList.toggle('active', starValue <= value);
+            });
+        }
+
+        starSpans.forEach(span => {
+            span.addEventListener('click', () => {
+                selectedRating = parseInt(span.getAttribute('data-value'));
+                updateStarDisplay(selectedRating);
+            });
+            span.addEventListener('mouseenter', () => {
+                updateStarDisplay(parseInt(span.getAttribute('data-value')));
+            });
+        });
+        ratingStars.addEventListener('mouseleave', () => updateStarDisplay(selectedRating));
+
+        // ─────────────────────────────────────
+        // DETAILS MODAL CONTROLS
+        // ─────────────────────────────────────
+        const modalOverlay = document.getElementById('modalOverlay');
+        const modalTitle = document.getElementById('modalTitle');
+        const modalDesc = document.getElementById('modalDesc');
+        const modalClose = document.getElementById('modalClose');
+        const submitCommentBtn = document.getElementById('submitComment');
+        const commentNameInput = document.getElementById('commentName');
+        const commentTextInput = document.getElementById('commentText');
+        const modalPlayBtn = document.getElementById('modalPlayBtn');
+
         function closeDetailsModal() {
             modalOverlay.classList.remove('active');
             document.body.style.overflow = '';
+            if (commentsListener && currentModalGameId) {
+                db.ref('games/' + currentModalGameId + '/comments').off('value', commentsListener);
+                commentsListener = null;
+            }
             currentModalGameId = null;
         }
 
         modalClose.addEventListener('click', closeDetailsModal);
-        modalOverlay.addEventListener('click', (e) => {
-            if (e.target === modalOverlay) closeDetailsModal();
-        });
+        modalOverlay.addEventListener('click', (e) => { if (e.target === modalOverlay) closeDetailsModal(); });
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
-                if (playOverlay.classList.contains('active')) {
-                    closePlayOverlay();
-                } else if (modalOverlay.classList.contains('active')) {
-                    closeDetailsModal();
-                }
+                if (playOverlay.classList.contains('active')) closePlayOverlay();
+                else if (modalOverlay.classList.contains('active')) closeDetailsModal();
             }
         });
 
-        // Handle comment submission
         submitCommentBtn.addEventListener('click', () => {
             if (!currentModalGameId) return;
             const name = commentNameInput.value.trim();
             const text = commentTextInput.value.trim();
-            if (!text) {
-                alert('Please enter a comment.');
-                return;
-            }
+            if (!text) { alert('Please enter a comment.'); return; }
             addComment(currentModalGameId, name, text, selectedRating);
             commentNameInput.value = '';
             commentTextInput.value = '';
-            resetRating();
+            selectedRating = 0;
+            updateStarDisplay(0);
         });
 
         commentTextInput.addEventListener('keydown', (e) => {
@@ -1221,7 +552,7 @@
         });
 
         // ─────────────────────────────────────
-        // PLAY OVERLAY (IN-PAGE GAME WINDOW)
+        // PLAY OVERLAY
         // ─────────────────────────────────────
         const playOverlay = document.getElementById('playOverlay');
         const playTitle = document.getElementById('playTitle');
@@ -1233,7 +564,7 @@
             playTitle.textContent = game.title;
             if (!game.playUrl || game.playUrl === '#') {
                 gameIframe.src = 'about:blank';
-                const msg = `<html><body style="background:#111;color:#fff;display:flex;align-items:center;justify-content:center;font-family:sans-serif;height:100%;margin:0;"><p>🎮 Game URL not set.<br>Add your game's URL in the <code>playUrl</code> field.</p></body></html>`;
+                const msg = `<html><body style="background:#111;color:#fff;display:flex;align-items:center;justify-content:center;font-family:sans-serif;height:100%;margin:0;"><p>🎮 Game URL not set.</p></body></html>`;
                 gameIframe.src = 'data:text/html;charset=utf-8,' + encodeURIComponent(msg);
             } else {
                 gameIframe.src = game.playUrl;
@@ -1249,22 +580,15 @@
         }
 
         playCloseBtn.addEventListener('click', closePlayOverlay);
-        playOverlay.addEventListener('click', (e) => {
-            if (e.target === playOverlay) closePlayOverlay();
-        });
-
+        playOverlay.addEventListener('click', (e) => { if (e.target === playOverlay) closePlayOverlay(); });
         fullscreenBtn.addEventListener('click', () => {
-            if (gameIframe.requestFullscreen) {
-                gameIframe.requestFullscreen();
-            } else if (gameIframe.webkitRequestFullscreen) {
-                gameIframe.webkitRequestFullscreen();
-            } else if (gameIframe.msRequestFullscreen) {
-                gameIframe.msRequestFullscreen();
-            }
+            if (gameIframe.requestFullscreen) gameIframe.requestFullscreen();
+            else if (gameIframe.webkitRequestFullscreen) gameIframe.webkitRequestFullscreen();
+            else if (gameIframe.msRequestFullscreen) gameIframe.msRequestFullscreen();
         });
 
         // ─────────────────────────────────────
-        // EVENT HANDLERS FOR PLAY BUTTONS
+        // CARD CLICK HANDLERS
         // ─────────────────────────────────────
         gamesGrid.addEventListener('click', (e) => {
             const playBtn = e.target.closest('.btn-play-card');
@@ -1275,7 +599,6 @@
                 if (game) openPlayOverlay(game);
                 return;
             }
-
             const detailsBtn = e.target.closest('.btn-details');
             if (detailsBtn) {
                 const gameId = parseInt(detailsBtn.getAttribute('data-id'));
@@ -1283,7 +606,6 @@
                 if (game) openDetailsModal(game);
                 return;
             }
-
             const card = e.target.closest('.game-card');
             if (card && !e.target.closest('a') && !e.target.closest('button')) {
                 const gameId = parseInt(card.getAttribute('data-game-id'));
@@ -1301,46 +623,48 @@
         });
 
         // ─────────────────────────────────────
-        // ADMIN TOGGLE (password fallback)
+        // MOBILE MENU & ADMIN TOGGLE
         // ─────────────────────────────────────
+        const menuToggle = document.getElementById('menuToggle');
+        const navLinks = document.getElementById('navLinks');
+        menuToggle.addEventListener('click', () => navLinks.classList.toggle('open'));
+        navLinks.querySelectorAll('a').forEach(link => {
+            link.addEventListener('click', () => navLinks.classList.remove('open'));
+        });
+
         const adminToggle = document.getElementById('adminToggle');
         adminToggle.addEventListener('click', () => {
             if (isAdmin) {
                 isAdmin = false;
                 adminToggle.textContent = '🔑 Admin';
-                if (currentModalGameId) renderComments(currentModalGameId);
+                if (currentModalGameId) {
+                    // re-render comments to hide delete buttons
+                    db.ref('games/' + currentModalGameId + '/comments').once('value', (snap) => {
+                        renderComments(snap.val() || {});
+                    });
+                }
                 return;
             }
+            // fallback password prompt
             const password = prompt('Enter admin password:');
-            if (password === 'admin123') { // still works as fallback
+            if (password === 'admin123') {
                 isAdmin = true;
                 adminToggle.textContent = '🔓 Admin (active)';
-                if (currentModalGameId) renderComments(currentModalGameId);
+                if (currentModalGameId) {
+                    db.ref('games/' + currentModalGameId + '/comments').once('value', (snap) => {
+                        renderComments(snap.val() || {});
+                    });
+                }
             } else if (password !== null) {
                 alert('Incorrect password.');
             }
         });
 
         // ─────────────────────────────────────
-        // MOBILE MENU TOGGLE
-        // ─────────────────────────────────────
-        const menuToggle = document.getElementById('menuToggle');
-        const navLinks = document.getElementById('navLinks');
-        menuToggle.addEventListener('click', () => {
-            navLinks.classList.toggle('open');
-        });
-        navLinks.querySelectorAll('a').forEach(link => {
-            link.addEventListener('click', () => {
-                navLinks.classList.remove('open');
-            });
-        });
-
-        // ─────────────────────────────────────
         // INIT
         // ─────────────────────────────────────
         renderGames();
-        updateAllGameRatings();
-        console.log('🎮 Game portfolio ready!');
+        console.log('🎮 Portfolio ready with Firebase global comments!');
     </script>
 </body>
 </html>
