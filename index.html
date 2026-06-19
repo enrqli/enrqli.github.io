@@ -10,7 +10,6 @@
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
     <style>
-        /* ════════════ SAME STYLES AS BEFORE ════════════ */
         :root {
             --bg: #0a0a0f;
             --surface: #14141f;
@@ -89,8 +88,9 @@
         .btn-primary:hover { background: #8b5cf6; box-shadow: 0 0 22px rgba(124,58,237,0.45); transform: translateY(-1px); }
         .btn-outline { background: transparent; color: #fff; border: 1.5px solid var(--border); }
         .btn-outline:hover { border-color: #fff; background: rgba(255,255,255,0.04); }
+        .btn-small { padding: 6px 14px; font-size: 0.8rem; }
 
-        /* modals, etc. same as before... I'll keep them concise but include all necessary styles */
+        /* modals, etc. */
         .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); backdrop-filter: blur(6px); z-index: 200; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.35s; }
         .modal-overlay.active { opacity: 1; pointer-events: auto; }
         .modal { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 36px 30px; max-width: 600px; width: 90%; text-align: left; position: relative; box-shadow: 0 30px 60px rgba(0,0,0,0.7); transform: translateY(20px); transition: transform 0.35s; max-height: 80vh; overflow-y: auto; }
@@ -206,7 +206,7 @@
     <section class="section" id="games">
         <div class="section-header">
             <h2>🎮 My Games</h2>
-            <p>Hover for quick info — click "Details" or the card to learn more, "Play" to launch instantly</p>
+            <p>Hover for quick info — click "Details" or the card to learn more, choose how to play</p>
         </div>
         <div class="games-grid" id="gamesGrid"></div>
     </section>
@@ -261,13 +261,14 @@
                     <button class="btn btn-primary" id="submitComment">Post</button>
                 </div>
             </div>
-            <div style="margin-top:16px; text-align:center;">
-                <button class="btn btn-primary" id="modalPlayBtn">▶ Play Now</button>
+            <div style="margin-top:16px; display: flex; gap: 10px; justify-content: center;">
+                <button class="btn btn-primary btn-play-here" id="modalPlayHereBtn">▶ Play Here</button>
+                <a href="#" class="btn btn-outline btn-open-tab" id="modalOpenTabBtn" target="_blank">🔗 Open in New Tab</a>
             </div>
         </div>
     </div>
 
-    <!-- ═══════════════ PLAY OVERLAY ═══════════════ -->
+    <!-- ═══════════════ PLAY OVERLAY (IN-PAGE GAME WINDOW) ═══════════════ -->
     <div class="modal-overlay play-overlay" id="playOverlay">
         <div class="play-container">
             <div class="play-header">
@@ -284,52 +285,41 @@
     </div>
 
     <script>
-        // ══════════════════ PASTE YOUR FIREBASE CONFIG HERE ══════════════════
+        // ══════════════════ YOUR FIREBASE CONFIG ══════════════════
         const firebaseConfig = {
-  apiKey: "AIzaSyA5KsAVFj_l0IX9Ngge9AMY7NHFTreytEs",
-  authDomain: "vibe-coded-games-a63d1.firebaseapp.com",
-  databaseURL: "https://vibe-coded-games-a63d1-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "vibe-coded-games-a63d1",
-  storageBucket: "vibe-coded-games-a63d1.firebasestorage.app",
-  messagingSenderId: "982363867916",
-  appId: "1:982363867916:web:090a565ebc30824c4a5729"
-};
-        // ═══════════════════════════════════════════════════════════════════
+          apiKey: "AIzaSyA5KsAVFj_l0IX9Ngge9AMY7NHFTreytEs",
+          authDomain: "vibe-coded-games-a63d1.firebaseapp.com",
+          databaseURL: "https://vibe-coded-games-a63d1-default-rtdb.asia-southeast1.firebasedatabase.app",
+          projectId: "vibe-coded-games-a63d1",
+          storageBucket: "vibe-coded-games-a63d1.firebasestorage.app",
+          messagingSenderId: "982363867916",
+          appId: "1:982363867916:web:090a565ebc30824c4a5729"
+        };
+        // ═════════════════════════════════════════════════════════
 
-        // Initialize Firebase
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
 
-        // ─────────────────────────────────────
-        // GAME DATA
-        // ─────────────────────────────────────
+        // ── GAME DATA ─────────────────────
         const games = [
             { id: 1, title: 'Rooms Escape', genre: 'Shooting / Multiplayer', description: '2P co-op roguelite where you clear rooms, upgrade weapons, and defeat bosses to escape.', icon: '🔑', gradient: 'linear-gradient(135deg, #1a0533 0%, #0d1b3e 50%, #0a0a2e 100%)', tag: 'Featured', tagClass: 'tag-featured', playUrl: 'games/room-escape.html' },
-            { id: 2, title: 'Snake', genre: 'Snake / Adventure', description: 'Snake', icon: '🐍', gradient: 'linear-gradient(135deg, #1a2a0a 0%, #0f1f1a 50%, #0a1a14 100%)', tag: 'Popular', tagClass: "" playUrl: 'games/snake.html' },
+            { id: 2, title: 'Snake', genre: 'Snake / Adventure', description: 'Snake', icon: '🐍', gradient: 'linear-gradient(135deg, #1a2a0a 0%, #0f1f1a 50%, #0a1a14 100%)', tag: 'Popular', tagClass: '', playUrl: 'games/snake.html' },
             { id: 3, title: '3D snake', genre: 'Snake / Multiplayer', description: 'A chaotic 3D snake arena where you jump, boost, and battle AI snakes while collecting colorful apples and power‑ups, with a live minimap and split‑screen co‑op.', icon: '🐍', gradient: 'linear-gradient(135deg, #2a0a0a 0%, #1f1010 50%, #1a0a0a 100%)', tag: 'Popular', tagClass: '', playUrl: 'games/3D-snake.html' },
             { id: 4, title: 'Happy Pigs', genre: 'Casual / Fun', description: 'Slingshot green pigs to destroy the birds!', icon: '🐷', gradient: 'linear-gradient(135deg, #2a0a0a 0%, #1f1010 50%, #1a0a0a 100%)', tag: 'New', tagClass: 'tag-new', playUrl: 'games/happy_pigs.html' }
         ];
 
-        // ─────────────────────────────────────
-        // ADMIN ACCESS (secret URL parameter)
-        // ─────────────────────────────────────
-        const ADMIN_SECRET = 'my-secret-admin-key-2026';  // change this
+        const ADMIN_SECRET = 'my-secret-admin-key-2026';
         let isAdmin = false;
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.get('admin') === ADMIN_SECRET) isAdmin = true;
 
-        // ─────────────────────────────────────
-        // USER ID (for deleting own comments)
-        // ─────────────────────────────────────
         let myUserId = localStorage.getItem('myFirebaseUserId');
         if (!myUserId) {
             myUserId = 'user_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 8);
             localStorage.setItem('myFirebaseUserId', myUserId);
         }
 
-        // ─────────────────────────────────────
-        // RATING CALCULATION (from Firebase)
-        // ─────────────────────────────────────
+        // ── RATING CALCULATION ──────────
         function updateGameRatingDisplay(gameId, commentsObj) {
             const cardRatingEl = document.querySelector(`.game-card-rating[data-game-id="${gameId}"]`);
             if (!cardRatingEl) return;
@@ -345,9 +335,7 @@
             }
         }
 
-        // ─────────────────────────────────────
-        // RENDER GAME CARDS
-        // ─────────────────────────────────────
+        // ── RENDER GAME CARDS ───────────
         const gamesGrid = document.getElementById('gamesGrid');
         function renderGames() {
             gamesGrid.innerHTML = '';
@@ -355,7 +343,6 @@
                 const card = document.createElement('div');
                 card.className = 'game-card';
                 card.setAttribute('data-game-id', game.id);
-                // initial rating placeholder, will be updated by Firebase listener
                 card.innerHTML = `
                     <div class="game-card-image">
                         <div class="placeholder-bg" style="background:${game.gradient};">${game.icon}</div>
@@ -368,7 +355,8 @@
                         <p class="description">${game.description}</p>
                         <div class="game-card-footer">
                             <button class="btn btn-primary btn-details" data-id="${game.id}">Details</button>
-                            <a href="${game.playUrl}" class="btn btn-outline btn-play-card" data-id="${game.id}">▶ Play</a>
+                            <button class="btn btn-primary btn-play-here" data-id="${game.id}">▶ Play Here</button>
+                            <a href="${game.playUrl}" class="btn btn-outline btn-open-tab" data-id="${game.id}" target="_blank">🔗 Open in Tab</a>
                         </div>
                     </div>
                 `;
@@ -384,9 +372,7 @@
             });
         }
 
-        // ─────────────────────────────────────
-        // COMMENTS MODAL RENDERING
-        // ─────────────────────────────────────
+        // ── COMMENTS MODAL ──────────────
         let currentModalGameId = null;
         let commentsListener = null;
 
@@ -394,17 +380,19 @@
             currentModalGameId = game.id;
             modalTitle.textContent = game.title;
             modalDesc.textContent = game.description + '\n\nGenre: ' + game.genre;
-            // Reset form
             commentNameInput.value = '';
             commentTextInput.value = '';
             selectedRating = 0;
             updateStarDisplay(0);
 
-            // Remove old listener
+            // Set play URLs in modal buttons
+            modalPlayHereBtn.setAttribute('data-game-id', game.id);
+            modalOpenTabBtn.href = game.playUrl;
+            modalOpenTabBtn.setAttribute('data-game-id', game.id);
+
             if (commentsListener) {
                 db.ref('games/' + currentModalGameId + '/comments').off('value', commentsListener);
             }
-            // Listen for comments
             const commentsRef = db.ref('games/' + game.id + '/comments');
             commentsListener = commentsRef.on('value', (snapshot) => {
                 renderComments(snapshot.val() || {});
@@ -422,7 +410,6 @@
                 list.innerHTML = '<p style="color:var(--text-muted); font-size:0.85rem;">No comments yet. Be the first!</p>';
                 return;
             }
-            // sort newest first
             commentsArray.sort((a, b) => b.timestamp - a.timestamp);
             commentsArray.forEach(comment => {
                 const div = document.createElement('div');
@@ -444,7 +431,6 @@
                 list.appendChild(div);
             });
 
-            // Attach delete events
             document.querySelectorAll('.delete-comment-btn').forEach(btn => {
                 btn.addEventListener('click', () => {
                     const key = btn.getAttribute('data-comment-key');
@@ -461,9 +447,6 @@
             return div.innerHTML;
         }
 
-        // ─────────────────────────────────────
-        // ADD COMMENT
-        // ─────────────────────────────────────
         function addComment(gameId, name, text, rating) {
             const commentsRef = db.ref('games/' + gameId + '/comments');
             commentsRef.push({
@@ -475,9 +458,7 @@
             });
         }
 
-        // ─────────────────────────────────────
-        // STAR RATING INPUT
-        // ─────────────────────────────────────
+        // ── STAR RATING INPUT ───────────
         let selectedRating = 0;
         const ratingStars = document.getElementById('ratingStars');
         const starSpans = ratingStars.querySelectorAll('span');
@@ -501,9 +482,7 @@
         });
         ratingStars.addEventListener('mouseleave', () => updateStarDisplay(selectedRating));
 
-        // ─────────────────────────────────────
-        // DETAILS MODAL CONTROLS
-        // ─────────────────────────────────────
+        // ── DETAILS MODAL CONTROLS ──────
         const modalOverlay = document.getElementById('modalOverlay');
         const modalTitle = document.getElementById('modalTitle');
         const modalDesc = document.getElementById('modalDesc');
@@ -511,7 +490,8 @@
         const submitCommentBtn = document.getElementById('submitComment');
         const commentNameInput = document.getElementById('commentName');
         const commentTextInput = document.getElementById('commentText');
-        const modalPlayBtn = document.getElementById('modalPlayBtn');
+        const modalPlayHereBtn = document.getElementById('modalPlayHereBtn');
+        const modalOpenTabBtn = document.getElementById('modalOpenTabBtn');
 
         function closeDetailsModal() {
             modalOverlay.classList.remove('active');
@@ -551,9 +531,7 @@
             }
         });
 
-        // ─────────────────────────────────────
-        // PLAY OVERLAY
-        // ─────────────────────────────────────
+        // ── PLAY OVERLAY ────────────────
         const playOverlay = document.getElementById('playOverlay');
         const playTitle = document.getElementById('playTitle');
         const gameIframe = document.getElementById('gameIframe');
@@ -587,16 +565,19 @@
             else if (gameIframe.msRequestFullscreen) gameIframe.msRequestFullscreen();
         });
 
-        // ─────────────────────────────────────
-        // CARD CLICK HANDLERS
-        // ─────────────────────────────────────
+        // ── EVENT HANDLERS FOR PLAY BUTTONS ──
+        function handlePlayHere(gameId) {
+            const game = games.find(g => g.id === gameId);
+            if (game) openPlayOverlay(game);
+        }
+
+        // Card buttons delegation
         gamesGrid.addEventListener('click', (e) => {
-            const playBtn = e.target.closest('.btn-play-card');
-            if (playBtn) {
+            const playHereBtn = e.target.closest('.btn-play-here');
+            if (playHereBtn) {
                 e.preventDefault();
-                const gameId = parseInt(playBtn.getAttribute('data-id'));
-                const game = games.find(g => g.id === gameId);
-                if (game) openPlayOverlay(game);
+                const gameId = parseInt(playHereBtn.getAttribute('data-id'));
+                handlePlayHere(gameId);
                 return;
             }
             const detailsBtn = e.target.closest('.btn-details');
@@ -614,17 +595,18 @@
             }
         });
 
-        modalPlayBtn.addEventListener('click', () => {
-            if (currentModalGameId) {
-                const game = games.find(g => g.id === currentModalGameId);
-                if (game) openPlayOverlay(game);
-                closeDetailsModal();
+        // Modal "Play Here" button
+        modalPlayHereBtn.addEventListener('click', () => {
+            const gameId = parseInt(modalPlayHereBtn.getAttribute('data-game-id'));
+            if (gameId) {
+                handlePlayHere(gameId);
+                closeDetailsModal(); // optionally close modal when playing
             }
         });
 
-        // ─────────────────────────────────────
-        // MOBILE MENU & ADMIN TOGGLE
-        // ─────────────────────────────────────
+        // The "Open in Tab" in modal is an actual link, no extra JS needed
+
+        // ── MOBILE MENU & ADMIN TOGGLE ──
         const menuToggle = document.getElementById('menuToggle');
         const navLinks = document.getElementById('navLinks');
         menuToggle.addEventListener('click', () => navLinks.classList.toggle('open'));
@@ -638,14 +620,12 @@
                 isAdmin = false;
                 adminToggle.textContent = '🔑 Admin';
                 if (currentModalGameId) {
-                    // re-render comments to hide delete buttons
                     db.ref('games/' + currentModalGameId + '/comments').once('value', (snap) => {
                         renderComments(snap.val() || {});
                     });
                 }
                 return;
             }
-            // fallback password prompt
             const password = prompt('Enter admin password:');
             if (password === 'awyegbfkaweydfgbbfia837tr aky3gnab7wgr8ba7wvkrg8wa7rfharwefaw7v er7bawe7bgraw7tva7wrga7wkyfkha03r9aylr8rbla8etfneafaw7ibtefa8b7wtebfoanwn9e8fybawe7nfoawnefhabwfrga') {
                 isAdmin = true;
@@ -660,11 +640,9 @@
             }
         });
 
-        // ─────────────────────────────────────
-        // INIT
-        // ─────────────────────────────────────
+        // ── INIT ─────────────────────────
         renderGames();
-        console.log('🎮 Portfolio ready with Firebase global comments!');
+        console.log('🎮 Portfolio ready – two play options available!');
     </script>
 </body>
 </html>
