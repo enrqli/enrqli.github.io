@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Catapult Siege – Bomb Pig Looks Like Bomb</title>
+    <title>Catapult Siege – Steel Ground Fix & Aim Cancel</title>
     <style>
         :root { --bg: #1a1a2e; }
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -49,6 +49,18 @@
             letter-spacing: 0.5px; text-shadow: 0 1px 3px rgba(0,0,0,0.7);
             transition: opacity 0.5s;
         }
+        .level-select {
+            position: absolute; bottom: 70px; left: 50%; transform: translateX(-50%);
+            z-index: 25; display: flex; gap: 8px; align-items: center;
+        }
+        .level-select input {
+            width: 60px; padding: 5px 8px; border-radius: 8px; border: 2px solid #f7971e;
+            background: rgba(0,0,0,0.8); color: #fff; font-size: 14px; text-align: center;
+        }
+        .level-select button {
+            padding: 6px 14px; border-radius: 8px; background: #f7971e; color: #fff;
+            border: none; font-weight: 700; cursor: pointer; font-size: 14px;
+        }
     </style>
 </head>
 <body>
@@ -60,7 +72,11 @@
             <div class="ui-badge score" id="scoreBadge">⭐ Score: 0</div>
         </div>
         <button class="restart-btn" id="restartBtn">🔄 Play Again</button>
-        <div class="instruction" id="instruction">Drag pig to aim • Drag background to scroll</div>
+        <div class="instruction" id="instruction">Drag pig to aim • Tap to split triple pig • Click icons to choose pig</div>
+        <div class="level-select">
+            <input type="number" id="levelInput" min="1" value="1" placeholder="Level">
+            <button id="goLevelBtn">Go</button>
+        </div>
     </div>
     <script>
         (function() {
@@ -71,11 +87,11 @@
             const scoreBadge = document.getElementById('scoreBadge');
             const levelBadge = document.getElementById('levelBadge');
             const instructionEl = document.getElementById('instruction');
+            const levelInput = document.getElementById('levelInput');
+            const goLevelBtn = document.getElementById('goLevelBtn');
 
             let audioCtx = null;
-            function initAudio() {
-                if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            }
+            function initAudio() { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
             function playSound(type) {
                 if (!audioCtx) return;
                 const now = audioCtx.currentTime;
@@ -84,9 +100,12 @@
                 osc.connect(gain); gain.connect(audioCtx.destination);
                 switch(type) {
                     case 'launch': osc.type='sine'; osc.frequency.setValueAtTime(200,now); osc.frequency.exponentialRampToValueAtTime(400,now+0.2); gain.gain.setValueAtTime(0.3,now); gain.gain.exponentialRampToValueAtTime(0.01,now+0.3); osc.start(now); osc.stop(now+0.3); break;
+                    case 'split': osc.type='sine'; osc.frequency.setValueAtTime(400,now); osc.frequency.exponentialRampToValueAtTime(600,now+0.2); gain.gain.setValueAtTime(0.3,now); gain.gain.exponentialRampToValueAtTime(0.01,now+0.3); osc.start(now); osc.stop(now+0.3); break;
+                    case 'steel_launch': osc.type='sawtooth'; osc.frequency.setValueAtTime(80,now); osc.frequency.exponentialRampToValueAtTime(40,now+0.2); gain.gain.setValueAtTime(0.4,now); gain.gain.exponentialRampToValueAtTime(0.01,now+0.4); osc.start(now); osc.stop(now+0.4); break;
                     case 'hit': osc.type='square'; osc.frequency.setValueAtTime(80,now); osc.frequency.exponentialRampToValueAtTime(40,now+0.15); gain.gain.setValueAtTime(0.2,now); gain.gain.exponentialRampToValueAtTime(0.01,now+0.2); osc.start(now); osc.stop(now+0.2); break;
                     case 'destroy': osc.type='sawtooth'; osc.frequency.setValueAtTime(300,now); osc.frequency.exponentialRampToValueAtTime(50,now+0.3); gain.gain.setValueAtTime(0.25,now); gain.gain.exponentialRampToValueAtTime(0.01,now+0.4); osc.start(now); osc.stop(now+0.4); break;
                     case 'explosion': osc.type='sawtooth'; osc.frequency.setValueAtTime(150,now); osc.frequency.exponentialRampToValueAtTime(20,now+0.5); gain.gain.setValueAtTime(0.4,now); gain.gain.exponentialRampToValueAtTime(0.01,now+0.6); osc.start(now); osc.stop(now+0.6); break;
+                    case 'big_pig': osc.type='sine'; osc.frequency.setValueAtTime(100,now); osc.frequency.exponentialRampToValueAtTime(30,now+0.6); gain.gain.setValueAtTime(0.5,now); gain.gain.exponentialRampToValueAtTime(0.01,now+0.7); osc.start(now); osc.stop(now+0.7); break;
                     case 'death': osc.type='triangle'; osc.frequency.setValueAtTime(500,now); osc.frequency.exponentialRampToValueAtTime(100,now+0.4); gain.gain.setValueAtTime(0.2,now); gain.gain.exponentialRampToValueAtTime(0.01,now+0.5); osc.start(now); osc.stop(now+0.5); break;
                     case 'win': osc.type='sine'; osc.frequency.setValueAtTime(523,now); osc.frequency.setValueAtTime(659,now+0.15); osc.frequency.setValueAtTime(784,now+0.3); gain.gain.setValueAtTime(0.3,now); gain.gain.exponentialRampToValueAtTime(0.01,now+0.6); osc.start(now); osc.stop(now+0.6); break;
                     case 'lose': osc.type='sine'; osc.frequency.setValueAtTime(400,now); osc.frequency.exponentialRampToValueAtTime(100,now+0.5); gain.gain.setValueAtTime(0.2,now); gain.gain.exponentialRampToValueAtTime(0.01,now+0.6); osc.start(now); osc.stop(now+0.6); break;
@@ -104,17 +123,24 @@
 
             const GRAVITY = 0.25, LAUNCH_POWER = 0.16, MAX_DRAG = 100;
             const GROUND_Y = 435, CATAPULT_X = 135, CATAPULT_Y = 280, ROCK_RADIUS = 14;
+            const BIG_PIG_RADIUS = 25;
+            const TRIPLE_SPREAD = 0.12;
             const BOUNCE_DAMPING = 0.35, GROUND_DAMPING = 0.3, FRICTION = 0.92;
             const MIN_SPEED_TO_END = 0.6, MAX_ROCKS = 6, WORLD_WIDTH = 1280, MAX_TRAJECTORY_LENGTH = 460, TILT_THRESHOLD = 0.4;
+            const BOMB_BLAST_RADIUS = 100, BOMB_BLOCK_DAMAGE = 10;
+            const STEEL_SPEED_MULTIPLIER = 1.6;
 
             let gameState = 'aiming', rocksRemaining = MAX_ROCKS, score = 0, level = 1;
-            let activeRock = null, dragPos = null, isDragging = false;
+            let activeRocks = [], dragPos = null, isDragging = false;
             let blocks = [], enemies = [], particles = [];
-            let screenShake = 0, settleTimer = 0, trajectoryPoints = [];
+            let screenShake = 0, settleTimer = 0;
+            let trajectoryPoints = [];
             let castleSeed = 0, lastTrajectory = null;
             let cameraX = 0, targetCameraX = 0;
             let isPanning = false, panLastScreenX = 0;
-            let nextAmmo = 'pig', ammoQueue = [];
+            let ammoQueue = [];
+            let selectedOverride = null;
+            let savedSeed = 0, savedAmmoQueue = [];
 
             const MATERIALS = {
                 wood: { hp: 2, color: '#8B5A2B' }, stone: { hp: 3, color: '#808080' }, ice: { hp: 1, color: '#ADD8E6' }
@@ -135,6 +161,11 @@
             }
 
             function seededRandom(seed) { let s=seed; return ()=>{ s=(s*16807)%2147483647; return (s-1)/2147483646; }; }
+
+            function clampEnemyX(enemy) {
+                if (enemy.x < enemy.radius) enemy.x = enemy.radius;
+                if (enemy.x > WORLD_WIDTH - enemy.radius) enemy.x = WORLD_WIDTH - enemy.radius;
+            }
 
             function placeEnemyOnBlock(enemy, blocks) {
                 let bestBlock = null;
@@ -157,65 +188,189 @@
             const enemyTypes = ['big_red','round_black','triangle_yellow','small_blue'];
 
             function addRandomEnemy(x, y) {
+                x = Math.max(10, Math.min(WORLD_WIDTH - 10, x));
                 const type = enemyTypes[Math.floor(Math.random() * enemyTypes.length)];
                 const enemy = createEnemy(x, y, type);
                 enemies.push(enemy);
+                clampEnemyX(enemy);
                 placeEnemyOnBlock(enemy, blocks);
             }
 
             function addSmallBluePack(x, y) {
                 for (let i = 0; i < 3; i++) {
-                    const ex = x + (i - 1) * 20;
+                    const ex = Math.max(10, Math.min(WORLD_WIDTH - 10, x + (i - 1) * 20));
                     const enemy = createEnemy(ex, y, 'small_blue');
                     enemies.push(enemy);
+                    clampEnemyX(enemy);
                     placeEnemyOnBlock(enemy, blocks);
                 }
+            }
+
+            function addBlockSafe(x, y, w, h, material) {
+                if (x + w > WORLD_WIDTH) { w = WORLD_WIDTH - x; if (w <= 0) return null; }
+                const block = createBlock(x, y, w, h, material);
+                blocks.push(block);
+                return block;
+            }
+
+            function generateBigSpreadStructure(startX, levelScale) {
+                const rng = seededRandom(castleSeed);
+                const baseX = startX;
+                let width = 500 * levelScale;
+                const maxWidth = WORLD_WIDTH - baseX - 20;
+                if (width > maxWidth) width = maxWidth;
+                const plankH = 15, pillarW = 22, gap = 2;
+                const addBlock = (x,y,w,h,m) => addBlockSafe(x,y,w,h,m);
+
+                for (let x = baseX; x < baseX + width; x += pillarW + gap) {
+                    addBlock(x, GROUND_Y - plankH, pillarW, plankH, 'stone');
+                }
+                for (let i = 0; i < 8; i++) {
+                    const px = baseX + i * 60 + rng() * 20;
+                    if (px > WORLD_WIDTH - pillarW) break;
+                    const height = (80 + rng() * 100) * levelScale;
+                    addBlock(px, GROUND_Y - plankH - height, pillarW, height, 'wood');
+                    addRandomEnemy(px + pillarW/2, GROUND_Y - plankH - height);
+                }
+                for (let i = 0; i < 12; i++) {
+                    const platX = baseX + rng() * width;
+                    if (platX > WORLD_WIDTH - 30) continue;
+                    const platY = GROUND_Y - plankH - (40 + rng() * 120) * levelScale;
+                    const platW = (60 + rng() * 80) * levelScale;
+                    addBlock(platX, platY, platW, plankH, 'ice');
+                    addRandomEnemy(platX + platW/2, platY);
+                }
+                addSmallBluePack(baseX + 100, GROUND_Y - plankH - 80);
+                addSmallBluePack(baseX + 300, GROUND_Y - plankH - 120);
+                for (let i = 0; i < 6; i++) {
+                    const ex = baseX + rng() * width;
+                    addRandomEnemy(ex, GROUND_Y - 16);
+                }
+                while (enemies.length < 18) addRandomEnemy(baseX + rng() * width, GROUND_Y - 30 - rng() * 100);
+                if (enemies.length > 25) enemies.splice(25);
             }
 
             function generateAngryBirdsStructure() {
                 blocks = []; enemies = [];
                 const rng = seededRandom(castleSeed);
-                const startX = 960 + Math.floor(rng()*60);
+                const startX = 640 + Math.floor(rng() * 40);
                 const plankH = 15, pillarW = 22, gap = 2;
-                const addBlock = (x,y,w,h,material) => blocks.push(createBlock(x,y,w,h,material));
+                const addBlock = (x, y, w, h, material) => addBlockSafe(x, y, w, h, material);
+                const levelScale = 1 + level * 0.04;
+                const moderateScale = (level > 10 && level !== 15 && level % 10 !== 0) ? 1.25 : 1;
 
                 if (level === 5) {
-                    const wallX = startX + 120, wallH = 160;
+                    const wallX = startX + 40;
+                    const wallH = 160 * levelScale;
                     for (let y = GROUND_Y - wallH; y < GROUND_Y; y += plankH + gap) {
                         addBlock(wallX, y, pillarW, plankH, 'stone');
                         addBlock(wallX + pillarW + gap, y, pillarW, plankH, 'stone');
                     }
                     const platX = wallX + 80;
                     addBlock(platX, GROUND_Y - 40, 80, plankH, 'wood');
-                    const bomb = createEnemy(platX + 40, GROUND_Y - 40 - 14, 'round_black');
-                    enemies.push(bomb);
-                    placeEnemyOnBlock(bomb, blocks);
-                    addRandomEnemy(platX + 20, GROUND_Y - 40);
-                    addRandomEnemy(platX + 60, GROUND_Y - 40);
-                    addSmallBluePack(platX + 40, GROUND_Y - 70);
-                    while (enemies.length < 6) {
-                        addRandomEnemy(startX + rng() * 200, GROUND_Y - 30 - rng() * 80);
+                    for (let i = 0; i < 8; i++) {
+                        const bomb = createEnemy(platX + 10 + rng() * 60, GROUND_Y - 40 - 14, 'round_black');
+                        enemies.push(bomb);
+                        clampEnemyX(bomb);
+                        placeEnemyOnBlock(bomb, blocks);
+                    }
+                    while (enemies.length < 10) {
+                        const ex = startX + rng() * 150;
+                        const bomb = createEnemy(ex, GROUND_Y - 30 - rng() * 80, 'round_black');
+                        enemies.push(bomb);
+                        clampEnemyX(bomb);
+                        placeEnemyOnBlock(bomb, blocks);
                     }
                     return;
                 }
 
-                if (level > 5) {
-                    const bombCount = Math.floor(rng() * 4);
+                if (level === 15 || (level >= 20 && level % 10 === 0)) {
+                    generateBigSpreadStructure(startX, levelScale);
+                    return;
+                }
+
+                if (level % 10 === 0 && level < 20) {
+                    const fortressStartX = startX;
+                    const wallH = 200 * levelScale;
+                    const wallX = fortressStartX;
+                    for (let y = GROUND_Y - wallH; y < GROUND_Y; y += plankH + gap) {
+                        addBlock(wallX, y, pillarW, plankH, 'stone');
+                        addBlock(wallX + pillarW + gap, y, pillarW, plankH, 'stone');
+                        addBlock(wallX + pillarW*2 + gap*2, y, pillarW, plankH, 'stone');
+                    }
+                    const innerWallX = wallX + pillarW*3 + gap*3 + 60;
+                    for (let y = GROUND_Y - wallH + 40; y < GROUND_Y; y += plankH + gap) {
+                        addBlock(innerWallX, y, pillarW, plankH, 'stone');
+                        addBlock(innerWallX + pillarW + gap, y, pillarW, plankH, 'stone');
+                    }
+                    const towerH = 140 * levelScale;
+                    const leftTowerX = wallX - 30;
+                    const rightTowerX = innerWallX + pillarW*2 + 30;
+                    addBlock(leftTowerX, GROUND_Y - towerH, pillarW, towerH, 'stone');
+                    addBlock(rightTowerX, GROUND_Y - towerH, pillarW, towerH, 'stone');
+                    addBlock(leftTowerX, GROUND_Y - towerH - plankH, wallX - leftTowerX + pillarW, plankH, 'wood');
+                    addBlock(innerWallX, GROUND_Y - towerH - plankH, rightTowerX - innerWallX + pillarW, plankH, 'ice');
+                    addBlock(wallX, GROUND_Y - wallH - plankH, pillarW*3 + gap*2, plankH, 'ice');
+                    for (let i = 0; i < 12; i++) {
+                        const ex = fortressStartX + rng() * 180;
+                        const ey = GROUND_Y - 30 - rng() * 150;
+                        addRandomEnemy(ex, Math.max(GROUND_Y-200, ey));
+                    }
+                    const backPlatX = fortressStartX + 280;
+                    const backPlatY = GROUND_Y - 60;
+                    addBlock(backPlatX, backPlatY, 80, plankH, 'wood');
+                    addRandomEnemy(backPlatX + 20, backPlatY);
+                    addRandomEnemy(backPlatX + 60, backPlatY);
+                    if (level > 10) {
+                        for (let i = 0; i < 4; i++) {
+                            const bx = fortressStartX + rng() * 220;
+                            const by = GROUND_Y - 50 - rng() * 100;
+                            const bomb = createEnemy(bx, by, 'round_black');
+                            enemies.push(bomb);
+                            clampEnemyX(bomb);
+                            placeEnemyOnBlock(bomb, blocks);
+                        }
+                    }
+                    while (enemies.length < 8) addRandomEnemy(fortressStartX + rng() * 180, GROUND_Y - 30 - rng() * 80);
+                    return;
+                }
+
+                if (level > 10) {
+                    const bombCount = Math.floor(rng() * 6);
                     for (let b = 0; b < bombCount; b++) {
-                        const bx = startX + rng() * 200, by = GROUND_Y - 30 - rng() * 80;
+                        const bx = startX + rng() * 180, by = GROUND_Y - 30 - rng() * 80;
                         const bomb = createEnemy(bx, by, 'round_black');
                         enemies.push(bomb);
+                        clampEnemyX(bomb);
+                        placeEnemyOnBlock(bomb, blocks);
+                    }
+                } else if (level > 5) {
+                    const bombCount = Math.floor(rng() * 4);
+                    for (let b = 0; b < bombCount; b++) {
+                        const bx = startX + rng() * 180, by = GROUND_Y - 30 - rng() * 80;
+                        const bomb = createEnemy(bx, by, 'round_black');
+                        enemies.push(bomb);
+                        clampEnemyX(bomb);
                         placeEnemyOnBlock(bomb, blocks);
                     }
                 }
 
-                const template = Math.floor(rng() * 6);
+                let template;
+                if (level <= 4) {
+                    template = level - 1;
+                } else {
+                    template = Math.floor(rng() * 6);
+                }
+
+                const scale = (level > 10 && level !== 15 && level % 10 !== 0) ? moderateScale : levelScale;
+
                 switch(template) {
                     case 0: {
-                        const towerH0 = 120 + rng()*60, topY0 = GROUND_Y - towerH0;
+                        const towerH0 = (120 + rng()*60) * scale;
+                        const topY0 = GROUND_Y - towerH0;
                         addBlock(startX, topY0, pillarW, towerH0, 'wood');
                         addBlock(startX+80, topY0, pillarW, towerH0, 'stone');
-                        const platforms = 3 + Math.floor(rng()*3);
+                        const platforms = 3 + Math.floor(rng()*(3 + Math.floor(level/5)));
                         for(let i=0; i<platforms; i++) {
                             const py = GROUND_Y - (towerH0/(platforms+1))*(i+1);
                             addBlock(startX, py-plankH, 80+pillarW, plankH, 'ice');
@@ -228,7 +383,8 @@
                         break;
                     }
                     case 1: {
-                        const boxW = 120 + rng()*60, boxH = 80 + rng()*40;
+                        const boxW = (120 + rng()*60) * scale;
+                        const boxH = (80 + rng()*40) * scale;
                         addBlock(startX, GROUND_Y-plankH, boxW, plankH, 'stone');
                         addBlock(startX, GROUND_Y-boxH, pillarW, boxH, 'wood');
                         addBlock(startX+boxW-pillarW, GROUND_Y-boxH, pillarW, boxH, 'wood');
@@ -242,7 +398,8 @@
                         break;
                     }
                     case 2: {
-                        const blockSize = 28, pyramidHeight = 4 + Math.floor(rng()*3);
+                        const blockSize = 28 * scale;
+                        const pyramidHeight = 4 + Math.floor(rng()*(3 + level/3));
                         const topY = GROUND_Y - pyramidHeight * (plankH + gap);
                         const topBlockX = startX + 50;
                         addBlock(topBlockX, topY, blockSize, plankH, 'stone');
@@ -261,7 +418,8 @@
                         break;
                     }
                     case 3: {
-                        const leftX = startX, rightX = leftX + 160 + rng()*80, pillarH = 80 + rng()*40;
+                        const pillarH = (80 + rng()*40) * scale;
+                        const leftX = startX, rightX = leftX + (160 + rng()*80) * scale;
                         addBlock(leftX, GROUND_Y-pillarH, pillarW, pillarH, 'stone');
                         addBlock(rightX, GROUND_Y-pillarH, pillarW, pillarH, 'stone');
                         const midX = leftX + (rightX - leftX)/2;
@@ -275,7 +433,8 @@
                         break;
                     }
                     case 4: {
-                        const towerW = pillarW*2, leftTX = startX, rightTX = startX + 120 + rng()*60, towerH = 100 + rng()*50;
+                        const towerW = pillarW*2, leftTX = startX, rightTX = startX + (120 + rng()*60) * scale;
+                        const towerH = (100 + rng()*50) * scale;
                         addBlock(leftTX, GROUND_Y-towerH, pillarW, towerH, 'stone');
                         addBlock(leftTX+towerW-pillarW, GROUND_Y-towerH, pillarW, towerH, 'wood');
                         addBlock(rightTX, GROUND_Y-towerH, pillarW, towerH, 'stone');
@@ -288,7 +447,7 @@
                         break;
                     }
                     case 5: {
-                        const baseW = 140 + rng()*60;
+                        const baseW = (140 + rng()*60) * scale;
                         addBlock(startX, GROUND_Y-plankH, baseW, plankH, 'stone');
                         addBlock(startX, GROUND_Y-plankH-50, pillarW, 50, 'wood');
                         addBlock(startX+baseW-pillarW, GROUND_Y-plankH-50, pillarW, 50, 'wood');
@@ -304,49 +463,117 @@
                         break;
                     }
                 }
-
-                while (enemies.length < 6) {
-                    addRandomEnemy(startX + rng() * 200, GROUND_Y - 30 - rng() * 80);
-                }
+                while (enemies.length < 6) addRandomEnemy(startX + rng() * 180, GROUND_Y - 30 - rng() * 80);
                 if (enemies.length > 18) enemies.splice(18);
             }
 
             function generateAmmoQueue() {
                 ammoQueue = [];
                 for (let i = 0; i < rocksRemaining; i++) {
-                    if (level > 5 && Math.random() < 0.3) ammoQueue.push('bomb_pig');
-                    else ammoQueue.push('pig');
+                    if (level === 5) {
+                        ammoQueue.push('bomb_pig');
+                    } else if (level === 15) {
+                        ammoQueue.push('triple_pig');
+                    } else if (level === 20) {
+                        ammoQueue.push('steel_pig');
+                    } else if (level % 10 === 0 && level > 20) {
+                        const r = Math.random();
+                        if (r < 0.15) ammoQueue.push('steel_pig');
+                        else if (r < 0.35) ammoQueue.push('big_pig');
+                        else if (r < 0.65) ammoQueue.push('bomb_pig');
+                        else if (r < 0.80) ammoQueue.push('triple_pig');
+                        else ammoQueue.push('pig');
+                    } else if (level > 20) {
+                        const r = Math.random();
+                        if (r < 0.10) ammoQueue.push('steel_pig');
+                        else if (r < 0.30) ammoQueue.push('big_pig');
+                        else if (r < 0.60) ammoQueue.push('bomb_pig');
+                        else if (r < 0.75 && level >= 15) ammoQueue.push('triple_pig');
+                        else ammoQueue.push('pig');
+                    } else if (level >= 15 && Math.random() < 0.25) {
+                        ammoQueue.push('triple_pig');
+                    } else if (level > 10) {
+                        const r = Math.random();
+                        if (r < 0.20) ammoQueue.push('big_pig');
+                        else if (r < 0.65) ammoQueue.push('bomb_pig');
+                        else ammoQueue.push('pig');
+                    } else if (level > 5) {
+                        ammoQueue.push(Math.random() < 0.4 ? 'bomb_pig' : 'pig');
+                    } else {
+                        ammoQueue.push('pig');
+                    }
                 }
-                if (ammoQueue.length > 0) nextAmmo = ammoQueue[0];
             }
 
             function initGame() {
                 rocksRemaining = MAX_ROCKS; score = 0; gameState = 'aiming';
-                activeRock = null; dragPos = null; isDragging = false;
+                activeRocks = []; dragPos = null; isDragging = false;
                 particles = []; screenShake = 0; settleTimer = 0; trajectoryPoints = [];
                 lastTrajectory = null; cameraX = 0; targetCameraX = 0;
                 castleSeed = level * 7777;
+                savedSeed = castleSeed;
                 generateAngryBirdsStructure();
                 generateAmmoQueue();
+                savedAmmoQueue = [...ammoQueue];
+                selectedOverride = null;
                 updateUI();
+                levelInput.value = level;
+                restartBtn.classList.remove('visible'); instructionEl.style.opacity = '1';
+                instructionEl.textContent = "Drag pig to aim • Tap to split triple pig • Click icons to choose pig";
+            }
+
+            function retryLevel() {
+                rocksRemaining = MAX_ROCKS; score = 0; gameState = 'aiming';
+                activeRocks = []; dragPos = null; isDragging = false;
+                particles = []; screenShake = 0; settleTimer = 0; trajectoryPoints = [];
+                lastTrajectory = null; cameraX = 0; targetCameraX = 0;
+                castleSeed = savedSeed;
+                generateAngryBirdsStructure();
+                ammoQueue = [...savedAmmoQueue];
+                selectedOverride = null;
+                updateUI();
+                levelInput.value = level;
                 restartBtn.classList.remove('visible'); instructionEl.style.opacity = '1';
             }
+
             function nextLevel() {
                 level++; rocksRemaining = MAX_ROCKS; score = 0; gameState = 'aiming';
-                activeRock = null; dragPos = null; isDragging = false;
+                activeRocks = []; dragPos = null; isDragging = false;
                 particles = []; screenShake = 0; settleTimer = 0; trajectoryPoints = [];
                 lastTrajectory = null; cameraX = 0; targetCameraX = 0;
                 castleSeed = level * 7777;
+                savedSeed = castleSeed;
                 generateAngryBirdsStructure();
                 generateAmmoQueue();
+                savedAmmoQueue = [...ammoQueue];
+                selectedOverride = null;
                 updateUI();
+                levelInput.value = level;
                 restartBtn.classList.remove('visible'); instructionEl.style.opacity = '1';
             }
+
             function updateUI() {
                 rocksBadge.textContent = '🐷 Pigs: ' + rocksRemaining;
                 scoreBadge.textContent = '⭐ Score: ' + score;
                 levelBadge.textContent = '🏚️ Level ' + level;
             }
+
+            goLevelBtn.addEventListener('click', () => {
+                const newLevel = parseInt(levelInput.value);
+                if (!isNaN(newLevel) && newLevel >= 1) {
+                    level = newLevel;
+                    initGame();
+                }
+            });
+            levelInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    const newLevel = parseInt(levelInput.value);
+                    if (!isNaN(newLevel) && newLevel >= 1) {
+                        level = newLevel;
+                        initGame();
+                    }
+                }
+            });
 
             function getCanvasScale() { return WIDTH / canvas.getBoundingClientRect().width; }
             function screenToWorld(screenX, screenY) {
@@ -355,8 +582,94 @@
                 return { x: (screenX - rect.left) * scaleX + cameraX, y: (screenY - rect.top) * scaleY };
             }
 
+            const allPigTypes = ['pig', 'bomb_pig', 'triple_pig', 'big_pig', 'steel_pig'];
+            const pigSelectors = allPigTypes.map((type, i) => {
+                return { type, x: 20, y: 20 + i * 55, w: 50, h: 50 };
+            });
+
+            function drawPigSelector() {
+                if (gameState !== 'aiming') return;
+                for (const sel of pigSelectors) {
+                    const isSelected = (selectedOverride === sel.type);
+                    ctx.fillStyle = isSelected ? 'rgba(255,255,100,0.5)' : 'rgba(0,0,0,0.5)';
+                    ctx.fillRect(sel.x, sel.y, sel.w, sel.h);
+                    ctx.strokeStyle = isSelected ? '#ff0' : '#fff';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(sel.x, sel.y, sel.w, sel.h);
+                    ctx.save();
+                    ctx.translate(sel.x + sel.w/2, sel.y + sel.h/2);
+                    ctx.scale(0.5, 0.5);
+                    if (sel.type === 'big_pig') {
+                        ctx.fillStyle = '#449944';
+                        ctx.beginPath(); ctx.arc(0, 0, BIG_PIG_RADIUS*0.6, 0, Math.PI*2); ctx.fill();
+                    } else if (sel.type === 'bomb_pig') {
+                        ctx.fillStyle = '#1a1a1a';
+                        ctx.beginPath(); ctx.arc(0, 0, ROCK_RADIUS*0.9, 0, Math.PI*2); ctx.fill();
+                        ctx.strokeStyle = '#8B4513'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, -6); ctx.lineTo(3, -10); ctx.stroke();
+                    } else if (sel.type === 'triple_pig') {
+                        const spacing = 8;
+                        ctx.fillStyle = '#66bb66';
+                        ctx.beginPath(); ctx.arc(-spacing, spacing, 5, 0, Math.PI*2); ctx.fill();
+                        ctx.beginPath(); ctx.arc(spacing, spacing, 5, 0, Math.PI*2); ctx.fill();
+                        ctx.beginPath(); ctx.arc(0, -spacing, 5, 0, Math.PI*2); ctx.fill();
+                    } else if (sel.type === 'steel_pig') {
+                        ctx.fillStyle = '#a0a0a0';
+                        ctx.beginPath(); ctx.arc(0, 0, ROCK_RADIUS*0.9, 0, Math.PI*2); ctx.fill();
+                        ctx.fillStyle = '#d0d0d0';
+                        ctx.beginPath(); ctx.arc(0, -3, 4, 0, Math.PI*2); ctx.fill();
+                    } else {
+                        ctx.fillStyle = '#66bb66';
+                        ctx.beginPath(); ctx.arc(0, 0, ROCK_RADIUS*0.9, 0, Math.PI*2); ctx.fill();
+                    }
+                    ctx.restore();
+                }
+            }
+
+            function handlePigSelectorClick(screenX, screenY) {
+                if (gameState !== 'aiming') return false;
+                for (const sel of pigSelectors) {
+                    if (screenX >= sel.x && screenX <= sel.x + sel.w &&
+                        screenY >= sel.y && screenY <= sel.y + sel.h) {
+                        selectedOverride = sel.type;
+                        return true;
+                    }
+                }
+                return false;
+            }
+
+            function splitTriplePig(parent) {
+                if (!parent || !parent.active) return;
+                const spread = Math.hypot(parent.vx, parent.vy) * TRIPLE_SPREAD;
+                const perpX = -parent.vy;
+                const perpY = parent.vx;
+                const len = Math.hypot(perpX, perpY) || 1;
+                const normX = perpX / len;
+                const normY = perpY / len;
+                const newRocks = [
+                    {x: parent.x, y: parent.y, vx: parent.vx + normX * spread, vy: parent.vy + normY * spread, radius: ROCK_RADIUS, active: true, bounces: 0, type:'pig'},
+                    {x: parent.x, y: parent.y, vx: parent.vx, vy: parent.vy, radius: ROCK_RADIUS, active: true, bounces: 0, type:'pig'},
+                    {x: parent.x, y: parent.y, vx: parent.vx - normX * spread, vy: parent.vy - normY * spread, radius: ROCK_RADIUS, active: true, bounces: 0, type:'pig'}
+                ];
+                const idx = activeRocks.indexOf(parent);
+                if (idx !== -1) activeRocks.splice(idx, 1, ...newRocks);
+                playSound('split');
+                spawnParticles(parent.x, parent.y, 10, ['#66bb66','#88cc88'], 3, [2,6]);
+            }
+
             function handleMouseDown(e) {
                 initAudio();
+                const rect = canvas.getBoundingClientRect();
+                const screenX = e.clientX - rect.left;
+                const screenY = e.clientY - rect.top;
+                if (handlePigSelectorClick(screenX, screenY)) return;
+
+                if (gameState === 'flying') {
+                    const tripleParent = activeRocks.find(r => r.active && r.type === 'triple_pig');
+                    if (tripleParent) {
+                        splitTriplePig(tripleParent);
+                        return;
+                    }
+                }
                 if(gameState !== 'aiming') return;
                 const worldPos = screenToWorld(e.clientX, e.clientY);
                 const dist = Math.hypot(worldPos.x - CATAPULT_X, worldPos.y - CATAPULT_Y);
@@ -389,22 +702,36 @@
                     isDragging = false; instructionEl.style.opacity = '0';
                     const dx = CATAPULT_X - dragPos.x, dy = CATAPULT_Y - dragPos.y;
                     const dragDist = Math.hypot(dx, dy);
+                    // Cancel if dragged backwards (dx negative, aiming left)
+                    if(dx < 0) {
+                        dragPos = null; trajectoryPoints = [];
+                        instructionEl.style.opacity = '1';
+                        return;
+                    }
                     if(dragDist < 8) {
                         dragPos = null; trajectoryPoints = [];
                         instructionEl.style.opacity = '1'; return;
                     }
-                    if(trajectoryPoints.length > 0) {
-                        lastTrajectory = trajectoryPoints.map(p => ({x:p.x, y:p.y}));
-                    }
+                    if(trajectoryPoints.length > 0) lastTrajectory = trajectoryPoints.map(p => ({x:p.x, y:p.y}));
                     const nx = dx/dragDist, ny = dy/dragDist, speed = dragDist * LAUNCH_POWER;
-                    const type = nextAmmo;
-                    activeRock = {x:dragPos.x, y:dragPos.y, vx:nx*speed, vy:ny*speed, radius:ROCK_RADIUS, active:true, bounces:0, type:type};
-                    rocksRemaining--;
+                    let type = selectedOverride ? selectedOverride : ammoQueue.shift();
+                    if (!selectedOverride) rocksRemaining--;
+                    else selectedOverride = null;
+
+                    let radius = ROCK_RADIUS;
+                    if (type === 'big_pig') radius = BIG_PIG_RADIUS;
+                    let launchSpeed = speed;
+                    if (type === 'steel_pig') launchSpeed *= STEEL_SPEED_MULTIPLIER;
+
+                    if (type === 'triple_pig') {
+                        activeRocks = [{x:dragPos.x, y:dragPos.y, vx:nx*launchSpeed, vy:ny*launchSpeed, radius:ROCK_RADIUS, active:true, bounces:0, type:'triple_pig'}];
+                        playSound('launch');
+                    } else {
+                        activeRocks = [{x:dragPos.x, y:dragPos.y, vx:nx*launchSpeed, vy:ny*launchSpeed, radius:radius, active:true, bounces:0, type:type}];
+                        playSound(type === 'big_pig' ? 'big_pig' : (type === 'steel_pig' ? 'steel_launch' : 'launch'));
+                    }
                     gameState = 'flying';
                     dragPos = null; trajectoryPoints = [];
-                    ammoQueue.shift();
-                    nextAmmo = ammoQueue.length > 0 ? ammoQueue[0] : 'pig';
-                    playSound('launch');
                     updateUI();
                 } else if(isPanning) {
                     isPanning = false; canvas.style.cursor = 'crosshair';
@@ -432,20 +759,31 @@
                 if(isPanning) { isPanning = false; canvas.style.cursor = 'crosshair'; }
             });
 
+            function computeTrajectory(startX, startY, vx, vy, applyGravity = true) {
+                let tx = startX, ty = startY, tvx = vx, tvy = vy;
+                const pts = [];
+                for(let i=0; i<100; i++) {
+                    tx += tvx; ty += tvy;
+                    if (applyGravity) tvy += GRAVITY;
+                    if(ty > GROUND_Y - ROCK_RADIUS || tx > WORLD_WIDTH + 60 || tx < -40) break;
+                    if(Math.hypot(tx - CATAPULT_X, ty - CATAPULT_Y) > MAX_TRAJECTORY_LENGTH) break;
+                    if(i%2 === 0) pts.push({x:tx, y:ty});
+                }
+                return pts;
+            }
+
             function updateTrajectory() {
                 if(!dragPos) { trajectoryPoints = []; return; }
                 const dx = CATAPULT_X - dragPos.x, dy = CATAPULT_Y - dragPos.y;
                 const dragDist = Math.hypot(dx, dy);
                 if(dragDist < 8) { trajectoryPoints = []; return; }
                 const nx = dx/dragDist, ny = dy/dragDist, speed = dragDist * LAUNCH_POWER;
-                let tx = dragPos.x, ty = dragPos.y, tvx = nx*speed, tvy = ny*speed;
-                trajectoryPoints = [];
-                for(let i=0; i<100; i++) {
-                    tx += tvx; ty += tvy; tvy += GRAVITY;
-                    if(ty > GROUND_Y - ROCK_RADIUS || tx > WORLD_WIDTH + 60 || tx < -40) break;
-                    if(Math.hypot(tx - CATAPULT_X, ty - CATAPULT_Y) > MAX_TRAJECTORY_LENGTH) break;
-                    if(i%2 === 0) trajectoryPoints.push({x:tx, y:ty});
-                }
+                let tSpeed = speed;
+                const type = selectedOverride || (ammoQueue.length > 0 ? ammoQueue[0] : 'pig');
+                if (type === 'steel_pig') tSpeed *= STEEL_SPEED_MULTIPLIER;
+                // For steel pig, draw straight line (no gravity)
+                const useGravity = (type !== 'steel_pig');
+                trajectoryPoints = computeTrajectory(dragPos.x, dragPos.y, nx*tSpeed, ny*tSpeed, useGravity);
             }
 
             function circleRectCollision(cx,cy,cr,rx,ry,rw,rh) {
@@ -472,19 +810,23 @@
                 const cx=block.x+block.w/2, cy=block.y+block.h/2;
                 spawnParticles(cx,cy,12, [block.color,'#b8a080','#d5c3a5','#a0896e'],5,[2,7]);
             }
+
             function explodeAt(x, y, radius) {
-                if (activeRock && activeRock.active && Math.hypot(activeRock.x - x, activeRock.y - y) < radius) {
-                    activeRock.active = false;
-                    spawnParticles(activeRock.x, activeRock.y, 20, ['#66bb66','#2d6a2d','#88cc88'], 6, [3,10]);
-                    if (gameState === 'flying') { gameState = 'settling'; settleTimer = 45; }
+                for (const rock of activeRocks) {
+                    if (rock.type === 'big_pig' || rock.type === 'steel_pig') continue;
+                    if (rock.active && Math.hypot(rock.x - x, rock.y - y) < radius) {
+                        rock.active = false;
+                        spawnParticles(rock.x, rock.y, 20, ['#66bb66','#2d6a2d','#88cc88'], 6, [3,10]);
+                    }
                 }
+                if (activeRocks.every(r => !r.active) && gameState === 'flying') { gameState = 'settling'; settleTimer = 45; }
                 for (const block of blocks) {
                     if (block.destroyed) continue;
                     const dist = Math.hypot(block.x+block.w/2 - x, block.y+block.h/2 - y);
-                    if (dist < radius) { block.hp -= 3; if (block.hp <= 0) destroyBlock(block); }
+                    if (dist < radius) { block.hp -= BOMB_BLOCK_DAMAGE; if (block.hp <= 0) destroyBlock(block); }
                 }
-                spawnParticles(x, y, 30, ['#ff6600','#ff0000','#ffff00','#000000'], 8, [2,10]);
-                screenShake = Math.max(screenShake, 12);
+                spawnParticles(x, y, 40, ['#ff6600','#ff0000','#ffff00','#000000'], 10, [2,12]);
+                screenShake = Math.max(screenShake, 14);
                 playSound('explosion');
             }
 
@@ -511,6 +853,19 @@
                 playSound('death'); updateUI();
             }
 
+            function checkBlockSupport(block) {
+                if(block.destroyed||block.falling || block.tilting) return true;
+                if(block.y+block.h>=GROUND_Y-2) return true;
+                for(const other of blocks) {
+                    if(other===block||other.destroyed||other.falling||other.tilting) continue;
+                    if(Math.abs((block.y+block.h)-other.y)<4) {
+                        const overlapLeft=Math.max(block.x,other.x), overlapRight=Math.min(block.x+block.w,other.x+other.w);
+                        if(overlapRight-overlapLeft>8) return true;
+                    }
+                }
+                return false;
+            }
+
             function getSupportSides(block) {
                 let leftSupported = false, rightSupported = false;
                 for (const other of blocks) {
@@ -522,19 +877,6 @@
                 }
                 if (block.y + block.h >= GROUND_Y - 2) leftSupported = rightSupported = true;
                 return {left: leftSupported, right: rightSupported};
-            }
-
-            function checkBlockSupport(block) {
-                if(block.destroyed||block.falling || block.tilting) return true;
-                if(block.y+block.h>=GROUND_Y-2) return true;
-                for(const other of blocks) {
-                    if(other===block||other.destroyed||other.falling||other.tilting) continue;
-                    if(Math.abs((block.y+block.h)-other.y)<4) {
-                        const overlapLeft=Math.max(block.x,other.x), overlapRight=Math.min(block.x+block.w,other.x+other.w);
-                        if(overlapRight-overlapLeft>16) return true;
-                    }
-                }
-                return false;
             }
 
             function markUnsupportedBlocks() {
@@ -576,15 +918,8 @@
                         const res = circleRectCollision(enemy.x, enemy.y, enemy.radius, block.x, block.y, block.w, block.h);
                         if(res.hit) {
                             enemy.x += res.nx * res.overlap; enemy.y += res.ny * res.overlap;
-                            if(Math.abs(res.ny) > 0.5 && enemy.vy > 0) {
-                                enemy.vy = Math.min(enemy.vy, 0); enemy.vx *= 0.9;
-                            } else {
-                                const dot = enemy.vx * res.nx + enemy.vy * res.ny;
-                                if(dot < 0) {
-                                    enemy.vx -= dot * res.nx; enemy.vy -= dot * res.ny;
-                                    enemy.vx *= 0.5; enemy.vy *= 0.5;
-                                }
-                            }
+                            if(Math.abs(res.ny) > 0.5 && enemy.vy > 0) { enemy.vy = Math.min(enemy.vy, 0); enemy.vx *= 0.9; }
+                            else { const dot = enemy.vx * res.nx + enemy.vy * res.ny; if(dot < 0) { enemy.vx -= dot * res.nx; enemy.vy -= dot * res.ny; enemy.vx *= 0.5; enemy.vy *= 0.5; } }
                         }
                     }
                     if(enemy.y > HEIGHT + 100) enemy.alive = false;
@@ -597,73 +932,161 @@
                     block.vy+=GRAVITY; block.y+=block.vy; block.x+=block.vx;
                     for(const enemy of enemies) {
                         if(!enemy.alive) continue;
-                        const cx=Math.max(block.x,Math.min(enemy.x,block.x+block.w));
-                        const cy=Math.max(block.y,Math.min(enemy.y,block.y+block.h));
-                        if(Math.hypot(enemy.x-cx,enemy.y-cy)<enemy.radius+4) { killEnemy(enemy); block.vy*=0.5; }
-                    }
-                    if(block.y+block.h>=GROUND_Y) {
-                        block.y=GROUND_Y-block.h; block.falling=false; block.vy=0; block.vx=0;
-                        screenShake=Math.max(screenShake,3);
-                        for(const enemy of enemies) if(enemy.alive&&enemy.x>block.x-5&&enemy.x<block.x+block.w+5&&enemy.y>=GROUND_Y-35&&enemy.y<=GROUND_Y) killEnemy(enemy);
-                        markUnsupportedBlocks();
-                    }
-                    for(const other of blocks) {
-                        if(other===block||other.destroyed||other.falling||other.tilting) continue;
-                        if(block.y+block.h>=other.y && block.y+block.h<=other.y+other.h+6 && block.vy>0) {
-                            const overlapLeft=Math.max(block.x,other.x), overlapRight=Math.min(block.x+block.w,other.x+other.w);
-                            if(overlapRight-overlapLeft>14) {
-                                block.y=other.y-block.h; block.falling=false; block.vy=0; block.vx=0;
-                                for(const enemy of enemies) if(enemy.alive&&Math.abs(enemy.y-(other.y-enemy.radius))<10&&enemy.x>other.x-8&&enemy.x<other.x+other.w+8) killEnemy(enemy);
-                                markUnsupportedBlocks(); break;
+                        const blockCX = block.x + block.w/2, blockCY = block.y + block.h/2;
+                        const blockHalfDiag = Math.hypot(block.w, block.h)/2;
+                        if (circleCircleCollision(blockCX, blockCY, blockHalfDiag, enemy.x, enemy.y, enemy.radius)) {
+                            if (block.vy > 0 && block.y + block.h > enemy.y - enemy.radius) {
+                                block.y = enemy.y - enemy.radius - block.h;
+                                block.vy = 0; block.vx = 0; block.falling = false;
+                                screenShake = Math.max(screenShake, 1);
+                                markUnsupportedBlocks();
+                                break;
                             }
                         }
                     }
-                    if(block.y>HEIGHT+100) { block.destroyed=true; block.falling=false; }
+                    if(block.falling) {
+                        if(block.y+block.h>=GROUND_Y) {
+                            block.y=GROUND_Y-block.h; block.falling=false; block.vy=0; block.vx=0;
+                            screenShake=Math.max(screenShake,3);
+                            markUnsupportedBlocks();
+                        }
+                        for(const other of blocks) {
+                            if(other===block||other.destroyed||other.falling||other.tilting) continue;
+                            if(block.y+block.h>=other.y && block.y+block.h<=other.y+other.h+6 && block.vy>0) {
+                                const overlapLeft=Math.max(block.x,other.x), overlapRight=Math.min(block.x+block.w,other.x+other.w);
+                                if(overlapRight-overlapLeft>14) {
+                                    block.y=other.y-block.h; block.falling=false; block.vy=0; block.vx=0;
+                                    markUnsupportedBlocks(); break;
+                                }
+                            }
+                        }
+                        if(block.y>HEIGHT+100) { block.destroyed=true; block.falling=false; }
+                    }
                 }
             }
 
-            function updateActiveRock() {
-                if(!activeRock||!activeRock.active) return;
-                const rock=activeRock; rock.vy+=GRAVITY; rock.x+=rock.vx; rock.y+=rock.vy;
-                let collided=false;
-                for(const block of blocks) {
-                    if(block.destroyed||block.falling||block.tilting) continue;
-                    const res=circleRectCollision(rock.x,rock.y,rock.radius,block.x,block.y,block.w,block.h);
-                    if(res.hit) {
-                        if (rock.type === 'bomb_pig') {
-                            activeRock.active = false;
-                            explodeAt(rock.x, rock.y, 60);
-                            gameState = 'settling'; settleTimer = 45;
-                            collided = true; break;
+            function updateActiveRocks() {
+                for (const rock of activeRocks) {
+                    if (!rock.active) continue;
+                    if (rock.type !== 'steel_pig') rock.vy += GRAVITY; // steel pig ignores gravity
+                    rock.x += rock.vx;
+                    rock.y += rock.vy;
+
+                    if (rock.type === 'steel_pig') {
+                        // Ground collision: steel pig stops at ground
+                        if (rock.y + rock.radius >= GROUND_Y) {
+                            rock.y = GROUND_Y - rock.radius;
+                            rock.active = false;
+                            spawnParticles(rock.x, GROUND_Y, 12, ['#a0a0a0','#d0d0d0','#808080'], 4, [2,8]);
+                            playSound('hit');
+                            continue;
                         }
-                        rock.x+=res.nx*res.overlap; rock.y+=res.ny*res.overlap;
-                        const dot=rock.vx*res.nx+rock.vy*res.ny;
-                        if(dot<0) { rock.vx-=2*dot*res.nx; rock.vy-=2*dot*res.ny; rock.vx*=BOUNCE_DAMPING; rock.vy*=BOUNCE_DAMPING; }
-                        block.hp-=Math.abs(dot)*0.55;
-                        if(block.hp<=0) { destroyBlock(block); markUnsupportedBlocks(); }
-                        else { spawnParticles(res.closestX,res.closestY,3,[block.color,'#ddd'],1.5,[1,3]); playSound('hit'); }
-                        rock.bounces++; collided=true; break;
-                    }
-                }
-                if(!collided||rock.bounces<=3) for(const enemy of enemies) if(enemy.alive&&circleCircleCollision(rock.x,rock.y,rock.radius,enemy.x,enemy.y,enemy.radius)) { killEnemy(enemy); rock.vx*=0.5; rock.vy*=0.5; break; }
-                if(rock.y+rock.radius>GROUND_Y) {
-                    if (rock.type === 'bomb_pig') {
-                        activeRock.active = false;
-                        explodeAt(rock.x, GROUND_Y - rock.radius, 60);
-                        gameState = 'settling'; settleTimer = 45;
+                        for(const block of blocks) {
+                            if(block.destroyed||block.falling||block.tilting) continue;
+                            if(circleRectCollision(rock.x,rock.y,rock.radius,block.x,block.y,block.w,block.h).hit) {
+                                destroyBlock(block);
+                                break;
+                            }
+                        }
+                        for(const enemy of enemies) {
+                            if(enemy.alive&&circleCircleCollision(rock.x,rock.y,rock.radius,enemy.x,enemy.y,enemy.radius)) {
+                                killEnemy(enemy, true);
+                                break;
+                            }
+                        }
+                        if(rock.x > WORLD_WIDTH + 100 || rock.x < -100 || rock.y > HEIGHT + 100) rock.active = false;
+                    } else if (rock.type === 'big_pig') {
+                        for(const block of blocks) {
+                            if(block.destroyed||block.falling||block.tilting) continue;
+                            if(circleRectCollision(rock.x,rock.y,rock.radius,block.x,block.y,block.w,block.h).hit) {
+                                destroyBlock(block); rock.vx *= 0.85; rock.vy *= 0.85; break;
+                            }
+                        }
+                        for(const enemy of enemies) {
+                            if(enemy.alive&&circleCircleCollision(rock.x,rock.y,rock.radius,enemy.x,enemy.y,enemy.radius)) {
+                                killEnemy(enemy, true); rock.vx *= 0.9; rock.vy *= 0.9; break;
+                            }
+                        }
+                        if(rock.y + rock.radius >= GROUND_Y) {
+                            rock.y = GROUND_Y - rock.radius;
+                            rock.vy = -Math.abs(rock.vy) * GROUND_DAMPING; rock.vx *= FRICTION; rock.bounces++;
+                            if(Math.abs(rock.vy) < 1.5) rock.vy = 0;
+                            spawnParticles(rock.x, GROUND_Y, 8, ['#449944','#66bb66','#2d6a2d'], 4, [3,12]);
+                        }
+                        if(rock.bounces > 0 && Math.abs(rock.vy) < 1.5 && rock.y + rock.radius >= GROUND_Y - 3) rock.active = false;
+                        if(rock.x > WORLD_WIDTH + 100 || rock.x < -100 || rock.y > HEIGHT + 100) rock.active = false;
+                    } else if (rock.type === 'triple_pig') {
+                        let collided = false;
+                        for(const block of blocks) {
+                            if(block.destroyed||block.falling||block.tilting) continue;
+                            const res=circleRectCollision(rock.x,rock.y,rock.radius,block.x,block.y,block.w,block.h);
+                            if(res.hit) {
+                                rock.x+=res.nx*res.overlap; rock.y+=res.ny*res.overlap;
+                                const dot=rock.vx*res.nx+rock.vy*res.ny;
+                                if(dot<0) { rock.vx-=2*dot*res.nx; rock.vy-=2*dot*res.ny; rock.vx*=BOUNCE_DAMPING; rock.vy*=BOUNCE_DAMPING; }
+                                block.hp-=Math.abs(dot)*0.55;
+                                if(block.hp<=0) { destroyBlock(block); markUnsupportedBlocks(); }
+                                else { spawnParticles(res.closestX,res.closestY,3,[block.color,'#ddd'],1.5,[1,3]); playSound('hit'); }
+                                rock.bounces++; collided=true; break;
+                            }
+                        }
+                        if(!collided||rock.bounces<=3) {
+                            for(const enemy of enemies) {
+                                if(enemy.alive&&circleCircleCollision(rock.x,rock.y,rock.radius,enemy.x,enemy.y,enemy.radius)) {
+                                    killEnemy(enemy); rock.vx*=0.5; rock.vy*=0.5; break;
+                                }
+                            }
+                        }
+                        if(rock.y+rock.radius>GROUND_Y) {
+                            rock.y=GROUND_Y-rock.radius; rock.vy=-Math.abs(rock.vy)*GROUND_DAMPING; rock.vx*=FRICTION; rock.bounces++;
+                            if(Math.abs(rock.vy)<1.5) rock.vy=0;
+                            spawnParticles(rock.x,GROUND_Y,4,['#8b7355','#a0896e','#c4b898'],1.5,[1,3]);
+                        }
+                        const speed=Math.hypot(rock.vx,rock.vy);
+                        if(rock.active && ((speed<MIN_SPEED_TO_END&&rock.y+rock.radius>=GROUND_Y-3)||rock.bounces>6||rock.x>WORLD_WIDTH+60||rock.x<-60||rock.y>HEIGHT+60)) rock.active = false;
                     } else {
-                        rock.y=GROUND_Y-rock.radius; rock.vy=-Math.abs(rock.vy)*GROUND_DAMPING; rock.vx*=FRICTION; rock.bounces++;
-                        if(Math.abs(rock.vy)<1.5) rock.vy=0;
-                        spawnParticles(rock.x,GROUND_Y,4,['#8b7355','#a0896e','#c4b898'],1.5,[1,3]);
+                        let collided = false;
+                        for(const block of blocks) {
+                            if(block.destroyed||block.falling||block.tilting) continue;
+                            const res=circleRectCollision(rock.x,rock.y,rock.radius,block.x,block.y,block.w,block.h);
+                            if(res.hit) {
+                                if (rock.type === 'bomb_pig') { rock.active = false; explodeAt(rock.x, rock.y, BOMB_BLAST_RADIUS); collided = true; break; }
+                                rock.x+=res.nx*res.overlap; rock.y+=res.ny*res.overlap;
+                                const dot=rock.vx*res.nx+rock.vy*res.ny;
+                                if(dot<0) { rock.vx-=2*dot*res.nx; rock.vy-=2*dot*res.ny; rock.vx*=BOUNCE_DAMPING; rock.vy*=BOUNCE_DAMPING; }
+                                block.hp-=Math.abs(dot)*0.55;
+                                if(block.hp<=0) { destroyBlock(block); markUnsupportedBlocks(); }
+                                else { spawnParticles(res.closestX,res.closestY,3,[block.color,'#ddd'],1.5,[1,3]); playSound('hit'); }
+                                rock.bounces++; collided=true; break;
+                            }
+                        }
+                        if(!collided||rock.bounces<=3) {
+                            for(const enemy of enemies) {
+                                if(enemy.alive&&circleCircleCollision(rock.x,rock.y,rock.radius,enemy.x,enemy.y,enemy.radius)) {
+                                    if (rock.type === 'bomb_pig') { killEnemy(enemy, false); rock.active = false; explodeAt(rock.x, rock.y, BOMB_BLAST_RADIUS); break; }
+                                    else { killEnemy(enemy); rock.vx*=0.5; rock.vy*=0.5; break; }
+                                }
+                            }
+                        }
+                        if(rock.active && rock.type === 'bomb_pig') {
+                            for(const enemy of enemies) {
+                                if(enemy.alive&&circleCircleCollision(rock.x,rock.y,rock.radius,enemy.x,enemy.y,enemy.radius)) {
+                                    killEnemy(enemy, false); rock.active = false; explodeAt(rock.x, rock.y, BOMB_BLAST_RADIUS); break;
+                                }
+                            }
+                        }
+                        if(rock.y+rock.radius>GROUND_Y) {
+                            if (rock.type === 'bomb_pig') { rock.active = false; explodeAt(rock.x, GROUND_Y - rock.radius, BOMB_BLAST_RADIUS); }
+                            else { rock.y=GROUND_Y-rock.radius; rock.vy=-Math.abs(rock.vy)*GROUND_DAMPING; rock.vx*=FRICTION; rock.bounces++; if(Math.abs(rock.vy)<1.5) rock.vy=0; spawnParticles(rock.x,GROUND_Y,4,['#8b7355','#a0896e','#c4b898'],1.5,[1,3]); }
+                        }
+                        const speed=Math.hypot(rock.vx,rock.vy);
+                        if(rock.active && ((speed<MIN_SPEED_TO_END&&rock.y+rock.radius>=GROUND_Y-3)||rock.bounces>6||rock.x>WORLD_WIDTH+60||rock.x<-60||rock.y>HEIGHT+60)) {
+                            if (rock.type === 'bomb_pig') { rock.active = false; explodeAt(rock.x, rock.y, BOMB_BLAST_RADIUS); }
+                            else rock.active = false;
+                        }
                     }
                 }
-                const speed=Math.hypot(rock.vx,rock.vy);
-                if((speed<MIN_SPEED_TO_END&&rock.y+rock.radius>=GROUND_Y-3)||rock.bounces>6||rock.x>WORLD_WIDTH+60||rock.x<-60||rock.y>HEIGHT+60) {
-                    if (rock.type === 'bomb_pig' && rock.active) {
-                        activeRock.active = false; explodeAt(rock.x, rock.y, 60);
-                        gameState = 'settling'; settleTimer = 45;
-                    } else { rock.active=false; gameState='settling'; settleTimer=45; }
-                }
+                if (activeRocks.every(r => !r.active) && gameState === 'flying') { gameState = 'settling'; settleTimer = 45; }
             }
 
             function updateParticles() {
@@ -690,17 +1113,24 @@
             function update() {
                 if(screenShake>0) screenShake*=0.85; if(screenShake<0.1) screenShake=0;
                 updateParticles(); updateTiltingBlocks(); updateEnemyPhysics(); updateFallingBlocks();
-                if(gameState==='flying' && activeRock && activeRock.active) {
-                    targetCameraX = Math.max(0, Math.min(WORLD_WIDTH-WIDTH, activeRock.x - WIDTH*0.35));
+                markUnsupportedBlocks();
+                if(gameState==='flying') {
+                    updateActiveRocks();
+                    const anyActive = activeRocks.some(r => r.active);
+                    if (anyActive) {
+                        let avgX = 0, count = 0;
+                        for (const r of activeRocks) { if (r.active) { avgX += r.x; count++; } }
+                        if (count > 0) targetCameraX = Math.max(0, Math.min(WORLD_WIDTH-WIDTH, avgX/count - WIDTH*0.35));
+                    }
                 }
-                if(gameState==='flying') updateActiveRock();
                 if(gameState==='settling') {
                     settleTimer--;
                     updateFallingBlocks(); updateTiltingBlocks(); updateEnemyPhysics();
+                    markUnsupportedBlocks();
                     if(settleTimer<=0) {
                         if(!checkWinLose()) {
                             if(rocksRemaining>0) {
-                                gameState='aiming'; activeRock=null; dragPos=null; trajectoryPoints=[];
+                                gameState='aiming'; activeRocks=[]; dragPos=null; trajectoryPoints=[];
                                 targetCameraX = 0; instructionEl.style.opacity='1';
                             } else if(enemies.every(e=>!e.alive)) {
                                 gameState='won'; score+=level*100; updateUI();
@@ -713,7 +1143,6 @@
                         }
                     }
                 }
-                if(blocks.some(b=>b.falling&&!b.destroyed)) markUnsupportedBlocks();
                 if(!isPanning) {
                     cameraX += (targetCameraX - cameraX) * 0.12;
                     if(Math.abs(targetCameraX - cameraX) < 0.05) cameraX = targetCameraX;
@@ -763,108 +1192,99 @@
                 const {x,y,w,h,hp,maxHp,color,falling,angle} = block;
                 ctx.save();
                 const cx = x + w/2, cy = y + h/2;
-                ctx.translate(cx, cy);
-                ctx.rotate(angle);
+                ctx.translate(cx, cy); ctx.rotate(angle);
                 const factor=1-(hp/maxHp)*0.4;
-                ctx.fillStyle=color;
-                ctx.fillRect(-w/2, -h/2, w, h);
+                ctx.fillStyle=color; ctx.fillRect(-w/2, -h/2, w, h);
                 const hl=ctx.createLinearGradient(-w/2,-h/2,-w/2,h/2);
                 hl.addColorStop(0,'rgba(255,255,255,0.25)'); hl.addColorStop(1,'rgba(0,0,0,0.15)');
                 ctx.fillStyle=hl; ctx.fillRect(-w/2,-h/2,w,h);
                 ctx.strokeStyle='rgba(0,0,0,0.3)'; ctx.lineWidth=1.5; ctx.strokeRect(-w/2,-h/2,w,h);
-                if(hp<maxHp) {
-                    ctx.strokeStyle='rgba(0,0,0,0.3)'; ctx.lineWidth=0.8;
-                    for(let i=0;i<maxHp-Math.ceil(hp);i++) {
-                        ctx.beginPath(); ctx.moveTo(-w/2+w*0.3,-h/2+h*0.3); ctx.lineTo(-w/2+w*0.5,-h/2+h*0.6); ctx.stroke();
-                    }
-                }
+                if(hp<maxHp) { ctx.strokeStyle='rgba(0,0,0,0.3)'; ctx.lineWidth=0.8; for(let i=0;i<maxHp-Math.ceil(hp);i++) { ctx.beginPath(); ctx.moveTo(-w/2+w*0.3,-h/2+h*0.3); ctx.lineTo(-w/2+w*0.5,-h/2+h*0.6); ctx.stroke(); } }
                 ctx.restore();
             }
             function drawEnemy(enemy) {
                 if(!enemy.alive) return;
                 const {x,y,radius,type} = enemy;
-                ctx.save();
-                ctx.translate(x, y);
+                ctx.save(); ctx.translate(x, y);
                 if (type === 'big_red') {
                     ctx.fillStyle = '#cc0000'; ctx.beginPath(); ctx.arc(0,0,radius,0,Math.PI*2); ctx.fill();
-                    ctx.fillStyle = '#fff';
-                    ctx.beginPath(); ctx.arc(-4,-3,3.5,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(4,-3,3.5,0,Math.PI*2); ctx.fill();
-                    ctx.fillStyle = '#000';
-                    ctx.beginPath(); ctx.arc(-3,-3,1.8,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(5,-3,1.8,0,Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(-4,-3,3.5,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(4,-3,3.5,0,Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(-3,-3,1.8,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(5,-3,1.8,0,Math.PI*2); ctx.fill();
                     ctx.beginPath(); ctx.moveTo(-6,4); ctx.lineTo(6,4); ctx.lineWidth=2; ctx.strokeStyle='#000'; ctx.stroke();
                 } else if (type === 'round_black') {
-                    // normal black bird, no bomb features
                     ctx.fillStyle = '#222'; ctx.beginPath(); ctx.arc(0,0,radius,0,Math.PI*2); ctx.fill();
-                    ctx.fillStyle = '#fff';
-                    ctx.beginPath(); ctx.arc(-4,-3,3.5,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(4,-3,3.5,0,Math.PI*2); ctx.fill();
-                    ctx.fillStyle = '#000';
-                    ctx.beginPath(); ctx.arc(-4,-3,1.8,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(4,-3,1.8,0,Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(-4,-3,3.5,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(4,-3,3.5,0,Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(-4,-3,1.8,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(4,-3,1.8,0,Math.PI*2); ctx.fill();
                 } else if (type === 'triangle_yellow') {
-                    ctx.fillStyle = '#ffdd00';
-                    ctx.beginPath(); ctx.moveTo(0,-radius); ctx.lineTo(-radius*0.8,radius*0.6); ctx.lineTo(radius*0.8,radius*0.6); ctx.closePath(); ctx.fill();
-                    ctx.fillStyle = '#000';
-                    ctx.beginPath(); ctx.arc(-3,-2,2,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(3,-2,2,0,Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#ffdd00'; ctx.beginPath(); ctx.moveTo(0,-radius); ctx.lineTo(-radius*0.8,radius*0.6); ctx.lineTo(radius*0.8,radius*0.6); ctx.closePath(); ctx.fill();
+                    ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(-3,-2,2,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(3,-2,2,0,Math.PI*2); ctx.fill();
                 } else if (type === 'small_blue') {
                     ctx.fillStyle = '#4466ff'; ctx.beginPath(); ctx.arc(0,0,radius,0,Math.PI*2); ctx.fill();
-                    ctx.fillStyle = '#fff';
-                    ctx.beginPath(); ctx.arc(-2,-2,2,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(2,-2,2,0,Math.PI*2); ctx.fill();
-                    ctx.fillStyle = '#000';
-                    ctx.beginPath(); ctx.arc(-2,-2,1,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(2,-2,1,0,Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(-2,-2,2,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(2,-2,2,0,Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(-2,-2,1,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(2,-2,1,0,Math.PI*2); ctx.fill();
                 }
                 ctx.restore();
             }
+            function drawSmallPig(x, y, size) {
+                ctx.fillStyle = '#66bb66';
+                ctx.beginPath(); ctx.arc(x, y, size, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = '#88cc88';
+                ctx.beginPath(); ctx.ellipse(x, y + size*0.3, size*0.5, size*0.3, 0, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = '#2d6a2d';
+                ctx.beginPath(); ctx.arc(x - size*0.2, y + size*0.3, size*0.12, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(x + size*0.2, y + size*0.3, size*0.12, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = '#fff';
+                ctx.beginPath(); ctx.arc(x - size*0.35, y - size*0.25, size*0.25, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(x + size*0.35, y - size*0.25, size*0.25, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = '#000';
+                ctx.beginPath(); ctx.arc(x - size*0.3, y - size*0.25, size*0.12, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(x + size*0.4, y - size*0.25, size*0.12, 0, Math.PI*2); ctx.fill();
+                ctx.strokeStyle = '#1b3b1b'; ctx.lineWidth = 1.2;
+                ctx.beginPath(); ctx.arc(x, y, size, 0, Math.PI*2); ctx.stroke();
+            }
             function drawRock(rock) {
                 const {x,y,radius,type} = rock;
-                ctx.save();
-                ctx.translate(x, y);
-                if (type === 'bomb_pig') {
-                    // Bomb body: dark sphere
-                    ctx.fillStyle = '#1a1a1a';
+                ctx.save(); ctx.translate(x, y);
+                if (type === 'steel_pig') {
+                    ctx.fillStyle = '#a0a0a0';
                     ctx.beginPath(); ctx.arc(0, 0, radius, 0, Math.PI*2); ctx.fill();
-                    // Fuse
-                    ctx.strokeStyle = '#8B4513'; ctx.lineWidth = 2.5;
-                    ctx.beginPath(); ctx.moveTo(0, -radius*0.8); ctx.lineTo(radius*0.4, -radius*1.4);
-                    ctx.stroke();
+                    ctx.fillStyle = '#d0d0d0';
+                    ctx.beginPath(); ctx.arc(-2, -3, 3, 0, Math.PI*2); ctx.fill();
+                    ctx.beginPath(); ctx.arc(2, -3, 3, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#000';
+                    ctx.beginPath(); ctx.arc(-1, -3, 1, 0, Math.PI*2); ctx.fill();
+                    ctx.beginPath(); ctx.arc(3, -3, 1, 0, Math.PI*2); ctx.fill();
+                    ctx.strokeStyle = '#555'; ctx.lineWidth = 2;
+                    ctx.beginPath(); ctx.arc(0, 0, radius, 0, Math.PI*2); ctx.stroke();
+                } else if (type === 'big_pig') {
+                    const bigR = radius;
+                    ctx.fillStyle = '#449944'; ctx.beginPath(); ctx.arc(0, 0, bigR, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#66bb66'; ctx.beginPath(); ctx.ellipse(0, bigR*0.3, bigR*0.5, bigR*0.3, 0, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#2d6a2d'; ctx.beginPath(); ctx.arc(-bigR*0.2, bigR*0.3, bigR*0.12, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(bigR*0.2, bigR*0.3, bigR*0.12, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(-bigR*0.35, -bigR*0.25, bigR*0.25, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(bigR*0.35, -bigR*0.25, bigR*0.25, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(-bigR*0.3, -bigR*0.25, bigR*0.12, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(bigR*0.4, -bigR*0.25, bigR*0.12, 0, Math.PI*2); ctx.fill();
+                    ctx.strokeStyle = '#111'; ctx.lineWidth = 3;
+                    ctx.beginPath(); ctx.moveTo(-bigR*0.55, -bigR*0.45); ctx.lineTo(-bigR*0.2, -bigR*0.35); ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(bigR*0.55, -bigR*0.45); ctx.lineTo(bigR*0.2, -bigR*0.35); ctx.stroke();
+                } else if (type === 'bomb_pig') {
+                    ctx.fillStyle = '#1a1a1a'; ctx.beginPath(); ctx.arc(0, 0, radius, 0, Math.PI*2); ctx.fill();
+                    ctx.strokeStyle = '#8B4513'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(0, -radius*0.8); ctx.lineTo(radius*0.4, -radius*1.4); ctx.stroke();
                     ctx.fillStyle = '#ff8800'; ctx.beginPath(); ctx.arc(radius*0.4, -radius*1.4, 3.5, 0, Math.PI*2); ctx.fill();
                     ctx.fillStyle = '#ffff00'; ctx.beginPath(); ctx.arc(radius*0.4, -radius*1.4, 1.8, 0, Math.PI*2); ctx.fill();
-                    // Pig snout
-                    ctx.fillStyle = '#555';
-                    ctx.beginPath(); ctx.ellipse(0, radius*0.25, radius*0.45, radius*0.25, 0, 0, Math.PI*2); ctx.fill();
-                    ctx.fillStyle = '#222';
-                    ctx.beginPath(); ctx.arc(-radius*0.18, radius*0.25, radius*0.1, 0, Math.PI*2); ctx.fill();
-                    ctx.beginPath(); ctx.arc(radius*0.18, radius*0.25, radius*0.1, 0, Math.PI*2); ctx.fill();
-                    // Eyes
-                    ctx.fillStyle = '#fff';
-                    ctx.beginPath(); ctx.arc(-radius*0.3, -radius*0.2, radius*0.2, 0, Math.PI*2); ctx.fill();
-                    ctx.beginPath(); ctx.arc(radius*0.3, -radius*0.2, radius*0.2, 0, Math.PI*2); ctx.fill();
-                    ctx.fillStyle = '#000';
-                    ctx.beginPath(); ctx.arc(-radius*0.25, -radius*0.2, radius*0.1, 0, Math.PI*2); ctx.fill();
-                    ctx.beginPath(); ctx.arc(radius*0.35, -radius*0.2, radius*0.1, 0, Math.PI*2); ctx.fill();
-                    // Ears
-                    ctx.fillStyle = '#1a1a1a';
-                    ctx.beginPath(); ctx.ellipse(-radius*0.5, -radius*0.5, radius*0.2, radius*0.15, -0.3, 0, Math.PI*2); ctx.fill();
-                    ctx.beginPath(); ctx.ellipse(radius*0.5, -radius*0.5, radius*0.2, radius*0.15, 0.3, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#555'; ctx.beginPath(); ctx.ellipse(0, radius*0.25, radius*0.45, radius*0.25, 0, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#222'; ctx.beginPath(); ctx.arc(-radius*0.18, radius*0.25, radius*0.1, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(radius*0.18, radius*0.25, radius*0.1, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(-radius*0.3, -radius*0.2, radius*0.2, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(radius*0.3, -radius*0.2, radius*0.2, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(-radius*0.25, -radius*0.2, radius*0.1, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(radius*0.35, -radius*0.2, radius*0.1, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#1a1a1a'; ctx.beginPath(); ctx.ellipse(-radius*0.5, -radius*0.5, radius*0.2, radius*0.15, -0.3, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.ellipse(radius*0.5, -radius*0.5, radius*0.2, radius*0.15, 0.3, 0, Math.PI*2); ctx.fill();
                 } else {
-                    // Normal green pig
-                    ctx.fillStyle = '#66bb66';
-                    ctx.beginPath(); ctx.arc(0, 0, radius, 0, Math.PI*2); ctx.fill();
-                    ctx.fillStyle = '#88cc88';
-                    ctx.beginPath(); ctx.ellipse(0, radius*0.3, radius*0.5, radius*0.3, 0, 0, Math.PI*2); ctx.fill();
-                    ctx.fillStyle = '#2d6a2d';
-                    ctx.beginPath(); ctx.arc(-radius*0.2, radius*0.3, radius*0.12, 0, Math.PI*2); ctx.fill();
-                    ctx.beginPath(); ctx.arc(radius*0.2, radius*0.3, radius*0.12, 0, Math.PI*2); ctx.fill();
-                    ctx.fillStyle = '#fff';
-                    ctx.beginPath(); ctx.arc(-radius*0.35, -radius*0.25, radius*0.25, 0, Math.PI*2); ctx.fill();
-                    ctx.beginPath(); ctx.arc(radius*0.35, -radius*0.25, radius*0.25, 0, Math.PI*2); ctx.fill();
-                    ctx.fillStyle = '#000';
-                    ctx.beginPath(); ctx.arc(-radius*0.3, -radius*0.25, radius*0.12, 0, Math.PI*2); ctx.fill();
-                    ctx.beginPath(); ctx.arc(radius*0.4, -radius*0.25, radius*0.12, 0, Math.PI*2); ctx.fill();
-                    ctx.fillStyle = '#2d6a2d';
-                    ctx.beginPath(); ctx.ellipse(-radius*0.6, -radius*0.5, radius*0.25, radius*0.15, -0.3, 0, Math.PI*2); ctx.fill();
-                    ctx.beginPath(); ctx.ellipse(radius*0.6, -radius*0.5, radius*0.25, radius*0.15, 0.3, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#66bb66'; ctx.beginPath(); ctx.arc(0, 0, radius, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#88cc88'; ctx.beginPath(); ctx.ellipse(0, radius*0.3, radius*0.5, radius*0.3, 0, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#2d6a2d'; ctx.beginPath(); ctx.arc(-radius*0.2, radius*0.3, radius*0.12, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(radius*0.2, radius*0.3, radius*0.12, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(-radius*0.35, -radius*0.25, radius*0.25, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(radius*0.35, -radius*0.25, radius*0.25, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(-radius*0.3, -radius*0.25, radius*0.12, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(radius*0.4, -radius*0.25, radius*0.12, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#2d6a2d'; ctx.beginPath(); ctx.ellipse(-radius*0.6, -radius*0.5, radius*0.25, radius*0.15, -0.3, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.ellipse(radius*0.6, -radius*0.5, radius*0.25, radius*0.15, 0.3, 0, Math.PI*2); ctx.fill();
                 }
-                ctx.strokeStyle = '#1b3b1b'; ctx.lineWidth = 1.8;
-                ctx.beginPath(); ctx.arc(0, 0, radius, 0, Math.PI*2); ctx.stroke();
+                ctx.strokeStyle = '#1b3b1b'; ctx.lineWidth = 1.8; ctx.beginPath(); ctx.arc(0, 0, radius, 0, Math.PI*2); ctx.stroke();
                 ctx.restore();
             }
             function drawAmmoQueue() {
@@ -872,22 +1292,26 @@
                 const queueX = CATAPULT_X - 40, startY = CATAPULT_Y + 40, spacing = 18;
                 for (let i = 0; i < rocksRemaining; i++) {
                     const y = startY + i * spacing;
-                    ctx.save();
-                    ctx.globalAlpha = 0.5;
-                    ctx.translate(queueX, y);
-                    ctx.scale(0.7, 0.7);
-                    if (ammoQueue[i] === 'bomb_pig') {
-                        ctx.fillStyle = '#1a1a1a';
-                        ctx.beginPath(); ctx.arc(0, 0, ROCK_RADIUS*0.7, 0, Math.PI*2); ctx.fill();
-                        ctx.strokeStyle = '#8B4513'; ctx.lineWidth = 2;
-                        ctx.beginPath(); ctx.moveTo(0, -ROCK_RADIUS*0.6); ctx.lineTo(ROCK_RADIUS*0.3, -ROCK_RADIUS*1.1);
-                        ctx.stroke();
-                        ctx.fillStyle = '#ff8800'; ctx.beginPath(); ctx.arc(ROCK_RADIUS*0.3, -ROCK_RADIUS*1.1, 2.5, 0, Math.PI*2); ctx.fill();
-                    } else {
+                    ctx.save(); ctx.globalAlpha = 0.5; ctx.translate(queueX, y); ctx.scale(0.7, 0.7);
+                    const type = ammoQueue[i] || 'pig';
+                    if (type === 'triple_pig') {
+                        const sp = 6;
                         ctx.fillStyle = '#66bb66';
-                        ctx.beginPath(); ctx.arc(0, 0, ROCK_RADIUS*0.7, 0, Math.PI*2); ctx.fill();
-                        ctx.fillStyle = '#88cc88';
-                        ctx.beginPath(); ctx.ellipse(0, 3, 4, 2.5, 0, 0, Math.PI*2); ctx.fill();
+                        ctx.beginPath(); ctx.arc(-sp, sp, 4, 0, Math.PI*2); ctx.fill();
+                        ctx.beginPath(); ctx.arc(sp, sp, 4, 0, Math.PI*2); ctx.fill();
+                        ctx.beginPath(); ctx.arc(0, -sp, 4, 0, Math.PI*2); ctx.fill();
+                    } else if (type === 'big_pig') {
+                        ctx.fillStyle = '#449944'; ctx.beginPath(); ctx.arc(0, 0, BIG_PIG_RADIUS*0.5, 0, Math.PI*2); ctx.fill();
+                    } else if (type === 'bomb_pig') {
+                        ctx.fillStyle = '#1a1a1a'; ctx.beginPath(); ctx.arc(0, 0, ROCK_RADIUS*0.7, 0, Math.PI*2); ctx.fill();
+                        ctx.strokeStyle = '#8B4513'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, -ROCK_RADIUS*0.6); ctx.lineTo(ROCK_RADIUS*0.3, -ROCK_RADIUS*1.1); ctx.stroke();
+                        ctx.fillStyle = '#ff8800'; ctx.beginPath(); ctx.arc(ROCK_RADIUS*0.3, -ROCK_RADIUS*1.1, 2.5, 0, Math.PI*2); ctx.fill();
+                    } else if (type === 'steel_pig') {
+                        ctx.fillStyle = '#a0a0a0'; ctx.beginPath(); ctx.arc(0, 0, ROCK_RADIUS*0.7, 0, Math.PI*2); ctx.fill();
+                        ctx.fillStyle = '#d0d0d0'; ctx.beginPath(); ctx.arc(0, -2, 2, 0, Math.PI*2); ctx.fill();
+                    } else {
+                        ctx.fillStyle = '#66bb66'; ctx.beginPath(); ctx.arc(0, 0, ROCK_RADIUS*0.7, 0, Math.PI*2); ctx.fill();
+                        ctx.fillStyle = '#88cc88'; ctx.beginPath(); ctx.ellipse(0, 3, 4, 2.5, 0, 0, Math.PI*2); ctx.fill();
                     }
                     ctx.restore();
                 }
@@ -900,11 +1324,12 @@
                 ctx.stroke(); ctx.setLineDash([]);
             }
             function drawTrajectory() {
-                if(!trajectoryPoints||trajectoryPoints.length<2) return;
-                for(let i=0;i<trajectoryPoints.length;i++) {
-                    const pt=trajectoryPoints[i], alpha=0.35+(i/trajectoryPoints.length)*0.5;
-                    ctx.fillStyle=`rgba(180,255,180,${alpha})`; ctx.beginPath();
-                    ctx.arc(pt.x,pt.y,3.5-(i/trajectoryPoints.length)*2.2,0,Math.PI*2); ctx.fill();
+                if(trajectoryPoints && trajectoryPoints.length>1) {
+                    for(let i=0;i<trajectoryPoints.length;i++) {
+                        const pt=trajectoryPoints[i], a=0.35+(i/trajectoryPoints.length)*0.5;
+                        ctx.fillStyle=`rgba(180,255,180,${a})`; ctx.beginPath();
+                        ctx.arc(pt.x,pt.y,3.5-(i/trajectoryPoints.length)*2.2,0,Math.PI*2); ctx.fill();
+                    }
                 }
             }
             function drawParticles() { for(const p of particles) { ctx.save(); ctx.globalAlpha=p.life/p.maxLife; ctx.translate(p.x,p.y); ctx.rotate(p.rotation); ctx.fillStyle=p.color; ctx.fillRect(-p.size/2,-p.size/2,p.size,p.size); ctx.restore(); } }
@@ -921,16 +1346,26 @@
                 drawLastTrajectory(); drawTrajectory();
                 for(const b of blocks) drawBlock(b);
                 for(const e of enemies) drawEnemy(e);
-                if(activeRock&&activeRock.active) drawRock(activeRock);
-                if(gameState==='aiming'&&!activeRock) {
+                for(const r of activeRocks) { if(r.active) drawRock(r); }
+                if(gameState==='aiming'&&activeRocks.length===0) {
                     const pos=(isDragging&&dragPos)?dragPos:{x:CATAPULT_X,y:CATAPULT_Y};
-                    drawRock({x:pos.x,y:pos.y,radius:ROCK_RADIUS,active:false,type:nextAmmo});
+                    const type = selectedOverride || (ammoQueue.length > 0 ? ammoQueue[0] : 'pig');
+                    if (type === 'triple_pig') {
+                        const spacing = 10;
+                        drawSmallPig(pos.x - spacing, pos.y + spacing*0.6, ROCK_RADIUS*0.7);
+                        drawSmallPig(pos.x + spacing, pos.y + spacing*0.6, ROCK_RADIUS*0.7);
+                        drawSmallPig(pos.x, pos.y - spacing*0.8, ROCK_RADIUS*0.7);
+                    } else {
+                        const radius = (type === 'big_pig') ? BIG_PIG_RADIUS : ROCK_RADIUS;
+                        drawRock({x:pos.x,y:pos.y,radius:radius,active:false,type:type});
+                    }
                 }
                 drawParticles();
                 ctx.restore();
+                drawPigSelector();
                 drawAmmoQueue();
                 drawGameOverMessage();
-                if(gameState==='aiming'&&!isDragging&&!activeRock) {
+                if(gameState==='aiming'&&!isDragging&&activeRocks.length===0) {
                     const pulse=0.4+Math.sin(Date.now()*0.005)*0.25;
                     ctx.fillStyle=`rgba(180,255,180,${pulse})`; ctx.beginPath();
                     ctx.arc(CATAPULT_X-cameraX, CATAPULT_Y, ROCK_RADIUS+5,0,Math.PI*2); ctx.fill();
@@ -939,8 +1374,8 @@
 
             function gameLoop() { update(); render(); requestAnimationFrame(gameLoop); }
 
-            restartBtn.addEventListener('click', (e)=>{ e.stopPropagation(); if(gameState==='won') nextLevel(); else initGame(); });
-            window.addEventListener('keydown', (e)=>{ if(e.key==='r'||e.key==='R'){ if(gameState==='won') nextLevel(); else if(gameState==='lost') initGame(); } });
+            restartBtn.addEventListener('click', (e)=>{ e.stopPropagation(); if(gameState==='won') nextLevel(); else if(gameState==='lost') retryLevel(); else initGame(); });
+            window.addEventListener('keydown', (e)=>{ if(e.key==='r'||e.key==='R'){ if(gameState==='won') nextLevel(); else if(gameState==='lost') retryLevel(); else initGame(); } });
 
             initGame(); gameLoop();
         })();
