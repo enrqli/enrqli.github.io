@@ -249,15 +249,6 @@
             letter-spacing: 1px;
         }
 
-        /* Live counter transition */
-        #viewCountDisplay {
-            transition: all 0.3s;
-        }
-        .counter-loading {
-            opacity: 0.5;
-            font-size: 1.2rem !important;
-        }
-
         .section {
             position: relative;
             z-index: 1;
@@ -374,6 +365,12 @@
             line-height: 1.55;
             flex: 1;
         }
+        .game-card-rating {
+            margin: 8px 0;
+            color: var(--gold);
+            font-size: 0.9rem;
+            letter-spacing: 1px;
+        }
         .game-card-footer {
             display: flex;
             gap: 10px;
@@ -434,13 +431,15 @@
             border: 1px solid var(--border);
             border-radius: var(--radius);
             padding: 36px 30px;
-            max-width: 520px;
+            max-width: 600px;
             width: 90%;
-            text-align: center;
+            text-align: left;
             position: relative;
             box-shadow: 0 30px 60px rgba(0, 0, 0, 0.7);
             transform: translateY(20px);
             transition: transform 0.35s;
+            max-height: 80vh;
+            overflow-y: auto;
         }
         .modal-overlay.active .modal {
             transform: translateY(0);
@@ -524,6 +523,132 @@
             height: 100%;
             border: none;
             display: block;
+        }
+
+        /* ── COMMENTS SECTION ─────────── */
+        .comments-section {
+            margin-top: 20px;
+            border-top: 1px solid var(--border);
+            padding-top: 16px;
+        }
+        .comments-section h4 {
+            font-size: 1rem;
+            color: #fff;
+            margin-bottom: 12px;
+        }
+        .comments-list {
+            max-height: 180px;
+            overflow-y: auto;
+            margin-bottom: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .comment-item {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 10px 14px;
+            position: relative;
+        }
+        .comment-author {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--accent-glow);
+            margin-right: 8px;
+        }
+        .comment-time {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            float: right;
+        }
+        .comment-text {
+            font-size: 0.9rem;
+            color: var(--text);
+            margin-top: 4px;
+            line-height: 1.4;
+        }
+        .star-rating {
+            color: var(--gold);
+            font-size: 0.9rem;
+            letter-spacing: 2px;
+            margin-top: 4px;
+        }
+        .delete-comment-btn {
+            position: absolute;
+            top: 6px;
+            right: 10px;
+            background: none;
+            border: none;
+            color: #ff4444;
+            cursor: pointer;
+            font-size: 1rem;
+            display: none;
+            opacity: 0.7;
+            transition: var(--transition);
+        }
+        .delete-comment-btn:hover {
+            opacity: 1;
+        }
+        .comment-form {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: flex-start;
+        }
+        .comment-form input,
+        .comment-form textarea {
+            background: var(--card);
+            border: 1px solid var(--border);
+            color: #fff;
+            padding: 8px 12px;
+            border-radius: var(--radius-sm);
+            font-size: 0.85rem;
+            outline: none;
+            transition: var(--transition);
+        }
+        .comment-form input:focus,
+        .comment-form textarea:focus {
+            border-color: var(--accent);
+        }
+        .comment-form input {
+            flex: 1 1 120px;
+            min-width: 100px;
+        }
+        .comment-form textarea {
+            flex: 3 1 200px;
+            resize: vertical;
+        }
+        .comment-form .btn {
+            flex: 0 0 auto;
+        }
+        .rating-input {
+            display: flex;
+            align-items: center;
+            gap: 2px;
+            font-size: 1.2rem;
+            color: var(--gold);
+            cursor: pointer;
+            user-select: none;
+        }
+        .rating-input span {
+            transition: var(--transition);
+        }
+        .rating-input span:hover,
+        .rating-input span.active {
+            text-shadow: 0 0 10px var(--gold);
+        }
+
+        /* Admin link */
+        .admin-link {
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 0.85rem;
+            text-decoration: underline;
+            margin-left: 8px;
+        }
+        .admin-link:hover {
+            color: #fff;
         }
 
         /* ── ABOUT ────────────────────── */
@@ -661,11 +786,13 @@
                 <div class="stat-label">Platforms</div>
             </div>
             <div class="stat">
-                <div class="stat-number" id="viewCountDisplay1"><!-- hitwebcounter Code START -->
-<a href="https://www.hitwebcounter.com/" target="_blank" rel="noopener" title="https://www.hitwebcounter.com/">
-<img src="https://www.hitwebcounter.com/counter/counter.php?page=21504264&amp;style=0010&amp;nbdigits=4&amp;type=page" alt="https://www.hitwebcounter.com/" decoding="async" style="border:0;max-width:100%;height:auto;" />
-</a>
-<!-- hitwebcounter Code END --></div>
+                <div class="stat-number" id="viewCountDisplay1">
+                    <!-- hitwebcounter Code START -->
+                    <a href="https://www.hitwebcounter.com/" target="_blank" rel="noopener" title="https://www.hitwebcounter.com/">
+                        <img src="https://www.hitwebcounter.com/counter/counter.php?page=21504264&amp;style=0010&amp;nbdigits=4&amp;type=page" alt="https://www.hitwebcounter.com/" decoding="async" style="border:0;max-width:100%;height:auto;" />
+                    </a>
+                    <!-- hitwebcounter Code END -->
+                </div>
                 <div class="stat-label">👀 Views</div>
             </div>
             <div class="stat">
@@ -709,6 +836,7 @@
             🐦 <a href="#">Twitter / X</a> &nbsp;|&nbsp;
             💻 <a href="#">GitHub</a> &nbsp;|&nbsp;
             🎥 <a href="#">YouTube</a>
+            <span class="admin-link" id="adminToggle">🔑 Admin</span>
         </p>
         <p style="margin-top:8px;">&copy; 2026 MyGames Portfolio.</p>
     </footer>
@@ -719,9 +847,25 @@
             <button class="modal-close" id="modalClose">&times;</button>
             <h3 id="modalTitle"></h3>
             <p id="modalDesc"></p>
-            <div>
+            <!-- Comments section with rating -->
+            <div class="comments-section" id="commentsSection">
+                <h4>💬 Comments & Ratings</h4>
+                <div class="comments-list" id="commentsList"></div>
+                <div class="comment-form">
+                    <input type="text" id="commentName" placeholder="Your name (optional)" maxlength="30">
+                    <div class="rating-input" id="ratingStars">
+                        <span data-value="1">☆</span>
+                        <span data-value="2">☆</span>
+                        <span data-value="3">☆</span>
+                        <span data-value="4">☆</span>
+                        <span data-value="5">☆</span>
+                    </div>
+                    <textarea id="commentText" placeholder="Write a comment..." rows="2" maxlength="200"></textarea>
+                    <button class="btn btn-primary" id="submitComment">Post</button>
+                </div>
+            </div>
+            <div style="margin-top:16px; text-align:center;">
                 <button class="btn btn-primary" id="modalPlayBtn">▶ Play Now</button>
-                <a href="#" class="btn btn-outline" id="modalVideoBtn" target="_blank">🎬 Trailer</a>
             </div>
         </div>
     </div>
@@ -744,7 +888,7 @@
 
     <script>
         // ─────────────────────────────────────
-        // GAME DATA — Replace playUrl with your actual game URLs!
+        // GAME DATA
         // ─────────────────────────────────────
         const games = [{
             id: 1,
@@ -756,7 +900,6 @@
             tag: 'Featured',
             tagClass: 'tag-featured',
             playUrl: 'games/room-escape.html',
-            videoLink: '#',
         }, {
             id: 2,
             title: 'Snake',
@@ -767,7 +910,6 @@
             tag: 'New',
             tagClass: 'tag-new',
             playUrl: 'games/snake.html',
-            videoLink: '#',
         }, {
             id: 3,
             title: '3D snake',
@@ -778,7 +920,6 @@
             tag: 'Popular',
             tagClass: '',
             playUrl: 'games/3D-snake.html',
-            videoLink: '#',
         }, {
             id: 4,
             title: 'Happy Pigs',
@@ -789,62 +930,186 @@
             tag: 'New',
             tagClass: 'tag-new',
             playUrl: 'games/happy_pigs.html',
-            videoLink: '#',
         }];
 
         // ─────────────────────────────────────
-        // VIEW COUNTER (CountAPI with live polling)
+        // ADMIN ACCESS: Secret URL parameter
         // ─────────────────────────────────────
-        const counterEl = document.getElementById('viewCountDisplay');
-        const namespace = 'mygameportfolio';
-        const key = window.location.hostname.replace(/\./g, '-') + '-views';
-        let pollInterval = null;
+        const ADMIN_SECRET = 'my-secret-admin-key-2026'; // Change this to something long & random
+        let isAdmin = false;
+        let currentModalGameId = null;
 
-        // Increment the counter once per visit (called only on page load)
-        async function incrementViewCounter() {
-            try {
-                const response = await fetch(`https://api.countapi.xyz/hit/${namespace}/${key}`);
-                if (!response.ok) throw new Error('CountAPI hit failed');
-                const data = await response.json();
-                updateCounterDisplay(data.value);
-                counterEl.classList.remove('counter-loading');
-            } catch (error) {
-                console.warn('Increment failed, using localStorage fallback:', error);
-                let localCount = localStorage.getItem('portfolioViewCount') || 0;
-                localCount = parseInt(localCount) + 1;
-                localStorage.setItem('portfolioViewCount', localCount);
-                updateCounterDisplay(localCount);
-                counterEl.classList.remove('counter-loading');
-                counterEl.title = 'Local view count (not global)';
+        // Check for admin URL parameter ?admin=...
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('admin') === ADMIN_SECRET) {
+            isAdmin = true;
+        }
+
+        // ─────────────────────────────────────
+        // COMMENTS (localStorage) + RATING
+        // ─────────────────────────────────────
+        function getComments(gameId) {
+            const stored = localStorage.getItem(`comments_${gameId}`);
+            return stored ? JSON.parse(stored) : [];
+        }
+
+        function saveComments(gameId, comments) {
+            localStorage.setItem(`comments_${gameId}`, JSON.stringify(comments));
+        }
+
+        function getAverageRating(gameId) {
+            const comments = getComments(gameId);
+            const rated = comments.filter(c => c.rating > 0);
+            if (rated.length === 0) return 0;
+            const sum = rated.reduce((acc, c) => acc + c.rating, 0);
+            return sum / rated.length;
+        }
+
+        function generateStars(rating) {
+            const full = Math.round(rating); // round to nearest whole star for display
+            return '★'.repeat(full) + '☆'.repeat(5 - full);
+        }
+
+        function updateGameRatingDisplay(gameId) {
+            const cardRatingEl = document.querySelector(`.game-card-rating[data-game-id="${gameId}"]`);
+            if (!cardRatingEl) return;
+            const avg = getAverageRating(gameId);
+            if (avg === 0) {
+                cardRatingEl.textContent = 'No ratings yet';
+            } else {
+                cardRatingEl.textContent = generateStars(avg) + ` (${avg.toFixed(1)})`;
             }
         }
 
-        // Fetch the current count without incrementing (for live updates)
-        async function fetchViewCount() {
-            try {
-                const response = await fetch(`https://api.countapi.xyz/get/${namespace}/${key}`);
-                if (!response.ok) throw new Error('CountAPI get failed');
-                const data = await response.json();
-                updateCounterDisplay(data.value);
-            } catch (error) {
-                // If fetch fails, do nothing (keep current display)
-                console.debug('Live fetch failed (keeping current count):', error);
+        function updateAllGameRatings() {
+            games.forEach(game => updateGameRatingDisplay(game.id));
+        }
+
+        // ─────────────────────────────────────
+        // COMMENT RENDERING (modal)
+        // ─────────────────────────────────────
+        function renderComments(gameId) {
+            const list = document.getElementById('commentsList');
+            const comments = getComments(gameId);
+            const userCommentIds = JSON.parse(localStorage.getItem(`my_comment_ids_${gameId}`) || '[]');
+            list.innerHTML = '';
+            if (comments.length === 0) {
+                list.innerHTML = '<p style="color:var(--text-muted); font-size:0.85rem;">No comments yet. Be the first!</p>';
+                return;
             }
+            // Show newest first
+            [...comments].reverse().forEach((comment) => {
+                const originalIndex = comments.indexOf(comment); // reverse mapping
+                const div = document.createElement('div');
+                div.className = 'comment-item';
+                const timeStr = new Date(comment.timestamp).toLocaleString();
+                const displayName = comment.name && comment.name.trim() ? comment.name : 'Anonymous';
+                let starsHtml = '';
+                if (comment.rating && comment.rating > 0) {
+                    starsHtml = '<div class="star-rating">' +
+                        '★'.repeat(comment.rating) + '☆'.repeat(5 - comment.rating) +
+                        '</div>';
+                }
+                // Delete button logic: admin can delete any, user can delete own comment (if they have the id stored)
+                const userCanDelete = !isAdmin && userCommentIds.includes(comment.id);
+                const showDelete = isAdmin || userCanDelete;
+                div.innerHTML = `
+                    <span class="comment-author">${escapeHTML(displayName)}</span>
+                    <span class="comment-time">${timeStr}</span>
+                    <button class="delete-comment-btn" data-comment-index="${originalIndex}" style="display:${showDelete ? 'block' : 'none'}">✕</button>
+                    ${starsHtml}
+                    <div class="comment-text">${escapeHTML(comment.text)}</div>
+                `;
+                list.appendChild(div);
+            });
+
+            // Attach delete events
+            document.querySelectorAll('.delete-comment-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const idx = parseInt(btn.getAttribute('data-comment-index'));
+                    deleteComment(gameId, idx);
+                });
+            });
         }
 
-        function updateCounterDisplay(value) {
-            counterEl.textContent = Number(value).toLocaleString();
+        function deleteComment(gameId, index) {
+            const comments = getComments(gameId);
+            if (index < 0 || index >= comments.length) return;
+            const commentToDelete = comments[index];
+            // If user is deleting their own comment, remove its id from their list
+            if (!isAdmin) {
+                const userCommentIds = JSON.parse(localStorage.getItem(`my_comment_ids_${gameId}`) || '[]');
+                const updatedIds = userCommentIds.filter(id => id !== commentToDelete.id);
+                localStorage.setItem(`my_comment_ids_${gameId}`, JSON.stringify(updatedIds));
+            }
+            comments.splice(index, 1);
+            saveComments(gameId, comments);
+            renderComments(gameId);
+            updateGameRatingDisplay(gameId);
         }
 
-        function startLiveUpdates() {
-            // Fetch every 10 seconds so the count stays current
-            pollInterval = setInterval(fetchViewCount, 10000);
+        function escapeHTML(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
         }
 
-        // Initialize: increment once, then start live polling
-        incrementViewCounter().then(() => {
-            startLiveUpdates();
+        function addComment(gameId, name, text, rating) {
+            const comments = getComments(gameId);
+            const newComment = {
+                id: Date.now().toString(36) + Math.random().toString(36).substr(2, 8),
+                name: name.trim() || '',
+                text: text.trim(),
+                rating: rating || 0,
+                timestamp: Date.now()
+            };
+            comments.push(newComment);
+            saveComments(gameId, comments);
+            // Store comment id in user's list for future deletion
+            const userCommentIds = JSON.parse(localStorage.getItem(`my_comment_ids_${gameId}`) || '[]');
+            userCommentIds.push(newComment.id);
+            localStorage.setItem(`my_comment_ids_${gameId}`, JSON.stringify(userCommentIds));
+            renderComments(gameId);
+            updateGameRatingDisplay(gameId);
+        }
+
+        // ─────────────────────────────────────
+        // STAR RATING INPUT HANDLING
+        // ─────────────────────────────────────
+        let selectedRating = 0;
+        const ratingStars = document.getElementById('ratingStars');
+        const starSpans = ratingStars.querySelectorAll('span');
+
+        function updateStarDisplay(value) {
+            starSpans.forEach(span => {
+                const starValue = parseInt(span.getAttribute('data-value'));
+                span.textContent = starValue <= value ? '★' : '☆';
+                if (starValue <= value) {
+                    span.classList.add('active');
+                } else {
+                    span.classList.remove('active');
+                }
+            });
+        }
+
+        starSpans.forEach(span => {
+            span.addEventListener('click', () => {
+                selectedRating = parseInt(span.getAttribute('data-value'));
+                updateStarDisplay(selectedRating);
+            });
+            span.addEventListener('mouseenter', () => {
+                const hoverValue = parseInt(span.getAttribute('data-value'));
+                updateStarDisplay(hoverValue);
+            });
         });
+        ratingStars.addEventListener('mouseleave', () => {
+            updateStarDisplay(selectedRating);
+        });
+
+        function resetRating() {
+            selectedRating = 0;
+            updateStarDisplay(0);
+        }
 
         // ─────────────────────────────────────
         // RENDER GAME CARDS
@@ -854,6 +1119,10 @@
         function renderGames() {
             gamesGrid.innerHTML = '';
             games.forEach(game => {
+                const avgRating = getAverageRating(game.id);
+                const ratingHtml = avgRating > 0 
+                    ? generateStars(avgRating) + ` (${avgRating.toFixed(1)})`
+                    : 'No ratings yet';
                 const card = document.createElement('div');
                 card.className = 'game-card';
                 card.setAttribute('data-game-id', game.id);
@@ -867,6 +1136,7 @@
                     <div class="game-card-body">
                         <h3>${game.title}</h3>
                         <span class="genre">${game.genre}</span>
+                        <div class="game-card-rating" data-game-id="${game.id}">${ratingHtml}</div>
                         <p class="description">${game.description}</p>
                         <div class="game-card-footer">
                             <button class="btn btn-primary btn-details" data-id="${game.id}">Details</button>
@@ -887,17 +1157,23 @@
         const modalTitle = document.getElementById('modalTitle');
         const modalDesc = document.getElementById('modalDesc');
         const modalPlayBtn = document.getElementById('modalPlayBtn');
-        const modalVideoBtn = document.getElementById('modalVideoBtn');
         const modalClose = document.getElementById('modalClose');
-        let currentModalGame = null;
+        const submitCommentBtn = document.getElementById('submitComment');
+        const commentNameInput = document.getElementById('commentName');
+        const commentTextInput = document.getElementById('commentText');
 
         function openDetailsModal(game) {
-            currentModalGame = game;
+            currentModalGameId = game.id;
             modalTitle.textContent = game.title;
             modalDesc.textContent = game.description +
                 '\n\nGenre: ' + game.genre +
                 '\n\nThis is one of my proudest creations. I hope you enjoy playing it as much as I enjoyed building it!';
-            modalVideoBtn.href = game.videoLink;
+            
+            commentNameInput.value = '';
+            commentTextInput.value = '';
+            resetRating();
+            renderComments(game.id);
+            
             modalOverlay.classList.add('active');
             document.body.style.overflow = 'hidden';
         }
@@ -905,7 +1181,7 @@
         function closeDetailsModal() {
             modalOverlay.classList.remove('active');
             document.body.style.overflow = '';
-            currentModalGame = null;
+            currentModalGameId = null;
         }
 
         modalClose.addEventListener('click', closeDetailsModal);
@@ -919,6 +1195,28 @@
                 } else if (modalOverlay.classList.contains('active')) {
                     closeDetailsModal();
                 }
+            }
+        });
+
+        // Handle comment submission
+        submitCommentBtn.addEventListener('click', () => {
+            if (!currentModalGameId) return;
+            const name = commentNameInput.value.trim();
+            const text = commentTextInput.value.trim();
+            if (!text) {
+                alert('Please enter a comment.');
+                return;
+            }
+            addComment(currentModalGameId, name, text, selectedRating);
+            commentNameInput.value = '';
+            commentTextInput.value = '';
+            resetRating();
+        });
+
+        commentTextInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                submitCommentBtn.click();
             }
         });
 
@@ -995,9 +1293,31 @@
         });
 
         modalPlayBtn.addEventListener('click', () => {
-            if (currentModalGame) {
-                openPlayOverlay(currentModalGame);
+            if (currentModalGameId) {
+                const game = games.find(g => g.id === currentModalGameId);
+                if (game) openPlayOverlay(game);
                 closeDetailsModal();
+            }
+        });
+
+        // ─────────────────────────────────────
+        // ADMIN TOGGLE (password fallback)
+        // ─────────────────────────────────────
+        const adminToggle = document.getElementById('adminToggle');
+        adminToggle.addEventListener('click', () => {
+            if (isAdmin) {
+                isAdmin = false;
+                adminToggle.textContent = '🔑 Admin';
+                if (currentModalGameId) renderComments(currentModalGameId);
+                return;
+            }
+            const password = prompt('Enter admin password:');
+            if (password === 'admin123') { // still works as fallback
+                isAdmin = true;
+                adminToggle.textContent = '🔓 Admin (active)';
+                if (currentModalGameId) renderComments(currentModalGameId);
+            } else if (password !== null) {
+                alert('Incorrect password.');
             }
         });
 
@@ -1019,7 +1339,8 @@
         // INIT
         // ─────────────────────────────────────
         renderGames();
-        console.log('🎮 Game portfolio ready! View counter live-updating every 10s.');
+        updateAllGameRatings();
+        console.log('🎮 Game portfolio ready!');
     </script>
 </body>
 </html>
