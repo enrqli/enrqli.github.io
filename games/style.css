@@ -1,0 +1,27 @@
+#BTN {
+    margin: 50vh 50vw;
+    width: 140px;
+    /* border: 0; */
+    background-color: white;
+    padding: 10px;
+    position:absolute;
+    transition: all 0.2s;
+    /* margin-top: 100px; */
+}
+body{
+    display: flex;
+    flex-direction: column;
+    /* grid-template-columns:  auto; */
+    text-align: center;
+    /* align-items: center; */
+    /* justify-content: center; */
+}
+/* #heading{
+    width: 50px;
+    color:chartreuse;
+} */
+#restart{
+    display: none;
+    margin: 30px, 45vw;
+    width: min-content;
+}
