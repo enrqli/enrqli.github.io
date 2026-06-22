@@ -142,6 +142,9 @@ btn.addEventListener("mouseover", () => {
             const randomText3 = buttonTexts3[Math.floor(Math.random() * buttonTexts3.length)];
             btn.textContent = randomText3;
         }
+        if (missed == 67){
+            btn.textContent = 67;
+        }
         if(missed >= 100 && missed < 200){
             const randomText100 = buttonTexts100[Math.floor(Math.random() * buttonTexts100.length)];
             btn.textContent = randomText100;
@@ -158,8 +161,10 @@ btn.addEventListener("mouseover", () => {
             btn.style.transform = "rotate(0deg)";
             btn.style.fontSize = '14px';
         }
+        if(missed == 404){
+            btn.textContent = "ERROR 404";
+        }
     }
-    
 });
 
 //WIN
