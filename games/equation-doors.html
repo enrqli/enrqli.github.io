@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Equation Doors - Unlock the Rooms</title>
+    <style>
+        :root {
+            --bg: #1a1a2e;
+            --surface: #16213e;
+            --accent: #e2b04a;
+            --green: #06d6a0;
+            --red: #e63946;
+            --text: #e0e0e0;
+            --wall: #2c2c44;
+            --answer-glow: #ff6b9d;
+        }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body {
+            background: var(--bg); display: flex; justify-content: center; align-items: center;
+            min-height: 100vh; font-family: 'Segoe UI', 'Inter', system-ui, sans-serif;
+            overflow-x: hidden; user-select: none; -webkit-user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .game-wrapper { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 14px; max-width: 650px; width: 100%; }
+        .game-header { display: flex; align-items: center; justify-content: space-between; width: 100%; flex-wrap: wrap; gap: 10px; }
+        .room-info { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .room-name { font-size: 1.1rem; font-weight: 700; color: var(--text); letter-spacing: 0.5px; }
+        .room-badge { background: var(--surface); color: var(--accent); padding: 5px 12px; border-radius: 20px; font-weight: 700; font-size: 0.8rem; border: 2px solid var(--accent); }
+        .room-type-badge { padding: 4px 10px; border-radius: 14px; font-weight: 700; font-size: 0.7rem; letter-spacing: 0.5px; text-transform: uppercase; }
+        .type-build { background: #06d6a033; color: #06d6a0; border: 1px solid #06d6a0; }
+        .type-answer { background: #ff6b9d33; color: #ff6b9d; border: 1px solid #ff6b9d; }
+        .target-display { display: flex; align-items: center; gap: 8px; background: var(--surface); padding: 8px 16px; border-radius: 12px; border: 2px solid #444; }
+        .target-label { color: #aaa; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; }
+        .target-number { font-size: 1.8rem; font-weight: 900; color: var(--accent); text-shadow: 0 0 20px rgba(226,176,74,0.5); min-width: 36px; text-align: center; transition: all 0.3s; }
+        .target-number.matched { color: var(--green); text-shadow: 0 0 30px rgba(6,214,160,0.7); animation: pulseMatch 0.6s ease-in-out; }
+        .target-number.answer-mode { color: #ff6b9d; text-shadow: 0 0 20px rgba(255,107,157,0.5); }
+        @keyframes pulseMatch { 0%,100%{ transform:scale(1); } 50%{ transform:scale(1.3); } }
+        .canvas-container { position: relative; border-radius: 16px; overflow: hidden; box-shadow: 0 8px 40px rgba(0,0,0,0.5), 0 0 0 3px #333; background: #111; }
+        canvas { display: block; max-width: 100%; height: auto; cursor: default; }
+        .equation-preview { display: flex; align-items: center; gap: 6px; background: var(--surface); padding: 10px 16px; border-radius: 12px; border: 2px solid #333; min-height: 44px; flex-wrap: wrap; justify-content: center; }
+        .eq-label { color: #888; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; }
+        .eq-token { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 8px; font-weight: 700; font-size: 1rem; transition: all 0.2s; }
+        .eq-token.number { background: #4361ee33; color: #6b8aff; border: 2px solid #4361ee; }
+        .eq-token.operator { background: #f77f0033; color: #ffaa44; border: 2px solid #f77f00; }
+        .eq-token.given { background: #555; color: #ddd; border: 2px solid #777; }
+        .eq-token.answer-slot { background: #ff6b9d22; color: #ff6b9d; border: 2px dashed #ff6b9d; animation: answerPulse 1.2s ease-in-out infinite; }
+        @keyframes answerPulse { 0%,100%{ box-shadow:0 0 8px rgba(255,107,157,0.3); } 50%{ box-shadow:0 0 20px rgba(255,107,157,0.7); } }
+        .eq-token.empty { background: #222; border: 2px dashed #555; color: #555; font-size: 0.65rem; }
+        .eq-equals { color: #aaa; font-weight: 700; font-size: 1.1rem; }
+        .eq-result { font-weight: 900; font-size: 1.3rem; color: var(--accent); }
+        .eq-result.valid { color: var(--green); } .eq-result.invalid { color: var(--red); }
+        .btn-row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+        .btn { padding: 9px 16px; border-radius: 25px; border: 2px solid #555; background: var(--surface); color: var(--text); cursor: pointer; font-weight: 600; font-size: 0.8rem; letter-spacing: 0.5px; transition: all 0.2s; font-family: inherit; pointer-events: auto; }
+        .btn:hover { border-color: var(--accent); color: var(--accent); box-shadow: 0 0 15px rgba(226,176,74,0.2); }
+        .btn:active { transform: scale(0.96); background: #222; }
+        .btn.accent { background: var(--accent); color: #1a1a2e; border-color: var(--accent); font-weight: 700; }
+        .btn.accent:hover { box-shadow: 0 0 25px rgba(226,176,74,0.5); }
+        .btn.hint-btn { border-color: #ffd700; color: #ffd700; }
+        .btn.hint-btn:hover { box-shadow: 0 0 15px rgba(255,215,0,0.3); }
+        .controls-hint { color: #666; font-size: 0.7rem; text-align: center; letter-spacing: 0.5px; }
+        .controls-hint span { color: #999; background: #222; padding: 2px 6px; border-radius: 4px; margin: 0 1px; font-weight: 600; }
+        .overlay { position: fixed; top:0; left:0; right:0; bottom:0; background: rgba(0,0,0,0.88); display: flex; align-items: center; justify-content: center; z-index:100; animation: fadeIn 0.35s ease; pointer-events: auto; }
+        .overlay-card { background: var(--surface); padding: 36px 30px; border-radius: 20px; text-align: center; border: 3px solid var(--accent); box-shadow: 0 0 60px rgba(226,176,74,0.35); animation: popIn 0.45s cubic-bezier(0.175,0.885,0.32,1.275); max-width: 420px; width: 90%; pointer-events: auto; }
+        .overlay-card h2 { font-size: 2rem; color: var(--accent); margin-bottom: 8px; }
+        .overlay-card p { color: #bbb; margin-bottom: 18px; font-size: 0.9rem; line-height: 1.4; }
+        .overlay-card .btn { margin: 6px; font-size: 0.9rem; padding: 11px 22px; pointer-events: auto; }
+        .btn.easy-btn { border-color:#06d6a0; color:#06d6a0; } .btn.easy-btn:hover { box-shadow:0 0 20px rgba(6,214,160,0.3); }
+        .btn.normal-btn { border-color:#f77f00; color:#f77f00; } .btn.normal-btn:hover { box-shadow:0 0 20px rgba(247,127,0,0.3); }
+        .btn.hard-btn { border-color:#e63946; color:#e63946; } .btn.hard-btn:hover { box-shadow:0 0 20px rgba(230,57,70,0.3); }
+        .difficulty-badge { display: inline-block; padding: 4px 10px; border-radius: 14px; font-weight: 700; font-size: 0.75rem; letter-spacing: 1px; text-transform: uppercase; }
+        .badge-easy { background:#06d6a033; color:#06d6a0; border:1px solid #06d6a0; }
+        .badge-normal { background:#f77f0033; color:#f77f00; border:1px solid #f77f00; }
+        .badge-hard { background:#e6394633; color:#e63946; border:1px solid #e63946; }
+        .checkbox-row { margin: 12px 0; color: #ccc; font-size: 0.9rem; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .checkbox-row input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--accent); }
+        @keyframes fadeIn { from{opacity:0;} to{opacity:1;} }
+        @keyframes popIn { from{transform:scale(0.7); opacity:0;} to{transform:scale(1); opacity:1;} }
+        @media (max-width: 500px) {
+            .game-wrapper { padding:6px; gap:8px; } .room-name { font-size:0.95rem; } .target-number { font-size:1.3rem; }
+            .btn { padding:7px 11px; font-size:0.7rem; } .eq-token { width:30px; height:30px; font-size:0.85rem; }
+            .overlay-card { padding:22px 14px; } .overlay-card h2 { font-size:1.4rem; }
+        }
+    </style>
+</head>
+<body>
+<div class="game-wrapper" id="gameWrapper" style="display:none;">
+    <div class="game-header">
+        <div class="room-info">
+            <span class="room-name" id="roomName">Room</span>
+            <span class="room-badge" id="roomBadge">1 / 1</span>
+            <span class="difficulty-badge badge-easy" id="diffBadge">Easy</span>
+            <span class="room-type-badge type-build" id="typeBadge">BUILD</span>
+        </div>
+        <div class="target-display">
+            <span class="target-label" id="doorLabel">🚪 Door</span>
+            <span class="target-number" id="targetNumber">0</span>
+        </div>
+    </div>
+    <div class="canvas-container"><canvas id="gameCanvas"></canvas></div>
+    <div class="equation-preview" id="equationPreview">
+        <span class="eq-label">Eq:</span>
+        <span class="eq-token empty" id="eqSlot0">?</span>
+        <span class="eq-token empty" id="eqSlot1">?</span>
+        <span class="eq-token empty" id="eqSlot2">?</span>
+        <span class="eq-token empty" id="eqSlot3" style="display:none;">?</span>
+        <span class="eq-token empty" id="eqSlot4" style="display:none;">?</span>
+        <span class="eq-equals">=</span>
+        <span class="eq-result" id="eqResult">?</span>
+    </div>
+    <div class="btn-row">
+        <button class="btn" id="btnReset">🔄 Reset</button>
+        <button class="btn hint-btn" id="btnHint">💡 Hint 1</button>
+        <button class="btn" id="btnPull">🧲 Pull</button>
+        <button class="btn accent" id="btnNext" style="display:none;">▶ Next</button>
+    </div>
+    <div class="controls-hint">
+        Move: <span>↑↓←→</span> / <span>WASD</span> &nbsp;|&nbsp;
+        Hold <span>Shift</span> to pull behind &nbsp;|&nbsp;
+        <span>E</span> pull adjacent &nbsp;|&nbsp;
+        <span>R</span> Reset &nbsp;<span>H</span> Hint
+    </div>
+</div>
+
+<div class="overlay" id="diffOverlay">
+    <div class="overlay-card">
+        <h2>🔐 Equation Doors</h2>
+        <p>Two room types! <b style="color:#06d6a0;">BUILD</b> an equation to match the door number, or <b style="color:#ff6b9d;">ANSWER</b> the equation written on the walls.</p>
+        <p style="font-size:0.8rem;color:#888;margin-bottom:16px;">Choose difficulty:</p>
+        <button class="btn easy-btn" id="btnEasy">🌱 Easy<br><small>3‑slot equations · 4 rooms</small></button>
+        <button class="btn normal-btn" id="btnNormal">⚡ Normal<br><small>3‑5 slot equations · 6 rooms</small></button>
+        <button class="btn hard-btn" id="btnHard">🔥 Hard<br><small>5‑slot equations · 8 rooms</small></button>
+        <div class="checkbox-row">
+            <input type="checkbox" id="longModeCheck"><label for="longModeCheck">Long Mode (10 rooms)</label>
+        </div>
+    </div>
+</div>
+
+<script>
+    (function() {
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const gameWrapper = document.getElementById('gameWrapper');
+        const diffOverlay = document.getElementById('diffOverlay');
+        const roomNameEl = document.getElementById('roomName');
+        const roomBadgeEl = document.getElementById('roomBadge');
+        const diffBadgeEl = document.getElementById('diffBadge');
+        const typeBadgeEl = document.getElementById('typeBadge');
+        const doorLabelEl = document.getElementById('doorLabel');
+        const targetNumberEl = document.getElementById('targetNumber');
+        const eqResultEl = document.getElementById('eqResult');
+        const btnReset = document.getElementById('btnReset');
+        const btnHint = document.getElementById('btnHint');
+        const btnPull = document.getElementById('btnPull');
+        const btnNext = document.getElementById('btnNext');
+        const longModeCheck = document.getElementById('longModeCheck');
+        const eqSlotEls = [];
+        for (let i=0; i<5; i++) eqSlotEls.push(document.getElementById('eqSlot'+i));
+
+        const CELL_SIZE = 56;
+        const COLORS = {
+            floor:'#2a2a3e', floorAlt:'#252538', walkway:'#5c4a3a', walkwayAlt:'#4d3d2f',
+            walkwayDot:'#8b7355', wall:'#3a3a55', wallTop:'#4a4a65', player:'#00d4ff',
+            playerDark:'#009dc0', numberBlock:'#4361ee', numberBlockDark:'#2d47c4',
+            operatorBlock:'#f77f00', operatorBlockDark:'#c56500', digitBlock:'#ff6b9d',
+            digitBlockDark:'#c9446e', slotBorder:'#06d6a0', answerSlotBorder:'#ff6b9d',
+            doorLocked:'#c0392b', doorLockedDark:'#8b1a1a', doorOpen:'#06d6a0',
+            doorOpenDark:'#049a6e', doorAnswerLocked:'#ff6b9d', doorAnswerLockedDark:'#b84a6a',
+            gridLine:'rgba(255,255,255,0.04)', equationWallBg:'#4a4060', equationWallBorder:'#ff9dbd'
+        };
+
+        const DIFFICULTY_CONFIG = {
+            easy:{ label:'Easy', badgeClass:'badge-easy', roomCount:4, numSlots:3, gridMin:6, gridMax:7,
+                   targetMin:4, targetMax:15, operators:['+','-'], numberMin:1, numberMax:9,
+                   extraBlocks:3, interiorWalls:1 },
+            normal:{ label:'Normal', badgeClass:'badge-normal', roomCount:6, numSlotsChoices:[3,5],
+                     numSlotsWeights:[0.4,0.6], gridMin:7, gridMax:8, targetMin:8, targetMax:30,
+                     operators:['+','-','×'], numberMin:1, numberMax:15, extraBlocks:5, interiorWalls:2 },
+            hard:{ label:'Hard', badgeClass:'badge-hard', roomCount:8, numSlots:5, gridMin:8, gridMax:9,
+                   targetMin:15, targetMax:50, operators:['+','-','×','÷'], numberMin:1, numberMax:25,
+                   extraBlocks:7, interiorWalls:3 }
+        };
+
+        let currentDifficulty='easy', allRooms=[], currentRoomIndex=0, roomData=null;
+        let playerPos, blocks, walls, equationSlots, doorPos, numSlots, roomType, doorUnlocked;
+        let particles=[], shakeAmount=0, nextBlockId=0, hintLevel=0, gameComplete=false, gameStarted=false;
+        let lastDx=0, lastDy=-1, shiftHeld=false, ghostDigits=[];
+
+        function spawnParticles(x,y,count,color){ for(let i=0;i<count;i++){ let angle=Math.random()*Math.PI*2, speed=1.5+Math.random()*4; particles.push({x,y,vx:Math.cos(angle)*speed,vy:Math.sin(angle)*speed,life:1,decay:0.015+Math.random()*0.03,size:2+Math.random()*4,color}); } }
+        function updateParticles(){ for(let i=particles.length-1;i>=0;i--){ let p=particles[i]; p.x+=p.vx; p.y+=p.vy; p.life-=p.decay; if(p.life<=0) particles.splice(i,1); } }
+        function drawParticles(ctx2){ for(let p of particles){ ctx2.save(); ctx2.globalAlpha=p.life; ctx2.fillStyle=p.color; ctx2.shadowColor=p.color; ctx2.shadowBlur=6; ctx2.beginPath(); ctx2.arc(p.x,p.y,p.size,0,Math.PI*2); ctx2.fill(); ctx2.restore(); } }
+
+        function randInt(min,max){ return Math.floor(Math.random()*(max-min+1))+min; }
+        function randChoice(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+        function weightedChoice(arr,weights){ let total=weights.reduce((a,b)=>a+b,0); let r=Math.random()*total; for(let i=0;i<arr.length;i++){ r-=weights[i]; if(r<=0) return arr[i]; } return arr[arr.length-1]; }
+        function generatePerimeterWalls(w,h){ let walls=[]; for(let x=0;x<w;x++){ walls.push({x,y:0}); walls.push({x,y:h-1}); } for(let y=1;y<h-1;y++){ walls.push({x:0,y}); walls.push({x:w-1,y}); } return walls; }
+        function shuffleArray(arr){ for(let i=arr.length-1;i>0;i--){ let j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]]; } return arr; }
+        function computeEquationResult(tokens){
+            let pass1=[], i=0;
+            while(i<tokens.length){
+                if(tokens[i]==='×'||tokens[i]==='÷'){
+                    let left=parseFloat(pass1.pop()), right=parseFloat(tokens[i+1]);
+                    if(tokens[i]==='÷'&&right===0) return null;
+                    pass1.push(String(tokens[i]==='×'?left*right:left/right)); i+=2;
+                }else{ pass1.push(tokens[i]); i++; }
+            }
+            let result=parseFloat(pass1[0]);
+            for(let j=1;j<pass1.length;j+=2){ let op=pass1[j], right=parseFloat(pass1[j+1]); result=op==='+'?result+right:result-right; }
+            return Math.round(result*1000)/1000;
+        }
+
+        function generateValidEquation(config, slotCount){
+            for(let attempt=0;attempt<300;attempt++){
+                let numCount=Math.floor(slotCount/2)+1, opCount=numCount-1;
+                let numbers=[], operators=[];
+                for(let i=0;i<numCount;i++) numbers.push(randInt(config.numberMin,config.numberMax));
+                for(let i=0;i<opCount;i++) operators.push(randChoice(config.operators));
+                let tokens=[];
+                for(let i=0;i<opCount;i++){ tokens.push(String(numbers[i])); tokens.push(operators[i]); }
+                tokens.push(String(numbers[opCount]));
+                let result=computeEquationResult(tokens);
+                if(result!==null && Number.isInteger(result) && result>0 && result>=config.targetMin && result<=config.targetMax) return {tokens,result};
+            }
+            let a=randInt(config.numberMin,config.numberMax), b=randInt(config.numberMin,config.numberMax);
+            if(slotCount===3) return {tokens:[String(a),'+',String(b)], result:a+b};
+            let c=randInt(config.numberMin,config.numberMax); return {tokens:[String(a),'+',String(b),'+',String(c)], result:a+b+c};
+        }
+
+        function generateSingleRoom(difficulty, roomNum){
+            let config=DIFFICULTY_CONFIG[difficulty];
+            let gridSize=randInt(config.gridMin, config.gridMax);
+            let gridW=gridSize, gridH=gridSize;
+            let slotCount; if(config.numSlots) slotCount=config.numSlots; else slotCount=weightedChoice(config.numSlotsChoices,config.numSlotsWeights);
+            let equation=generateValidEquation(config,slotCount);
+            let target=equation.result;
+            let type = Math.random()<0.55?'build-equation':'find-answer';
+            let solutionBlocks=[];
+            for(let tok of equation.tokens){
+                let isNum=!isNaN(parseFloat(tok)) && !['+','-','×','÷'].includes(tok);
+                solutionBlocks.push({type:isNum?'number':'operator', value:tok});
+            }
+            let equationSlots, numSlotsActual;
+            if(type==='build-equation'){
+                numSlotsActual=slotCount;
+                let slotStartX=Math.floor((gridW-slotCount)/2), slotY=gridH-2;
+                equationSlots=[];
+                for(let i=0;i<slotCount;i++) equationSlots.push({x:slotStartX+i, y:slotY});
+            }else{
+                let digits=String(target).split('');
+                numSlotsActual=digits.length;
+                let slotStartX=Math.floor((gridW-numSlotsActual)/2), slotY=gridH-2;
+                equationSlots=[];
+                for(let i=0;i<numSlotsActual;i++) equationSlots.push({x:slotStartX+i, y:slotY});
+            }
+            let walls=generatePerimeterWalls(gridW,gridH);
+            let interiorWallCandidates=[];
+            for(let x=1;x<gridW-1;x++) for(let y=1;y<gridH-1;y++){
+                let onSlot=equationSlots.some(s=>s.x===x&&s.y===y);
+                let nearDoor=(y<=1 && Math.abs(x-Math.floor(gridW/2))<=1);
+                if(!onSlot && !nearDoor) interiorWallCandidates.push({x,y});
+            }
+            shuffleArray(interiorWallCandidates);
+            let numInteriorWalls=Math.min(config.interiorWalls, interiorWallCandidates.length);
+            for(let i=0;i<numInteriorWalls;i++) walls.push(interiorWallCandidates[i]);
+            let equationWallTokens=[];
+            if(type==='find-answer'){
+                let tokens=equation.tokens;
+                let startX=Math.floor(gridW/2 - tokens.length/2);
+                let wallY=1;
+                for(let i=0;i<tokens.length;i++){
+                    let wx=startX+i, wy=wallY;
+                    walls=walls.filter(w=>!(w.x===wx && w.y===wy));
+                    walls.push({x:wx, y:wy, isEquationWall:true, token:tokens[i]});
+                    equationWallTokens.push({x:wx, y:wy, token:tokens[i]});
+                }
+            }
+            let doorPos={x:Math.floor(gridW/2), y:0};
+            let playerStart={x:1, y:gridH-2};
+            let isWallOrSlot=(px,py)=>walls.some(w=>w.x===px&&w.y===py) || equationSlots.some(s=>s.x===px&&s.y===py) || (px===doorPos.x&&py===doorPos.y);
+            if(isWallOrSlot(playerStart.x,playerStart.y)){
+                let candidates=[];
+                for(let x=1;x<gridW-1;x++) for(let y=Math.floor(gridH/2);y<gridH-1;y++) if(!isWallOrSlot(x,y)) candidates.push({x,y});
+                if(candidates.length>0) playerStart=randChoice(candidates);
+            }
+            let occupiedSet=new Set();
+            for(let w of walls) occupiedSet.add(`${w.x},${w.y}`);
+            for(let s of equationSlots) occupiedSet.add(`${s.x},${s.y}`);
+            occupiedSet.add(`${playerStart.x},${playerStart.y}`); occupiedSet.add(`${doorPos.x},${doorPos.y}`);
+            let freeTiles=[];
+            for(let x=1;x<gridW-1;x++) for(let y=1;y<gridH-1;y++) if(!occupiedSet.has(`${x},${y}`)) freeTiles.push({x,y});
+            shuffleArray(freeTiles);
+            let allBlocks=[], tileIdx=0;
+            if(type==='build-equation'){
+                for(let sb of solutionBlocks){ if(tileIdx<freeTiles.length){ allBlocks.push({...sb, x:freeTiles[tileIdx].x, y:freeTiles[tileIdx].y}); tileIdx++; } }
+            }else{
+                let digits=String(target).split('');
+                for(let d of digits){ if(tileIdx<freeTiles.length){ allBlocks.push({type:'number', value:d, x:freeTiles[tileIdx].x, y:freeTiles[tileIdx].y}); tileIdx++; } }
+                for(let i=0;i<config.extraBlocks&&tileIdx<freeTiles.length;i++){ allBlocks.push({type:'number', value:String(randInt(0,9)), x:freeTiles[tileIdx].x, y:freeTiles[tileIdx].y}); tileIdx++; }
+            }
+            if(type==='build-equation'){
+                for(let i=0;i<config.extraBlocks&&tileIdx<freeTiles.length;i++){
+                    let isNum=Math.random()<0.6;
+                    allBlocks.push({type:isNum?'number':'operator', value:isNum?String(randInt(config.numberMin,config.numberMax)):randChoice(config.operators), x:freeTiles[tileIdx].x, y:freeTiles[tileIdx].y}); tileIdx++;
+                }
+            }
+            let eqStr=equation.tokens.join(' ');
+            let hint=type==='build-equation'?`Build: ${eqStr} = ${target}`:`Find answer: ${eqStr} = ? (${target})`;
+            return { name:`${config.label} Room ${roomNum}`, roomType:type, target, gridWidth:gridW, gridHeight:gridH, walls, equationWallTokens, playerStart, blocks:allBlocks, equationSlots, doorPos, numSlots:numSlotsActual, hint, equationTokens:equation.tokens };
+        }
+
+        function generateAllRooms(difficulty, forceLong){
+            let config=DIFFICULTY_CONFIG[difficulty];
+            let roomCount=forceLong?10:config.roomCount;
+            let rooms=[];
+            try {
+                for(let i=0;i<roomCount;i++) rooms.push(generateSingleRoom(difficulty,i+1));
+            } catch(e) {
+                console.error("Room generation failed:", e);
+                alert("Could not generate rooms. Please try again.");
+            }
+            return rooms;
+        }
+
+        function transformRoom(room){
+            let innerW=Math.max(room.gridWidth,6), innerH=Math.max(room.gridHeight,6);
+            let newW=innerW+4, newH=innerH+4, shiftX=2, shiftY=2;
+            let origW=room.gridWidth, origH=room.gridHeight;
+            let newWalls=[];
+            for(let x=0;x<newW;x++){ newWalls.push({x,y:0}); newWalls.push({x,y:newH-1}); }
+            for(let y=1;y<newH-1;y++){ newWalls.push({x:0,y}); newWalls.push({x:newW-1,y}); }
+            let interiorWalls=room.walls.filter(w=>w.x>0&&w.x<origW-1&&w.y>0&&w.y<origH-1);
+            let shiftedWalls=interiorWalls.map(w=>{ let nw={x:w.x+shiftX, y:w.y+shiftY}; if(w.isEquationWall) nw.isEquationWall=true, nw.token=w.token; return nw; });
+            let doorX=room.doorPos.x+shiftX, doorY=0;
+            let allWalls=newWalls.concat(shiftedWalls).filter(w=>!(w.x===doorX&&w.y===doorY)&&!(w.x===doorX&&w.y===1));
+            let shiftedEquationTokens=room.equationWallTokens?room.equationWallTokens.map(t=>({x:t.x+shiftX, y:t.y+shiftY, token:t.token})):[];
+            return {...room, gridWidth:newW, gridHeight:newH, playerStart:{x:room.playerStart.x+shiftX, y:room.playerStart.y+shiftY}, blocks:room.blocks.map(b=>({...b, x:b.x+shiftX, y:b.y+shiftY})), equationSlots:room.equationSlots.map(s=>({...s, x:s.x+shiftX, y:s.y+shiftY})), doorPos:{x:doorX, y:doorY}, walls:allWalls, equationWallTokens:shiftedEquationTokens};
+        }
+
+        function startGame(difficulty){
+            console.log("Starting game with difficulty:", difficulty);
+            currentDifficulty = difficulty;
+            let longMode = longModeCheck.checked;
+            allRooms = generateAllRooms(difficulty, longMode);
+            if (allRooms.length === 0) {
+                alert("Room generation failed. Please try again.");
+                return;
+            }
+            currentRoomIndex = 0;
+            gameComplete = false;
+            gameStarted = true;
+            diffOverlay.style.display = 'none';
+            gameWrapper.style.display = 'flex';
+            diffBadgeEl.textContent = DIFFICULTY_CONFIG[difficulty].label;
+            diffBadgeEl.className = 'difficulty-badge ' + DIFFICULTY_CONFIG[difficulty].badgeClass;
+            loadRoom(0);
+            resizeCanvas();
+        }
+
+        function loadRoom(index){
+            if(index>=allRooms.length){ triggerVictory(); return; }
+            currentRoomIndex=index;
+            let baseRoom=allRooms[index];
+            roomData=transformRoom(baseRoom);
+            roomType=roomData.roomType;
+            playerPos={...roomData.playerStart};
+            blocks=roomData.blocks.map(b=>({...b,id:nextBlockId++,onSlot:false,slotIndex:-1}));
+            walls=[...roomData.walls];
+            equationSlots=roomData.equationSlots.map(s=>({...s}));
+            doorPos={...roomData.doorPos};
+            numSlots=roomData.numSlots;
+            doorUnlocked=false;
+            particles=[]; shakeAmount=0; hintLevel=0; ghostDigits=[];
+            lastDx=0; lastDy=-1;
+            updateUI(); updateEquationPreview();
+            btnNext.style.display='none';
+            btnHint.textContent='💡 Hint 1'; btnHint.className='btn hint-btn';
+            targetNumberEl.classList.remove('matched','answer-mode');
+            if(roomType==='find-answer') targetNumberEl.classList.add('answer-mode');
+            eqResultEl.textContent='?'; eqResultEl.className='eq-result';
+            resizeCanvas();
+        }
+
+        function isDoorTile(x,y){ return x===doorPos.x&&y===doorPos.y; }
+        function isWall(x,y){ if(isDoorTile(x,y)) return !doorUnlocked; return walls.some(w=>w.x===x&&w.y===y); }
+        function isWalkway(x,y){ if(!roomData) return false; let gw=roomData.gridWidth, gh=roomData.gridHeight; return (x===1||x===gw-2||y===1||y===gh-2) && !isWall(x,y); }
+        function isSlot(x,y){ return equationSlots.some(s=>s.x===x&&s.y===y); }
+        function getSlotIndex(x,y){ return equationSlots.findIndex(s=>s.x===x&&s.y===y); }
+        function getBlockAt(x,y){ return blocks.find(b=>b.x===x&&b.y===y); }
+        function isBlockPushable(x,y,dx,dy){
+            let block=getBlockAt(x,y); if(!block) return false;
+            let nx=x+dx, ny=y+dy;
+            if(nx<0||ny<0||nx>=roomData.gridWidth||ny>=roomData.gridHeight) return false;
+            if(isWall(nx,ny)) return false;
+            if(isWalkway(nx,ny)) return false;
+            if(getBlockAt(nx,ny)) return false;
+            if(playerPos.x===nx&&playerPos.y===ny) return false;
+            return true;
+        }
+        function moveBlockToSlot(block,nx,ny){ block.x=nx; block.y=ny; let idx=getSlotIndex(nx,ny); if(idx>=0){ block.onSlot=true; block.slotIndex=idx; }else{ block.onSlot=false; block.slotIndex=-1; } }
+
+        function movePlayer(dx,dy){
+            if(!gameStarted) return;
+            if(dx!==0||dy!==0){ lastDx=dx; lastDy=dy; }
+            if(doorUnlocked && isDoorTile(playerPos.x+dx, playerPos.y+dy)){ advanceRoom(); return; }
+            let nx=playerPos.x+dx, ny=playerPos.y+dy;
+            if(nx<0||ny<0||nx>=roomData.gridWidth||ny>=roomData.gridHeight) return;
+            if(isWall(nx,ny)) return;
+            let block=getBlockAt(nx,ny);
+            if(block){
+                if(isBlockPushable(nx,ny,dx,dy)){
+                    moveBlockToSlot(block,nx+dx,ny+dy);
+                    playerPos.x=nx; playerPos.y=ny;
+                    onBoardChanged();
+                }
+                return;
+            }
+            if(shiftHeld){
+                let behindX=playerPos.x-dx, behindY=playerPos.y-dy;
+                let blockBehind=getBlockAt(behindX,behindY);
+                if(blockBehind && !isWall(playerPos.x,playerPos.y) && !getBlockAt(playerPos.x,playerPos.y)){
+                    if(!isWalkway(playerPos.x, playerPos.y)){
+                        moveBlockToSlot(blockBehind,playerPos.x,playerPos.y);
+                        playerPos.x=nx; playerPos.y=ny;
+                        onBoardChanged();
+                    }
+                    return;
+                }
+            }
+            playerPos.x=nx; playerPos.y=ny;
+            onBoardChanged();
+        }
+
+        function pullAdjacentBlocks(){
+            if(!gameStarted) return;
+            let dirs=[{dx:0,dy:-1},{dx:0,dy:1},{dx:-1,dy:0},{dx:1,dy:0}];
+            for(let d of dirs){
+                let bx=playerPos.x+d.dx, by=playerPos.y+d.dy;
+                let block=getBlockAt(bx,by); if(!block) continue;
+                let pdx=playerPos.x-d.dx, pdy=playerPos.y-d.dy;
+                if(pdx<0||pdy<0||pdx>=roomData.gridWidth||pdy>=roomData.gridHeight) continue;
+                if(isWall(pdx,pdy)) continue;
+                if(isWalkway(pdx,pdy)) continue;
+                if(getBlockAt(pdx,pdy)) continue;
+                if(isDoorTile(pdx,pdy) && !doorUnlocked) continue;
+                if(isWalkway(playerPos.x, playerPos.y)) continue;
+                moveBlockToSlot(block,playerPos.x,playerPos.y);
+                playerPos.x=pdx; playerPos.y=pdy;
+                onBoardChanged();
+                spawnParticles(playerPos.x*CELL_SIZE+CELL_SIZE/2,playerPos.y*CELL_SIZE+CELL_SIZE/2,10,'#ffd700');
+                return;
+            }
+        }
+
+        function onBoardChanged(){ updateEquationPreview(); checkDoorUnlock(); updateUI(); }
+
+        function getSlotsFilled(){
+            let sorted=equationSlots.map((s,i)=>({...s,index:i})).sort((a,b)=>a.x-b.x);
+            return sorted.map(slot=>{ let block=blocks.find(b=>b.onSlot&&b.slotIndex===slot.index); return block?{slotIndex:slot.index,value:block.value,type:block.type,x:slot.x}:{slotIndex:slot.index,value:null,type:null,x:slot.x}; });
+        }
+
+        function evaluateEquation(slotsFilled){
+            if(roomType==='find-answer'){
+                let concat='';
+                for(let sf of slotsFilled){ if(sf.value===null) return {valid:false,result:null,error:'incomplete'}; concat+=sf.value; }
+                let val=parseInt(concat); if(isNaN(val)) return {valid:false,result:null,error:'format'};
+                return {valid:true,result:val,error:null};
+            }
+            let lastFilled=-1;
+            for(let i=0;i<slotsFilled.length;i++){ if(slotsFilled[i].value!==null) lastFilled=i; else break; }
+            if(lastFilled<2) return {valid:false,result:null,error:'incomplete'};
+            let prefix=slotsFilled.slice(0,lastFilled+1), values=prefix.map(s=>s.value), types=prefix.map(s=>s.type);
+            for(let i=0;i<types.length;i++){ if(i%2===0&&types[i]!=='number') return {valid:false,result:null,error:'format'}; if(i%2===1&&types[i]!=='operator') return {valid:false,result:null,error:'format'}; }
+            if(types[types.length-1]!=='number') return {valid:false,result:null,error:'format'};
+            let result=computeEquationResult([...values]); if(result===null) return {valid:false,result:null,error:'div0'};
+            return {valid:true,result,error:null};
+        }
+
+        function checkDoorUnlock(){ if(doorUnlocked) return; let ev=evaluateEquation(getSlotsFilled()); if(ev.valid && ev.result===roomData.target) unlockDoor(); }
+
+        function unlockDoor(){
+            doorUnlocked=true; shakeAmount=8;
+            let dcx=doorPos.x*CELL_SIZE+CELL_SIZE/2, dcy=doorPos.y*CELL_SIZE+CELL_SIZE/2;
+            let glowColor=roomType==='find-answer'?'#ff6b9d':'#06d6a0';
+            spawnParticles(dcx,dcy,60,glowColor); spawnParticles(dcx,dcy,30,'#ffd700'); spawnParticles(dcx,dcy,20,'#ffffff');
+            targetNumberEl.classList.add('matched'); btnNext.style.display='inline-block'; updateEquationPreview();
+        }
+
+        function advanceRoom(){ doorUnlocked=false; currentRoomIndex++; if(currentRoomIndex>=allRooms.length){ triggerVictory(); }else{ loadRoom(currentRoomIndex); spawnParticles(playerPos.x*CELL_SIZE+CELL_SIZE/2,playerPos.y*CELL_SIZE+CELL_SIZE/2,20,'#ffd700'); } }
+
+        function triggerVictory(){
+            gameComplete=true; gameWrapper.style.display='none'; diffOverlay.style.display='flex';
+            diffOverlay.querySelector('.overlay-card h2').textContent='🎉 All Rooms Unlocked!';
+            diffOverlay.querySelector('.overlay-card p').textContent=`You conquered ${DIFFICULTY_CONFIG[currentDifficulty].label} mode with ${allRooms.length} rooms! Choose a difficulty to play again:`;
+            document.getElementById('btnEasy').style.display='inline-block'; document.getElementById('btnNormal').style.display='inline-block'; document.getElementById('btnHard').style.display='inline-block';
+            if(longModeCheck.parentElement) longModeCheck.parentElement.style.display='flex';
+            spawnParticles(300,300,80,'#ffd700');
+        }
+
+        function updateUI(){
+            if(!roomData) return;
+            roomNameEl.textContent=roomData.name; roomBadgeEl.textContent=`${currentRoomIndex+1} / ${allRooms.length}`;
+            if(roomType==='build-equation'){ targetNumberEl.textContent=roomData.target; targetNumberEl.classList.remove('answer-mode'); doorLabelEl.textContent='🚪 Door'; typeBadgeEl.textContent='BUILD'; typeBadgeEl.className='room-type-badge type-build'; }
+            else{ targetNumberEl.textContent='?'; targetNumberEl.classList.add('answer-mode'); doorLabelEl.textContent='🚪 Answer'; typeBadgeEl.textContent='ANSWER'; typeBadgeEl.className='room-type-badge type-answer'; }
+            if(doorUnlocked) targetNumberEl.classList.add('matched');
+        }
+
+        function updateEquationPreview(){
+            let filled=getSlotsFilled();
+            if(roomType==='find-answer'){
+                let eqTokens=roomData.equationTokens;
+                for(let i=0;i<5;i++){ let el=eqSlotEls[i]; if(i<eqTokens.length){ el.style.display='inline-flex'; el.textContent=eqTokens[i]; el.className='eq-token given'; }else if(i<eqTokens.length+numSlots){ let slotIdx=i-eqTokens.length; el.style.display='inline-flex'; let sf=filled[slotIdx]; if(sf&&sf.value!==null){ el.textContent=sf.value; el.className='eq-token number'; }else{ el.textContent='?'; el.className='eq-token answer-slot'; } }else{ el.style.display='none'; } }
+                let ev=evaluateEquation(filled); if(ev.valid&&ev.result!==null){ eqResultEl.textContent=ev.result; eqResultEl.className='eq-result '+(ev.result===roomData.target?'valid':'invalid'); }else{ eqResultEl.textContent='?'; eqResultEl.className='eq-result'; }
+            }else{
+                for(let i=0;i<5;i++){ let el=eqSlotEls[i]; if(i<numSlots){ el.style.display='inline-flex'; let sf=filled[i]; if(sf&&sf.value!==null){ el.textContent=sf.value; el.className='eq-token '+sf.type; }else{ el.textContent='?'; el.className='eq-token empty'; } }else{ el.style.display='none'; } }
+                let ev=evaluateEquation(filled); if(ev.valid&&ev.result!==null){ eqResultEl.textContent=ev.result; eqResultEl.className='eq-result '+(ev.result===roomData.target?'valid':'invalid'); }else if(ev.error==='incomplete'){ eqResultEl.textContent='?'; eqResultEl.className='eq-result'; }else{ eqResultEl.textContent='!'; eqResultEl.className='eq-result invalid'; }
+            }
+        }
+
+        function resetRoom(){ loadRoom(currentRoomIndex); spawnParticles(playerPos.x*CELL_SIZE+CELL_SIZE/2,playerPos.y*CELL_SIZE+CELL_SIZE/2,15,'#ffffff'); }
+
+        function showHint(){
+            if(!roomData || hintLevel>=3) return;
+            hintLevel++;
+            if(hintLevel===1) btnHint.textContent='💡 Hint 2'; else if(hintLevel===2) btnHint.textContent='🔮 Reveal'; else btnHint.textContent='✅ Revealed';
+            if(roomType==='find-answer'){
+                let digits=String(roomData.target).split('');
+                if(hintLevel===3){ autoSolveAnswer(); return; }
+                ghostDigits=[]; let numToReveal=hintLevel;
+                for(let i=0;i<Math.min(numToReveal,digits.length);i++) ghostDigits.push({slotIndex:i,value:digits[i]});
+                let msg=hintLevel===1?`💡 Hint: digit 1 is "${digits[0]}"`:`💡 Digits: ${digits.slice(0,hintLevel).join('')}...`;
+                showToast(msg); return;
+            }
+            if(hintLevel===3){ autoSolveBuild(); return; }
+            let emptySlots=[], slotsFilled=getSlotsFilled();
+            for(let i=0;i<numSlots;i++) if(slotsFilled[i].value===null) emptySlots.push(i);
+            if(emptySlots.length===0) return;
+            let numToHint=Math.min(hintLevel, emptySlots.length);
+            let chosenSlots=emptySlots.slice(0,numToHint);
+            ghostDigits=[];
+            for(let si of chosenSlots){ let correctVal=roomData.equationTokens[si]||'?'; ghostDigits.push({slotIndex:si,value:correctVal}); }
+            showToast(`💡 Hint ${hintLevel}: look at the glowing slots`);
+        }
+
+        function autoSolveBuild(){
+            let solution=roomData.equationTokens;
+            for(let i=0;i<numSlots;i++){
+                let neededVal=solution[i], neededType=(i%2===0)?'number':'operator';
+                let block=blocks.find(b=>b.type===neededType && b.value===neededVal && !b.onSlot);
+                if(block){ let slot=equationSlots.sort((a,b)=>a.x-b.x)[i]; moveBlockToSlot(block,slot.x,slot.y); }
+            }
+            ghostDigits=[]; onBoardChanged();
+            spawnParticles(playerPos.x*CELL_SIZE+CELL_SIZE/2,playerPos.y*CELL_SIZE+CELL_SIZE/2,30,'#ffd700');
+            showToast('🔮 Full solution revealed!');
+        }
+
+        function autoSolveAnswer(){
+            let digits=String(roomData.target).split('');
+            let sortedSlots=equationSlots.sort((a,b)=>a.x-b.x);
+            for(let i=0;i<digits.length;i++){
+                let block=blocks.find(b=>b.type==='number' && b.value===digits[i] && !b.onSlot);
+                if(block) moveBlockToSlot(block,sortedSlots[i].x,sortedSlots[i].y);
+            }
+            ghostDigits=[]; onBoardChanged();
+            spawnParticles(playerPos.x*CELL_SIZE+CELL_SIZE/2,playerPos.y*CELL_SIZE+CELL_SIZE/2,30,'#ffd700');
+            showToast('🔮 Full answer revealed!');
+        }
+
+        function showToast(msg){
+            let toast=document.createElement('div'); toast.style.cssText='position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#16213e;color:#ffd700;padding:12px 24px;border-radius:25px;font-weight:600;z-index:200;border:2px solid #ffd700;box-shadow:0 4px 20px rgba(255,215,0,0.3);animation:popIn 0.4s cubic-bezier(0.175,0.885,0.32,1.275);'; toast.textContent=msg; document.body.appendChild(toast);
+            setTimeout(()=>{ toast.style.opacity='0'; toast.style.transition='opacity 0.5s'; setTimeout(()=>toast.remove(),500); },2500);
+        }
+
+        function resizeCanvas(){ if(!roomData) return; let w=roomData.gridWidth*CELL_SIZE, h=roomData.gridHeight*CELL_SIZE; canvas.width=w; canvas.height=h; canvas.style.width=Math.min(w,600)+'px'; canvas.style.height=Math.min(h,500)+'px'; }
+
+        function drawRoundedRect(ctx2,x,y,w,h,r){ ctx2.beginPath(); ctx2.moveTo(x+r,y); ctx2.lineTo(x+w-r,y); ctx2.quadraticCurveTo(x+w,y,x+w,y+r); ctx2.lineTo(x+w,y+h-r); ctx2.quadraticCurveTo(x+w,y+h,x+w-r,y+h); ctx2.lineTo(x+r,y+h); ctx2.quadraticCurveTo(x,y+h,x,y+h-r); ctx2.lineTo(x,y+r); ctx2.quadraticCurveTo(x,y,x+r,y); ctx2.closePath(); }
+
+        function render(ctx2){
+            if(!roomData){ ctx2.fillStyle='#111'; ctx2.fillRect(0,0,canvas.width||400,canvas.height||400); ctx2.fillStyle='#555'; ctx2.font='18px "Segoe UI", sans-serif'; ctx2.textAlign='center'; ctx2.fillText('Select a difficulty to begin',(canvas.width||400)/2,(canvas.height||400)/2); return; }
+            let gw=roomData.gridWidth, gh=roomData.gridHeight;
+            ctx2.clearRect(0,0,canvas.width,canvas.height);
+            let sx=0,sy=0; if(shakeAmount>0.1){ sx=(Math.random()-0.5)*shakeAmount*2; sy=(Math.random()-0.5)*shakeAmount*2; shakeAmount*=0.85; }
+            ctx2.save(); ctx2.translate(sx,sy);
+            for(let y=0;y<gh;y++) for(let x=0;x<gw;x++){
+                let cx=x*CELL_SIZE, cy=y*CELL_SIZE;
+                if(isWall(x,y) && !(isDoorTile(x,y)&&doorUnlocked)) continue;
+                let walk=isWalkway(x,y), alt=(x+y)%2===0;
+                ctx2.fillStyle=walk?(alt?COLORS.walkway:COLORS.walkwayAlt):(alt?COLORS.floor:COLORS.floorAlt);
+                ctx2.fillRect(cx,cy,CELL_SIZE,CELL_SIZE);
+                if(walk){
+                    let dotSize=4, dotOff=CELL_SIZE/4;
+                    ctx2.fillStyle=COLORS.walkwayDot; ctx2.beginPath(); ctx2.arc(cx+dotOff,cy+dotOff,dotSize,0,Math.PI*2); ctx2.fill(); ctx2.beginPath(); ctx2.arc(cx+CELL_SIZE-dotOff,cy+dotOff,dotSize,0,Math.PI*2); ctx2.fill(); ctx2.beginPath(); ctx2.arc(cx+dotOff,cy+CELL_SIZE-dotOff,dotSize,0,Math.PI*2); ctx2.fill(); ctx2.beginPath(); ctx2.arc(cx+CELL_SIZE-dotOff,cy+CELL_SIZE-dotOff,dotSize,0,Math.PI*2); ctx2.fill();
+                    ctx2.strokeStyle=COLORS.walkwayDot; ctx2.lineWidth=1; ctx2.globalAlpha=0.4; ctx2.beginPath(); ctx2.moveTo(cx+CELL_SIZE/2,cy+4); ctx2.lineTo(cx+CELL_SIZE/2,cy+CELL_SIZE-4); ctx2.stroke(); ctx2.beginPath(); ctx2.moveTo(cx+4,cy+CELL_SIZE/2); ctx2.lineTo(cx+CELL_SIZE-4,cy+CELL_SIZE/2); ctx2.stroke(); ctx2.globalAlpha=1;
+                }
+                ctx2.strokeStyle=COLORS.gridLine; ctx2.lineWidth=0.5; ctx2.strokeRect(cx,cy,CELL_SIZE,CELL_SIZE);
+            }
+            for(let w of walls){
+                if(isDoorTile(w.x,w.y) && doorUnlocked) continue;
+                let cx=w.x*CELL_SIZE, cy=w.y*CELL_SIZE;
+                if(w.isEquationWall){ ctx2.fillStyle=COLORS.equationWallBg; ctx2.fillRect(cx+1,cy+1,CELL_SIZE-2,CELL_SIZE-2); ctx2.strokeStyle=COLORS.equationWallBorder; ctx2.lineWidth=2; ctx2.strokeRect(cx+1,cy+1,CELL_SIZE-2,CELL_SIZE-2); ctx2.fillStyle='#fff'; ctx2.font='bold 18px "Segoe UI", sans-serif'; ctx2.textAlign='center'; ctx2.textBaseline='middle'; ctx2.fillText(w.token,cx+CELL_SIZE/2,cy+CELL_SIZE/2); }
+                else{ let grad=ctx2.createLinearGradient(cx,cy,cx,cy+CELL_SIZE); grad.addColorStop(0,COLORS.wallTop); grad.addColorStop(1,COLORS.wall); ctx2.fillStyle=grad; ctx2.fillRect(cx+1,cy+1,CELL_SIZE-2,CELL_SIZE-2); ctx2.strokeStyle='#555'; ctx2.lineWidth=1.5; ctx2.strokeRect(cx+1,cy+1,CELL_SIZE-2,CELL_SIZE-2); ctx2.fillStyle='rgba(255,255,255,0.08)'; ctx2.fillRect(cx+2,cy+2,CELL_SIZE-4,3); }
+            }
+            let time=Date.now()/1000;
+            for(let slot of equationSlots){
+                let cx=slot.x*CELL_SIZE, cy=slot.y*CELL_SIZE; let pulse=0.5+0.5*Math.sin(time*3+slot.x+slot.y);
+                let slotColor=roomType==='find-answer'?COLORS.answerSlotBorder:COLORS.slotBorder;
+                let alpha=roomType==='find-answer'?0.25+pulse*0.25:0.2+pulse*0.2;
+                ctx2.fillStyle=roomType==='find-answer'?`rgba(255,107,157,${alpha})`:`rgba(6,214,160,${alpha})`;
+                ctx2.fillRect(cx+3,cy+3,CELL_SIZE-6,CELL_SIZE-6); ctx2.strokeStyle=slotColor; ctx2.lineWidth=2; ctx2.setLineDash([5,3]); ctx2.lineDashOffset=time*40; ctx2.strokeRect(cx+3,cy+3,CELL_SIZE-6,CELL_SIZE-6); ctx2.setLineDash([]); ctx2.lineDashOffset=0;
+                ctx2.fillStyle='rgba(255,255,255,0.25)'; ctx2.font='10px "Segoe UI", sans-serif'; ctx2.textAlign='center'; ctx2.fillText(roomType==='find-answer'?'digit':'slot',cx+CELL_SIZE/2,cy+CELL_SIZE/2+4);
+            }
+            if(ghostDigits.length>0){
+                for(let gd of ghostDigits){ if(gd.slotIndex<equationSlots.length){ let slot=equationSlots[gd.slotIndex]; let cx=slot.x*CELL_SIZE, cy=slot.y*CELL_SIZE; ctx2.save(); ctx2.globalAlpha=0.85; ctx2.fillStyle='#ffd700'; ctx2.font='bold 28px "Segoe UI", sans-serif'; ctx2.textAlign='center'; ctx2.textBaseline='middle'; ctx2.shadowColor='#ffd700'; ctx2.shadowBlur=18; ctx2.fillText(gd.value,cx+CELL_SIZE/2,cy+CELL_SIZE/2); ctx2.restore(); } }
+            }
+            let dcx=doorPos.x*CELL_SIZE, dcy=doorPos.y*CELL_SIZE;
+            if(doorUnlocked){
+                let glow=ctx2.createRadialGradient(dcx+CELL_SIZE/2,dcy+CELL_SIZE/2,CELL_SIZE*0.3,dcx+CELL_SIZE/2,dcy+CELL_SIZE/2,CELL_SIZE*1.5); glow.addColorStop(0,'rgba(6,214,160,0.6)'); glow.addColorStop(1,'rgba(6,214,160,0)'); ctx2.fillStyle=glow; ctx2.fillRect(dcx-CELL_SIZE,dcy-CELL_SIZE,CELL_SIZE*3,CELL_SIZE*3);
+                ctx2.fillStyle=COLORS.doorOpenDark; ctx2.fillRect(dcx+2,dcy+2,CELL_SIZE-4,CELL_SIZE-4); ctx2.fillStyle=COLORS.doorOpen; ctx2.fillRect(dcx+4,dcy+4,CELL_SIZE-8,CELL_SIZE-8); ctx2.fillStyle='#fff'; ctx2.font='bold 16px "Segoe UI", sans-serif'; ctx2.textAlign='center'; ctx2.fillText('✓',dcx+CELL_SIZE/2,dcy+CELL_SIZE/2+6);
+            }else{
+                let doorMain=roomType==='find-answer'?COLORS.doorAnswerLocked:COLORS.doorLocked; let doorDark=roomType==='find-answer'?COLORS.doorAnswerLockedDark:COLORS.doorLockedDark;
+                let grad=ctx2.createLinearGradient(dcx,dcy,dcx,dcy+CELL_SIZE); grad.addColorStop(0,roomType==='find-answer'?'#ff8db5':'#d44'); grad.addColorStop(1,doorDark); ctx2.fillStyle=grad; ctx2.fillRect(dcx+2,dcy+2,CELL_SIZE-4,CELL_SIZE-4);
+                ctx2.strokeStyle=roomType==='find-answer'?'#ff9dbd':'#ff6666'; ctx2.lineWidth=2; ctx2.strokeRect(dcx+2,dcy+2,CELL_SIZE-4,CELL_SIZE-4);
+                ctx2.fillStyle='#fff'; ctx2.font='bold 18px "Segoe UI", sans-serif'; ctx2.textAlign='center'; ctx2.fillText('🔒',dcx+CELL_SIZE/2,dcy+CELL_SIZE/2+7);
+                ctx2.fillStyle='#ffd700'; ctx2.font='bold 13px "Segoe UI", sans-serif'; ctx2.fillText(roomType==='find-answer'?'?':String(roomData.target),dcx+CELL_SIZE/2,dcy-6);
+            }
+            for(let block of blocks){
+                let cx=block.x*CELL_SIZE, cy=block.y*CELL_SIZE; let isNum=block.type==='number';
+                let mc,dc; if(roomType==='find-answer'&&isNum){ mc=COLORS.digitBlock; dc=COLORS.digitBlockDark; }else{ mc=isNum?COLORS.numberBlock:COLORS.operatorBlock; dc=isNum?COLORS.numberBlockDark:COLORS.operatorBlockDark; }
+                ctx2.fillStyle='rgba(0,0,0,0.4)'; drawRoundedRect(ctx2,cx+4,cy+4,CELL_SIZE-8,CELL_SIZE-8,8); ctx2.fill(); let grad=ctx2.createLinearGradient(cx,cy,cx,cy+CELL_SIZE); grad.addColorStop(0,mc); grad.addColorStop(1,dc); ctx2.fillStyle=grad; drawRoundedRect(ctx2,cx+3,cy+3,CELL_SIZE-10,CELL_SIZE-10,8); ctx2.fill();
+                ctx2.fillStyle='rgba(255,255,255,0.2)'; drawRoundedRect(ctx2,cx+5,cy+5,CELL_SIZE-14,(CELL_SIZE-14)/2,6); ctx2.fill(); ctx2.fillStyle='#fff'; ctx2.font='bold 20px "Segoe UI", sans-serif'; ctx2.textAlign='center'; ctx2.textBaseline='middle'; ctx2.fillText(block.value,cx+CELL_SIZE/2,cy+CELL_SIZE/2);
+                if(block.onSlot){ let slotCol=roomType==='find-answer'?COLORS.answerSlotBorder:COLORS.slotBorder; ctx2.strokeStyle=slotCol; ctx2.lineWidth=3; ctx2.shadowColor=slotCol; ctx2.shadowBlur=10; drawRoundedRect(ctx2,cx+2,cy+2,CELL_SIZE-8,CELL_SIZE-8,8); ctx2.stroke(); ctx2.shadowBlur=0; }
+            }
+            let px=playerPos.x*CELL_SIZE, py=playerPos.y*CELL_SIZE, pcx=px+CELL_SIZE/2, pcy=py+CELL_SIZE/2, pr=CELL_SIZE*0.32;
+            ctx2.fillStyle='rgba(0,0,0,0.5)'; ctx2.beginPath(); ctx2.ellipse(pcx,pcy+pr*0.5,pr*0.9,pr*0.35,0,0,Math.PI*2); ctx2.fill();
+            let pGrad=ctx2.createRadialGradient(pcx-pr*0.3,pcy-pr*0.3,pr*0.1,pcx,pcy,pr); pGrad.addColorStop(0,'#ffffff'); pGrad.addColorStop(0.4,COLORS.player); pGrad.addColorStop(1,COLORS.playerDark); ctx2.fillStyle=pGrad; ctx2.beginPath(); ctx2.arc(pcx,pcy,pr,0,Math.PI*2); ctx2.fill(); ctx2.strokeStyle='rgba(255,255,255,0.6)'; ctx2.lineWidth=2; ctx2.stroke();
+            let eyeY=pcy-pr*0.15, eox=pr*0.35; ctx2.fillStyle='#fff'; ctx2.beginPath(); ctx2.arc(pcx-eox,eyeY,pr*0.28,0,Math.PI*2); ctx2.fill(); ctx2.beginPath(); ctx2.arc(pcx+eox,eyeY,pr*0.28,0,Math.PI*2); ctx2.fill(); ctx2.fillStyle='#1a1a2e'; ctx2.beginPath(); ctx2.arc(pcx-eox,eyeY,pr*0.14,0,Math.PI*2); ctx2.fill(); ctx2.beginPath(); ctx2.arc(pcx+eox,eyeY,pr*0.14,0,Math.PI*2); ctx2.fill();
+            drawParticles(ctx2); ctx2.restore();
+        }
+
+        function gameLoop(){ updateParticles(); if(shakeAmount>0.05){ shakeAmount*=0.88; if(shakeAmount<0.05) shakeAmount=0; } render(ctx); requestAnimationFrame(gameLoop); }
+
+        window.addEventListener('keydown',e=>{
+            if(gameComplete||!gameStarted) return;
+            if(e.key==='Shift'){ shiftHeld=true; e.preventDefault(); return; }
+            let key=e.key, handled=true;
+            if(key==='ArrowUp'||key==='w'||key==='W') movePlayer(0,-1);
+            else if(key==='ArrowDown'||key==='s'||key==='S') movePlayer(0,1);
+            else if(key==='ArrowLeft'||key==='a'||key==='A') movePlayer(-1,0);
+            else if(key==='ArrowRight'||key==='d'||key==='D') movePlayer(1,0);
+            else if(key==='e'||key==='E') pullAdjacentBlocks();
+            else if(key==='r'||key==='R') resetRoom();
+            else if(key==='h'||key==='H') showHint();
+            else if((key==='n'||key==='N')&&doorUnlocked) advanceRoom();
+            else handled=false;
+            if(handled) e.preventDefault();
+        });
+        window.addEventListener('keyup',e=>{ if(e.key==='Shift'){ shiftHeld=false; e.preventDefault(); } });
+
+        let touchStartX=0,touchStartY=0,touchHandled=false;
+        canvas.addEventListener('touchstart',e=>{ if(e.touches.length===1&&gameStarted){ touchStartX=e.touches[0].clientX; touchStartY=e.touches[0].clientY; touchHandled=false; } },{passive:false});
+        canvas.addEventListener('touchmove',e=>{ if(!gameStarted||touchHandled||e.touches.length!==1) return; let dx=e.touches[0].clientX-touchStartX, dy=e.touches[0].clientY-touchStartY, th=25; if(Math.abs(dx)>th||Math.abs(dy)>th){ touchHandled=true; if(Math.abs(dx)>Math.abs(dy)) movePlayer(dx>0?1:-1,0); else movePlayer(0,dy>0?1:-1); touchStartX=e.touches[0].clientX; touchStartY=e.touches[0].clientY; touchHandled=false; } });
+        canvas.addEventListener('touchend',()=>{ touchHandled=false; });
+        canvas.addEventListener('wheel',e=>e.preventDefault(),{passive:false});
+
+        btnReset.addEventListener('click',resetRoom); btnHint.addEventListener('click',showHint); btnPull.addEventListener('click',pullAdjacentBlocks); btnNext.addEventListener('click',()=>{ if(doorUnlocked) advanceRoom(); });
+
+        // Difficulty buttons with explicit click handling
+        document.getElementById('btnEasy').addEventListener('click',(e)=>{ e.preventDefault(); e.stopPropagation(); startGame('easy'); });
+        document.getElementById('btnNormal').addEventListener('click',(e)=>{ e.preventDefault(); e.stopPropagation(); startGame('normal'); });
+        document.getElementById('btnHard').addEventListener('click',(e)=>{ e.preventDefault(); e.stopPropagation(); startGame('hard'); });
+
+        window.addEventListener('resize',()=>{ if(roomData) resizeCanvas(); });
+        diffOverlay.style.display='flex'; gameWrapper.style.display='none';
+        canvas.width=400; canvas.height=400; canvas.style.width='400px'; canvas.style.height='400px';
+        requestAnimationFrame(gameLoop);
+    })();
+</script>
+</body>
+</html>
