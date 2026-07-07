@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>🐍 3D Snake – Mobile Mode</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>🐍 3D Snake – Random Teleports & UI</title>
   <style>
     body { margin: 0; overflow: hidden; font-family: 'Segoe UI', sans-serif; }
     #ui {
@@ -16,6 +17,7 @@
       border-radius: 12px; text-align: right; z-index: 10;
       backdrop-filter: blur(5px); font-size: 0.85rem;
       min-width: 180px;
+      transition: all 0.3s ease;
     }
     #liveLeaderboard h3 { margin: 0 0 5px; text-align: center; }
     #liveList { list-style: none; padding: 0; margin: 0; }
@@ -59,7 +61,23 @@
       position: absolute; bottom: 20px; right: 20px;
       width: 180px; height: 180px; border: 2px solid #4a6b8a; border-radius: 10px;
       background: rgba(0,0,0,0.6); z-index: 15;
+      transition: all 0.3s ease;
     }
+
+    /* 2‑player mode overrides */
+    body.two-player #liveLeaderboard {
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      right: auto;
+    }
+    body.two-player #minimap {
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      right: auto;
+    }
+
     /* Mobile controls overlay */
     #mobileControls {
       display: none;
@@ -157,7 +175,10 @@
       jump()      { this.playTone(400,600,0.07,'sine',0.1); },
       respawn()   { this.playTone(200,500,0.2,'sine',0.15); },
       powerup()   { this.playTone(1200,1600,0.2,'sine',0.2); },
-      teleport()  { this.playTone(500,800,0.15,'sine',0.2); }
+      teleport()  { this.playTone(500,800,0.15,'sine',0.2); },
+      portal()    { this.playTone(600,1000,0.3,'triangle',0.2); },
+      fall()      { this.playTone(200,50,0.4,'sawtooth',0.2); },
+      spawnSnake(){ this.playTone(300,600,0.2,'square',0.2); }
     };
     document.addEventListener('click', () => Sfx.init(), { once: true });
     document.addEventListener('keydown', () => Sfx.init(), { once: true });
@@ -183,6 +204,10 @@
     // ---------- Arena (200x200) ----------
     const arenaSize = 200;
     const halfArena = arenaSize / 2;
+    const LEVEL2_HEIGHT = 10;
+    const LEVEL3_HEIGHT = 20;
+
+    // Ground (Level 1)
     const groundGeom = new THREE.PlaneGeometry(arenaSize, arenaSize, 200, 200);
     const colors = [];
     for (let i = 0; i < groundGeom.attributes.position.count; i++) {
@@ -195,6 +220,46 @@
     const ground = new THREE.Mesh(groundGeom, new THREE.MeshStandardMaterial({ vertexColors: true, side: THREE.DoubleSide }));
     ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
 
+    // Level groups
+    const groupL1 = new THREE.Group();
+    const groupL2 = new THREE.Group();
+    const groupL3 = new THREE.Group();
+    scene.add(groupL1);
+    scene.add(groupL2);
+    scene.add(groupL3);
+
+    // Level 2 platform (blue-toned checkerboard, 50% opacity)
+    const platformGeom2 = new THREE.PlaneGeometry(arenaSize, arenaSize, 200, 200);
+    const platColors2 = [];
+    for (let i = 0; i < platformGeom2.attributes.position.count; i++) {
+      const x = platformGeom2.attributes.position.getX(i);
+      const z = platformGeom2.attributes.position.getY(i);
+      const col = Math.floor(x / 2 + 50) + Math.floor(z / 2 + 50);
+      platColors2.push(...(col % 2 === 0 ? [0.2,0.3,0.5] : [0.1,0.2,0.4]));
+    }
+    platformGeom2.setAttribute('color', new THREE.BufferAttribute(new Float32Array(platColors2), 3));
+    const platform2 = new THREE.Mesh(platformGeom2, new THREE.MeshStandardMaterial({ vertexColors: true, transparent: true, opacity: 0.5, side: THREE.DoubleSide }));
+    platform2.rotation.x = -Math.PI / 2;
+    platform2.position.y = LEVEL2_HEIGHT;
+    platform2.receiveShadow = true;
+    groupL2.add(platform2);
+
+    // Level 3 platform (red-toned checkerboard, 50% opacity)
+    const platformGeom3 = new THREE.PlaneGeometry(arenaSize, arenaSize, 200, 200);
+    const platColors3 = [];
+    for (let i = 0; i < platformGeom3.attributes.position.count; i++) {
+      const x = platformGeom3.attributes.position.getX(i);
+      const z = platformGeom3.attributes.position.getY(i);
+      const col = Math.floor(x / 2 + 50) + Math.floor(z / 2 + 50);
+      platColors3.push(...(col % 2 === 0 ? [0.5,0.2,0.3] : [0.4,0.1,0.2]));
+    }
+    platformGeom3.setAttribute('color', new THREE.BufferAttribute(new Float32Array(platColors3), 3));
+    const platform3 = new THREE.Mesh(platformGeom3, new THREE.MeshStandardMaterial({ vertexColors: true, transparent: true, opacity: 0.5, side: THREE.DoubleSide }));
+    platform3.rotation.x = -Math.PI / 2;
+    platform3.position.y = LEVEL3_HEIGHT;
+    platform3.receiveShadow = true;
+    groupL3.add(platform3);
+
     const wrapWallMat = new THREE.MeshStandardMaterial({ color: 0x3399ff, transparent: true, opacity: 0.2, emissive: 0x112233 });
     const addWrapWall = (w, h, d, x, y, z) => {
       const wall = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), wrapWallMat);
@@ -205,39 +270,81 @@
     addWrapWall(arenaSize + wallThick*2, wallH, wallThick, 0, wallH/2, -halfArena - wallThick/2);
     addWrapWall(wallThick, wallH, arenaSize + wallThick*2, halfArena + wallThick/2, wallH/2, 0);
     addWrapWall(wallThick, wallH, arenaSize + wallThick*2, -halfArena - wallThick/2, wallH/2, 0);
+    // Wrap walls at level 2 height
+    addWrapWall(arenaSize + wallThick*2, wallH, wallThick, 0, LEVEL2_HEIGHT + wallH/2, halfArena + wallThick/2);
+    addWrapWall(arenaSize + wallThick*2, wallH, wallThick, 0, LEVEL2_HEIGHT + wallH/2, -halfArena - wallThick/2);
+    addWrapWall(wallThick, wallH, arenaSize + wallThick*2, halfArena + wallThick/2, LEVEL2_HEIGHT + wallH/2, 0);
+    addWrapWall(wallThick, wallH, arenaSize + wallThick*2, -halfArena - wallThick/2, LEVEL2_HEIGHT + wallH/2, 0);
+    // Wrap walls at level 3 height
+    addWrapWall(arenaSize + wallThick*2, wallH, wallThick, 0, LEVEL3_HEIGHT + wallH/2, halfArena + wallThick/2);
+    addWrapWall(arenaSize + wallThick*2, wallH, wallThick, 0, LEVEL3_HEIGHT + wallH/2, -halfArena - wallThick/2);
+    addWrapWall(wallThick, wallH, arenaSize + wallThick*2, halfArena + wallThick/2, LEVEL3_HEIGHT + wallH/2, 0);
+    addWrapWall(wallThick, wallH, arenaSize + wallThick*2, -halfArena - wallThick/2, LEVEL3_HEIGHT + wallH/2, 0);
 
     const solidWallGeom = new THREE.BoxGeometry(2.5, 5, 2.5);
     const solidWallMat = new THREE.MeshStandardMaterial({ color: 0x8b5a2b, roughness: 0.7 });
-    const solidWalls = [];
-    function spawnSolidWall(x, z) {
+
+    const solidWallsL1 = [], solidWallsL2 = [], solidWallsL3 = [];
+    const obstaclesL1 = [], obstaclesL2 = [], obstaclesL3 = [];
+    const holesL2 = [];
+    const foodsL1 = [], foodsL2 = [], foodsL3 = [];
+    const powerupsL1 = [], powerupsL2 = [], powerupsL3 = [];
+    let goldenAppleL1 = null, goldenAppleL2 = null, goldenAppleL3 = null;
+    const aiSnakes = [];
+
+    const OBSTACLE_HEIGHT = 2.0;
+    const MAX_APPLES = 150;
+
+    function spawnSolidWall(level, x, z) {
       const wall = new THREE.Mesh(solidWallGeom, solidWallMat);
-      wall.position.set(x, 2.5, z); wall.castShadow = true; wall.receiveShadow = true; scene.add(wall);
-      solidWalls.push(wall);
+      wall.position.set(x, (level === 1 ? 0 : level === 2 ? LEVEL2_HEIGHT : LEVEL3_HEIGHT) + 2.5, z);
+      wall.castShadow = true; wall.receiveShadow = true;
+      wall.userData.level = level;
+      (level === 1 ? groupL1 : level === 2 ? groupL2 : groupL3).add(wall);
+      if (level === 1) solidWallsL1.push(wall);
+      else if (level === 2) solidWallsL2.push(wall);
+      else solidWallsL3.push(wall);
     }
 
-    const obstacles = [];
-    const OBSTACLE_HEIGHT = 2.0;
-    function spawnObstacle(pos) {
+    function spawnObstacle(level, pos) {
+      if (level === 2 && Math.random() < 0.05) {
+        const holeGeom = new THREE.CylinderGeometry(1.25, 1.25, 0.1, 16);
+        const holeMat = new THREE.MeshBasicMaterial({ color: 0x111111 });
+        const holeMesh = new THREE.Mesh(holeGeom, holeMat);
+        holeMesh.rotation.x = Math.PI / 2;
+        holeMesh.position.set(pos.x, LEVEL2_HEIGHT + 0.05, pos.z);
+        holeMesh.userData.isHole = true;
+        groupL2.add(holeMesh);
+        holesL2.push({ x: pos.x, z: pos.z, mesh: holeMesh });
+        return;
+      }
+
       const obs = new THREE.Mesh(
         new THREE.BoxGeometry(2.0, OBSTACLE_HEIGHT, 2.0),
         new THREE.MeshStandardMaterial({ color: 0x666666, roughness: 0.5 })
       );
       obs.castShadow = true; obs.receiveShadow = true;
       obs.position.copy(pos);
-      for (const sw of solidWalls) {
+      obs.position.y = (level === 1 ? 0 : level === 2 ? LEVEL2_HEIGHT : LEVEL3_HEIGHT) + OBSTACLE_HEIGHT/2;
+      obs.userData.level = level;
+      const walls = level === 1 ? solidWallsL1 : level === 2 ? solidWallsL2 : solidWallsL3;
+      const existingObs = level === 1 ? obstaclesL1 : level === 2 ? obstaclesL2 : obstaclesL3;
+      for (const sw of walls) {
         if (new THREE.Box3().setFromObject(sw).intersectsBox(new THREE.Box3().setFromObject(obs))) return;
       }
-      for (const existing of obstacles) {
+      for (const existing of existingObs) {
         if (new THREE.Box3().setFromObject(existing).intersectsBox(new THREE.Box3().setFromObject(obs))) return;
       }
-      scene.add(obs); obstacles.push(obs);
+      (level === 1 ? groupL1 : level === 2 ? groupL2 : groupL3).add(obs);
+      if (level === 1) obstaclesL1.push(obs);
+      else if (level === 2) obstaclesL2.push(obs);
+      else obstaclesL3.push(obs);
     }
 
-    // Foods
-    const foods = [];
-    const MAX_APPLES = 200;
+    // Foods (no distance constraint)
     const appleTypes = ['apple', 'apple', 'apple', 'apple', 'blue', 'blue', 'golden'];
-    function spawnApple(pos, typeOverride) {
+
+    function spawnApple(level, pos, typeOverride) {
       const type = typeOverride || appleTypes[Math.floor(Math.random() * appleTypes.length)];
       let color, emissive;
       if (type === 'golden') { color = 0xffdd00; emissive = 0x442200; }
@@ -249,43 +356,52 @@
       );
       apple.castShadow = true; apple.receiveShadow = true;
       apple.position.copy(pos);
+      apple.position.y = (level === 1 ? 0 : level === 2 ? LEVEL2_HEIGHT : LEVEL3_HEIGHT) + 0.5;
       apple.userData.type = type;
-      for (const obs of obstacles) {
-        if (new THREE.Box3().setFromObject(obs).containsPoint(apple.position)) return;
+      apple.userData.level = level;
+      const obsArr = level === 1 ? obstaclesL1 : level === 2 ? obstaclesL2 : obstaclesL3;
+      const wallsArr = level === 1 ? solidWallsL1 : level === 2 ? solidWallsL2 : solidWallsL3;
+      const golden = level === 1 ? goldenAppleL1 : level === 2 ? goldenAppleL2 : goldenAppleL3;
+      for (const obs of obsArr) {
+        if (new THREE.Box3().setFromObject(obs).containsPoint(apple.position)) return false;
       }
-      for (const sw of solidWalls) {
-        if (new THREE.Box3().setFromObject(sw).containsPoint(apple.position)) return;
+      for (const sw of wallsArr) {
+        if (new THREE.Box3().setFromObject(sw).containsPoint(apple.position)) return false;
       }
-      if (goldenApple && new THREE.Box3().setFromObject(goldenApple.mesh).containsPoint(apple.position)) return;
-      scene.add(apple); foods.push(apple);
+      if (golden && new THREE.Box3().setFromObject(golden.mesh).containsPoint(apple.position)) return false;
+      // No apple-to-apple distance check
+      (level === 1 ? groupL1 : level === 2 ? groupL2 : groupL3).add(apple);
+      if (level === 1) foodsL1.push(apple);
+      else if (level === 2) foodsL2.push(apple);
+      else foodsL3.push(apple);
+      return true;
     }
 
-    function dropApplesAlongLine(positions) {
+    function dropApplesAlongLine(level, positions) {
       for (const pos of positions) {
         const offset = new THREE.Vector3((Math.random() - 0.5) * 0.5, 0, (Math.random() - 0.5) * 0.5);
         const applePos = pos.clone().add(offset);
-        applePos.y = 0.5;
+        applePos.y = (level === 1 ? 0 : level === 2 ? LEVEL2_HEIGHT : LEVEL3_HEIGHT) + 0.5;
         applePos.x = Math.max(-halfArena+1, Math.min(halfArena-1, applePos.x));
         applePos.z = Math.max(-halfArena+1, Math.min(halfArena-1, applePos.z));
-        spawnApple(applePos, 'apple');
+        spawnApple(level, applePos, 'apple');
       }
     }
 
-    function dropApples(count, center) {
+    function dropApples(level, count, center) {
       for (let i = 0; i < count; i++) {
         const offset = new THREE.Vector3((Math.random() - 0.5) * 4, 0, (Math.random() - 0.5) * 4);
         const pos = center.clone().add(offset);
-        pos.y = 0.5;
+        pos.y = (level === 1 ? 0 : level === 2 ? LEVEL2_HEIGHT : LEVEL3_HEIGHT) + 0.5;
         pos.x = Math.max(-halfArena+1, Math.min(halfArena-1, pos.x));
         pos.z = Math.max(-halfArena+1, Math.min(halfArena-1, pos.z));
-        spawnApple(pos, 'apple');
+        spawnApple(level, pos, 'apple');
       }
     }
 
-    // Power‑ups (16)
-    const powerups = [];
+    // Power‑ups
     const MAX_POWERUPS = 16;
-    const powerupTypes = ['speed', 'turn', 'bonus', '2x'];
+    const powerupTypes = ['speed', 'turn', 'bonus', '2x', 'portal'];
 
     function createPowerupLabel(type) {
       const canvas = document.createElement('canvas');
@@ -302,6 +418,7 @@
         case 'turn': symbol = '↻'; break;
         case 'bonus': symbol = '💰'; break;
         case '2x': symbol = 'x2'; break;
+        case 'portal': symbol = '🌀'; break;
       }
       ctx.fillText(symbol, 32, 32);
       const texture = new THREE.CanvasTexture(canvas);
@@ -311,7 +428,7 @@
       return sprite;
     }
 
-    function spawnPowerup(pos) {
+    function spawnPowerup(level, pos) {
       const type = powerupTypes[Math.floor(Math.random() * powerupTypes.length)];
       let color;
       switch (type) {
@@ -319,14 +436,16 @@
         case 'turn': color = 0xff8800; break;
         case 'bonus': color = 0xaa44ff; break;
         case '2x': color = 0xffffff; break;
+        case 'portal': color = 0x8844ff; break;
       }
       const geom = new THREE.SphereGeometry(0.9, 32, 32);
       const mat = new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.8, roughness: 0.2, metalness: 0.3 });
       const mesh = new THREE.Mesh(geom, mat);
       mesh.castShadow = true; mesh.receiveShadow = true;
       mesh.position.copy(pos);
-      mesh.position.y = 0.8;
+      mesh.position.y = (level === 1 ? 0 : level === 2 ? LEVEL2_HEIGHT : LEVEL3_HEIGHT) + 0.8;
       mesh.userData.type = type;
+      mesh.userData.level = level;
 
       const label = createPowerupLabel(type);
       label.position.y = 1.8;
@@ -335,44 +454,65 @@
       const outline = new THREE.Mesh(geom, new THREE.MeshBasicMaterial({ color, wireframe: true, transparent: true, opacity: 0.6 }));
       mesh.add(outline);
 
-      for (const obs of obstacles) {
+      const obsArr = level === 1 ? obstaclesL1 : level === 2 ? obstaclesL2 : obstaclesL3;
+      const wallsArr = level === 1 ? solidWallsL1 : level === 2 ? solidWallsL2 : solidWallsL3;
+      const golden = level === 1 ? goldenAppleL1 : level === 2 ? goldenAppleL2 : goldenAppleL3;
+      for (const obs of obsArr) {
         if (new THREE.Box3().setFromObject(obs).containsPoint(mesh.position)) return;
       }
-      for (const sw of solidWalls) {
+      for (const sw of wallsArr) {
         if (new THREE.Box3().setFromObject(sw).containsPoint(mesh.position)) return;
       }
-      if (goldenApple && new THREE.Box3().setFromObject(goldenApple.mesh).containsPoint(mesh.position)) return;
-      scene.add(mesh); powerups.push(mesh);
+      if (golden && new THREE.Box3().setFromObject(golden.mesh).containsPoint(mesh.position)) return;
+      (level === 1 ? groupL1 : level === 2 ? groupL2 : groupL3).add(mesh);
+      if (level === 1) powerupsL1.push(mesh);
+      else if (level === 2) powerupsL2.push(mesh);
+      else powerupsL3.push(mesh);
     }
 
     function clearWorld() {
-      foods.forEach(f => scene.remove(f)); foods.length = 0;
-      obstacles.forEach(o => scene.remove(o)); obstacles.length = 0;
-      solidWalls.forEach(w => scene.remove(w)); solidWalls.length = 0;
-      powerups.forEach(p => scene.remove(p)); powerups.length = 0;
-      if (goldenApple) scene.remove(goldenApple.mesh);
+      const removeArray = (arr, group) => { arr.forEach(o => group.remove(o)); arr.length = 0; };
+      removeArray(foodsL1, groupL1); removeArray(foodsL2, groupL2); removeArray(foodsL3, groupL3);
+      removeArray(obstaclesL1, groupL1); removeArray(obstaclesL2, groupL2); removeArray(obstaclesL3, groupL3);
+      removeArray(solidWallsL1, groupL1); removeArray(solidWallsL2, groupL2); removeArray(solidWallsL3, groupL3);
+      removeArray(powerupsL1, groupL1); removeArray(powerupsL2, groupL2); removeArray(powerupsL3, groupL3);
+      holesL2.forEach(h => { if (h.mesh) groupL2.remove(h.mesh); });
+      holesL2.length = 0;
+      if (goldenAppleL1) { groupL1.remove(goldenAppleL1.mesh); goldenAppleL1 = null; }
+      if (goldenAppleL2) { groupL2.remove(goldenAppleL2.mesh); goldenAppleL2 = null; }
+      if (goldenAppleL3) { groupL3.remove(goldenAppleL3.mesh); goldenAppleL3 = null; }
     }
 
     // Golden apple (rolling – worth 50 points)
-    let goldenApple = null;
-    function createGoldenApple(pos) {
-      if (goldenApple) scene.remove(goldenApple.mesh);
+    function createGoldenApple(level, pos) {
+      const golden = level === 1 ? goldenAppleL1 : level === 2 ? goldenAppleL2 : goldenAppleL3;
+      if (golden) (level === 1 ? groupL1 : level === 2 ? groupL2 : groupL3).remove(golden.mesh);
       const geom = new THREE.SphereGeometry(0.8, 32, 32);
       const mat = new THREE.MeshStandardMaterial({ color: 0xffdd00, emissive: 0x442200, roughness: 0.3, metalness: 0.8 });
       const mesh = new THREE.Mesh(geom, mat);
       mesh.castShadow = true; mesh.receiveShadow = true;
-      mesh.position.copy(pos); scene.add(mesh);
-      goldenApple = { mesh, velocity: new THREE.Vector3((Math.random()-0.5)*8, 0, (Math.random()-0.5)*8).normalize().multiplyScalar(6), position: pos.clone() };
+      mesh.position.copy(pos);
+      mesh.position.y = (level === 1 ? 0 : level === 2 ? LEVEL2_HEIGHT : LEVEL3_HEIGHT) + 0.8;
+      mesh.userData.level = level;
+      (level === 1 ? groupL1 : level === 2 ? groupL2 : groupL3).add(mesh);
+      const obj = { mesh, velocity: new THREE.Vector3((Math.random()-0.5)*8, 0, (Math.random()-0.5)*8).normalize().multiplyScalar(6), position: pos.clone(), level };
+      if (level === 1) goldenAppleL1 = obj;
+      else if (level === 2) goldenAppleL2 = obj;
+      else goldenAppleL3 = obj;
     }
-    function updateGoldenApple(delta) {
-      if (!goldenApple) return;
-      const g = goldenApple;
+
+    function updateGoldenApple(level, delta) {
+      const golden = level === 1 ? goldenAppleL1 : level === 2 ? goldenAppleL2 : goldenAppleL3;
+      if (!golden) return;
+      const g = golden;
       g.position.add(g.velocity.clone().multiplyScalar(delta));
       if (g.position.x > halfArena - 1) { g.position.x = halfArena - 1; g.velocity.x *= -1; }
       if (g.position.x < -halfArena + 1) { g.position.x = -halfArena + 1; g.velocity.x *= -1; }
       if (g.position.z > halfArena - 1) { g.position.z = halfArena - 1; g.velocity.z *= -1; }
       if (g.position.z < -halfArena + 1) { g.position.z = -halfArena + 1; g.velocity.z *= -1; }
-      for (const wall of solidWalls) {
+      const walls = level === 1 ? solidWallsL1 : level === 2 ? solidWallsL2 : solidWallsL3;
+      const obsArr = level === 1 ? obstaclesL1 : level === 2 ? obstaclesL2 : obstaclesL3;
+      for (const wall of walls) {
         const wallBox = new THREE.Box3().setFromObject(wall);
         if (wallBox.containsPoint(g.position)) {
           const closest = wallBox.clampPoint(g.position, new THREE.Vector3());
@@ -381,7 +521,7 @@
           g.position.add(g.velocity.clone().multiplyScalar(delta));
         }
       }
-      for (const obs of obstacles) {
+      for (const obs of obsArr) {
         const obsBox = new THREE.Box3().setFromObject(obs);
         if (obsBox.containsPoint(g.position)) {
           const closest = obsBox.clampPoint(g.position, new THREE.Vector3());
@@ -392,45 +532,69 @@
       }
       g.mesh.position.copy(g.position);
     }
-    function checkGoldenAppleCollision(headPos, radius) {
-      if (!goldenApple) return false;
-      return headPos.distanceTo(goldenApple.position) < radius + 0.8;
+
+    function checkGoldenAppleCollision(level, headPos, radius) {
+      const golden = level === 1 ? goldenAppleL1 : level === 2 ? goldenAppleL2 : goldenAppleL3;
+      if (!golden) return false;
+      return headPos.distanceTo(golden.position) < radius + 0.8;
     }
 
-    // Random free spot
-    function getRandomFreePosition(ignorePlayer = null) {
+    // Random free spot per level
+    function getRandomFreePosition(level, ignorePlayer = null) {
       const occupied = new Set();
-      obstacles.forEach(o => {
+      const obsArr = level === 1 ? obstaclesL1 : level === 2 ? obstaclesL2 : obstaclesL3;
+      const wallsArr = level === 1 ? solidWallsL1 : level === 2 ? solidWallsL2 : solidWallsL3;
+      const golden = level === 1 ? goldenAppleL1 : level === 2 ? goldenAppleL2 : goldenAppleL3;
+      const pwrArr = level === 1 ? powerupsL1 : level === 2 ? powerupsL2 : powerupsL3;
+      if (level === 2) {
+        holesL2.forEach(h => occupied.add(Math.round(h.x) + ',' + Math.round(h.z)));
+      }
+      obsArr.forEach(o => {
         const box = new THREE.Box3().setFromObject(o);
         for (let cx = Math.floor(box.min.x); cx <= Math.ceil(box.max.x); cx++)
           for (let cz = Math.floor(box.min.z); cz <= Math.ceil(box.max.z); cz++)
             occupied.add(cx + ',' + cz);
       });
-      solidWalls.forEach(w => {
+      wallsArr.forEach(w => {
         const box = new THREE.Box3().setFromObject(w);
         for (let cx = Math.floor(box.min.x); cx <= Math.ceil(box.max.x); cx++)
           for (let cz = Math.floor(box.min.z); cz <= Math.ceil(box.max.z); cz++)
             occupied.add(cx + ',' + cz);
       });
-      if (goldenApple) occupied.add(Math.round(goldenApple.position.x) + ',' + Math.round(goldenApple.position.z));
-      powerups.forEach(p => occupied.add(Math.round(p.position.x) + ',' + Math.round(p.position.z)));
+      if (golden) occupied.add(Math.round(golden.position.x) + ',' + Math.round(golden.position.z));
+      pwrArr.forEach(p => occupied.add(Math.round(p.position.x) + ',' + Math.round(p.position.z)));
       aiSnakes.forEach(ai => {
         if (!ai.alive) return;
+        if (ai.level !== level) return;
         ai.bodyMeshes.forEach(m => occupied.add(Math.round(m.position.x) + ',' + Math.round(m.position.z)));
         if (ai.headMesh) occupied.add(Math.round(ai.headPos.x) + ',' + Math.round(ai.headPos.z));
       });
       [player1, player2].forEach(p => {
         if (p === ignorePlayer) return;
-        if (!p.alive) return;
+        if (!p.alive || p.level !== level) return;
         p.bodyMeshes.forEach(m => occupied.add(Math.round(m.position.x) + ',' + Math.round(m.position.z)));
         if (p.headMesh) occupied.add(Math.round(p.headPos.x) + ',' + Math.round(p.headPos.z));
       });
       for (let i = 0; i < 1000; i++) {
         const x = Math.floor(Math.random() * (arenaSize - 4) - halfArena + 2);
         const z = Math.floor(Math.random() * (arenaSize - 4) - halfArena + 2);
-        if (!occupied.has(x + ',' + z)) return new THREE.Vector3(x + 0.5, baseSegSize/2, z + 0.5);
+        if (!occupied.has(x + ',' + z)) return new THREE.Vector3(x + 0.5, (level === 1 ? 0 : level === 2 ? LEVEL2_HEIGHT : LEVEL3_HEIGHT) + baseSegSize/2, z + 0.5);
       }
-      return new THREE.Vector3(0, baseSegSize/2, 0);
+      return new THREE.Vector3(0, (level === 1 ? 0 : level === 2 ? LEVEL2_HEIGHT : LEVEL3_HEIGHT) + baseSegSize/2, 0);
+    }
+
+    // Function to spawn a completely new AI snake
+    function spawnRandomAISnake(level) {
+      const personalities = ['hungry', 'shy', 'random', 'killer', 'jumpy'];
+      const names = ['🍎 Hungry', '💧 Shy', '🎲 Random', '☠️ Killer', '🐇 Jumpy', '🍏 Greedy', '🐇 Hoppy', '🦘 Bouncy', '💀 Reaper'];
+      const colors = [0xff5555, 0x5588ff, 0xffaa00, 0xff2222, 0xff66ff, 0xffdd00, 0x66ff66, 0xff8800, 0xff0000];
+      const idx = Math.floor(Math.random() * personalities.length);
+      const name = names[idx] || names[0];
+      const newAI = new AISnake(colors[idx] || 0xff5555, personalities[idx], name, level);
+      const pos = getRandomFreePosition(level, null);
+      newAI.spawn(pos);
+      aiSnakes.push(newAI);
+      Sfx.spawnSnake();
     }
 
     // ---------- Player class ----------
@@ -441,9 +605,9 @@
     const segmentSpacing = 1.0;
 
     class PlayerSnake {
-      constructor(color, startX, startZ, keys) {
+      constructor(color, startX, startZ, keys, level = 2) {
         this.color = color;
-        this.headPos = new THREE.Vector3(startX, baseSegSize/2, startZ);
+        this.headPos = new THREE.Vector3(startX, (level === 1 ? 0 : level === 2 ? LEVEL2_HEIGHT : LEVEL3_HEIGHT) + baseSegSize/2, startZ);
         this.yaw = 0; this.score = 0; this.kills = 0; this.alive = true;
         this.jumpVel = 0;
         this.trail = []; this.bodyMeshes = [];
@@ -451,6 +615,7 @@
         this.keys = keys;
         this.headMesh = null;
         this.sizeMultiplier = 1;
+        this.level = level;
         this.createHead();
         for (let i = 0; i < 5; i++) this.addBodySegment(true);
         this.resetTrail();
@@ -503,7 +668,7 @@
         if (this.keys.left) turn += 1;
         if (this.keys.right) turn -= 1;
         this.yaw += turn * turnSpeedBase * turnMultiplier * delta;
-        if (this.keys.jump && this.headPos.y <= this.segSize/2 + 0.01 && this.jumpVel <= 0) {
+        if (this.keys.jump && this.headPos.y <= this.getGroundY() + this.segSize/2 + 0.01 && this.jumpVel <= 0) {
           this.jumpVel = 12; Sfx.jump();
         }
         if (this.keys.boost) {
@@ -521,6 +686,8 @@
         if (this.spawnInvincibleTimer > 0) this.spawnInvincibleTimer -= delta;
       }
 
+      getGroundY() { return this.level === 1 ? 0 : this.level === 2 ? LEVEL2_HEIGHT : LEVEL3_HEIGHT; }
+
       getEffectiveSpeed() {
         if (this.powerupSpeedTimer > 0) return boostSpeed;
         return this.keys.boost ? boostSpeed : normalSpeed;
@@ -535,8 +702,54 @@
         if (pos.z < -halfArena) pos.z = halfArena - 0.5;
       }
 
+      // Brown block teleport – random level, random spot
+      teleportToRandomLevel() {
+        const newLevel = Math.floor(Math.random() * 3) + 1; // 1,2,3
+        this.level = newLevel;
+        this.headPos.y = this.getGroundY() + this.segSize/2;
+        this.jumpVel = 0;
+        this.freezeTimer = 0.5;
+        this.teleportToRandomSpot();
+        Sfx.portal();
+      }
+
+      // Portal power-up teleport – random level, same XY, same direction
+      teleportToRandomLevelKeepXY() {
+        const newLevel = Math.floor(Math.random() * 3) + 1;
+        const oldX = this.headPos.x;
+        const oldZ = this.headPos.z;
+        this.level = newLevel;
+        this.headPos.x = oldX;
+        this.headPos.z = oldZ;
+        this.headPos.y = this.getGroundY() + this.segSize/2;
+        this.jumpVel = 0;
+        this.freezeTimer = 0.5;
+        // No need to teleport to random spot; just rebuild trail
+        this.trail = [];
+        for (let dist = 0; dist < segmentSpacing * this.bodyMeshes.length + 5; dist += 0.1) {
+          this.trail.push(this.headPos.clone().add(new THREE.Vector3(0,0,-dist)));
+        }
+        let distFromHead = segmentSpacing;
+        for (let i = 0; i < this.bodyMeshes.length; i++) {
+          let acc = 0, prev = this.trail[0], target = prev.clone();
+          for (let j = 1; j < this.trail.length; j++) {
+            const curr = this.trail[j]; const step = prev.distanceTo(curr);
+            if (acc + step >= distFromHead) { target = prev.clone().lerp(curr, (distFromHead - acc) / step); break; }
+            acc += step; prev = curr; target = curr.clone();
+          }
+          this.bodyMeshes[i].position.copy(target);
+          const nextPos = i === 0 ? this.headMesh.position : this.bodyMeshes[i-1].position;
+          const dir = new THREE.Vector3().subVectors(nextPos, target).normalize();
+          if (dir.lengthSq() > 0.01) this.bodyMeshes[i].quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1), dir);
+          distFromHead += segmentSpacing;
+        }
+        this.headMesh.position.copy(this.headPos);
+        this.headMesh.rotation.y = this.yaw;
+        Sfx.portal();
+      }
+
       teleportToRandomSpot() {
-        const newPos = getRandomFreePosition(this);
+        const newPos = getRandomFreePosition(this.level, this);
         this.headPos.copy(newPos);
         this.yaw = Math.random() * Math.PI * 2;
         this.jumpVel = 0;
@@ -564,6 +777,15 @@
         Sfx.teleport();
       }
 
+      fallToLevel1() {
+        this.level = 1;
+        this.headPos.y = this.segSize/2;
+        this.jumpVel = 0;
+        this.freezeTimer = 0.5;
+        this.teleportToRandomSpot();
+        Sfx.fall();
+      }
+
       resolveObstacleCollision(newHeadPos, currentY) {
         const s = this.segSize;
         const headBox = new THREE.Box3(
@@ -571,7 +793,8 @@
           new THREE.Vector3(newHeadPos.x + 0.4*s, currentY + s/2, newHeadPos.z + 0.4*s)
         );
         let standing = false;
-        for (const obs of obstacles) {
+        const obsArr = this.level === 1 ? obstaclesL1 : this.level === 2 ? obstaclesL2 : obstaclesL3;
+        for (const obs of obsArr) {
           const obsBox = new THREE.Box3().setFromObject(obs);
           if (!headBox.intersectsBox(obsBox)) continue;
           const obsTop = obs.position.y + OBSTACLE_HEIGHT / 2;
@@ -598,7 +821,7 @@
         return { newHeadPos, currentY, standing };
       }
 
-      updatePhysics(delta, obstaclesList, solidWallsList, otherPlayer) {
+      updatePhysics(delta, otherPlayer) {
         if (!this.alive) return { died: false };
         if (this.freezeTimer > 0) {
           this.freezeTimer -= delta;
@@ -609,10 +832,14 @@
           return { died: false };
         }
         const gravity = 15;
-        if (this.headPos.y > this.segSize/2 || this.jumpVel > 0) {
+        const groundY = this.getGroundY();
+        if (this.headPos.y > groundY + this.segSize/2 || this.jumpVel > 0) {
           this.jumpVel -= gravity * delta;
           this.headPos.y += this.jumpVel * delta;
-          if (this.headPos.y <= this.segSize/2) { this.headPos.y = this.segSize/2; this.jumpVel = 0; }
+          if (this.headPos.y <= groundY + this.segSize/2) {
+            this.headPos.y = groundY + this.segSize/2;
+            this.jumpVel = 0;
+          }
         }
         const speed = this.getEffectiveSpeed();
         const moveVec = new THREE.Vector3(Math.sin(this.yaw), 0, Math.cos(this.yaw)).multiplyScalar(speed * delta);
@@ -625,10 +852,25 @@
           new THREE.Vector3(newHeadPos.x + 0.4*s, newY + s/2, newHeadPos.z + 0.4*s)
         );
 
-        for (const wall of solidWallsList) {
+        const walls = this.level === 1 ? solidWallsL1 : this.level === 2 ? solidWallsL2 : solidWallsL3;
+        for (const wall of walls) {
           if (headBox.intersectsBox(new THREE.Box3().setFromObject(wall))) {
             if (!this.isInvincible()) {
-              this.teleportToRandomSpot();
+              if (Math.random() < 0.25) {
+                spawnRandomAISnake(this.level);
+              }
+              this.teleportToRandomLevel(); // random level teleport
+              return { died: false };
+            }
+          }
+        }
+
+        if (this.level === 2 && this.headPos.y <= LEVEL2_HEIGHT + this.segSize/2 + 0.01) {
+          for (const hole of holesL2) {
+            const dx = Math.abs(newHeadPos.x - hole.x);
+            const dz = Math.abs(newHeadPos.z - hole.z);
+            if (dx < 1.0 && dz < 1.0) {
+              this.fallToLevel1();
               return { died: false };
             }
           }
@@ -636,7 +878,7 @@
 
         const resolved = this.resolveObstacleCollision(newHeadPos, newY);
         newHeadPos = resolved.newHeadPos; newY = resolved.currentY; const standing = resolved.standing;
-        if (!standing && newY <= s/2 + 0.01) { newY = s/2; this.jumpVel = 0; }
+        if (!standing && newY <= groundY + s/2 + 0.01) { newY = groundY + s/2; this.jumpVel = 0; }
         const finalHeadBox = new THREE.Box3(
           new THREE.Vector3(newHeadPos.x - 0.4*s, newY - s/2, newHeadPos.z - 0.4*s),
           new THREE.Vector3(newHeadPos.x + 0.4*s, newY + s/2, newHeadPos.z + 0.4*s)
@@ -650,7 +892,7 @@
               }
             }
           }
-          if (otherPlayer && otherPlayer.alive) {
+          if (otherPlayer && otherPlayer.alive && otherPlayer.level === this.level) {
             const otherS = otherPlayer.segSize;
             const otherHeadBox = new THREE.Box3(
               new THREE.Vector3(otherPlayer.headPos.x - 0.4*otherS, otherPlayer.headPos.y - otherS/2, otherPlayer.headPos.z - 0.4*otherS),
@@ -663,13 +905,13 @@
           }
           const aiDeathList = [];
           for (const ai of aiSnakes) {
-            if (!ai.alive) continue;
+            if (!ai.alive || ai.level !== this.level) continue;
             let playerHit = false;
             if (ai.headMesh) {
               const aiS = ai.segSize;
               const aiHeadBox = new THREE.Box3(
-                new THREE.Vector3(ai.headPos.x - 0.7*aiS, 0, ai.headPos.z - 0.7*aiS),
-                new THREE.Vector3(ai.headPos.x + 0.7*aiS, 2.0, ai.headPos.z + 0.7*aiS)
+                new THREE.Vector3(ai.headPos.x - 0.7*aiS, ai.headPos.y - 0.7*aiS, ai.headPos.z - 0.7*aiS),
+                new THREE.Vector3(ai.headPos.x + 0.7*aiS, ai.headPos.y + 0.7*aiS, ai.headPos.z + 0.7*aiS)
               );
               if (finalHeadBox.intersectsBox(aiHeadBox)) playerHit = true;
             }
@@ -682,8 +924,8 @@
             if (ai.headMesh) {
               const aiS = ai.segSize;
               const aiHeadBox = new THREE.Box3(
-                new THREE.Vector3(ai.headPos.x - 0.7*aiS, 0, ai.headPos.z - 0.7*aiS),
-                new THREE.Vector3(ai.headPos.x + 0.7*aiS, 2.0, ai.headPos.z + 0.7*aiS)
+                new THREE.Vector3(ai.headPos.x - 0.7*aiS, ai.headPos.y - 0.7*aiS, ai.headPos.z - 0.7*aiS),
+                new THREE.Vector3(ai.headPos.x + 0.7*aiS, ai.headPos.y + 0.7*aiS, ai.headPos.z + 0.7*aiS)
               );
               for (const mesh of this.bodyMeshes) {
                 if (aiHeadBox.intersectsBox(new THREE.Box3().setFromObject(mesh))) { aiDeathList.push(ai); break; }
@@ -701,8 +943,9 @@
           }
         }
 
-        for (let i = powerups.length - 1; i >= 0; i--) {
-          const p = powerups[i];
+        const pwrArr = this.level === 1 ? powerupsL1 : this.level === 2 ? powerupsL2 : powerupsL3;
+        for (let i = pwrArr.length - 1; i >= 0; i--) {
+          const p = pwrArr[i];
           if (newHeadPos.distanceTo(p.position) < 1.6) {
             Sfx.powerup();
             switch (p.userData.type) {
@@ -710,33 +953,48 @@
               case 'turn': this.powerupTurnTimer = 5; break;
               case 'bonus': this.score += 10; break;
               case '2x': this.powerup2xTimer = 10; break;
+              case 'portal': this.teleportToRandomLevelKeepXY(); break; // keep XY, random level
             }
-            scene.remove(p); powerups.splice(i, 1);
+            (this.level === 1 ? groupL1 : this.level === 2 ? groupL2 : groupL3).remove(p);
+            pwrArr.splice(i, 1);
           }
         }
 
-        for (let i = foods.length - 1; i >= 0; i--) {
-          const f = foods[i];
+        const foodArr = this.level === 1 ? foodsL1 : this.level === 2 ? foodsL2 : foodsL3;
+        for (let i = foodArr.length - 1; i >= 0; i--) {
+          const f = foodArr[i];
           if (newHeadPos.distanceTo(f.position) < 1.3 * this.sizeMultiplier) {
             let points = 1;
             if (f.userData.type === 'blue') points = 3;
-            else if (f.userData.type === 'golden') points = 5;   // static golden apple = 5 points
+            else if (f.userData.type === 'golden') points = 5;
             if (this.powerup2xTimer > 0) points *= 2;
             this.score += points;
-            scene.remove(f); foods.splice(i, 1);
+            (this.level === 1 ? groupL1 : this.level === 2 ? groupL2 : groupL3).remove(f);
+            foodArr.splice(i, 1);
             this.addBodySegment();
             this.updateSize();
-            spawnApple();
+            // Spawn replacement apple (no distance constraint)
+            let attempts = 0;
+            let newApplePos;
+            do {
+              newApplePos = new THREE.Vector3(
+                (Math.random()-0.5)*(arenaSize-6),
+                (this.level===1?0:this.level===2?LEVEL2_HEIGHT:LEVEL3_HEIGHT)+0.5,
+                (Math.random()-0.5)*(arenaSize-6)
+              );
+              attempts++;
+            } while (attempts < 50 && !spawnApple(this.level, newApplePos));
             if (f.userData.type === 'blue') Sfx.blueApple();
             else if (f.userData.type === 'golden') Sfx.goldenApple();
             else Sfx.eatApple();
             break;
           }
         }
-        if (checkGoldenAppleCollision(newHeadPos, 0.4 * this.sizeMultiplier)) {
-          this.score += 50;  // rolling golden ball = 50 points
+        if (checkGoldenAppleCollision(this.level, newHeadPos, 0.4 * this.sizeMultiplier)) {
+          this.score += 50;
           this.updateSize();
-          createGoldenApple(new THREE.Vector3((Math.random()-0.5)*(arenaSize-6), 0.5, (Math.random()-0.5)*(arenaSize-6)));
+          const newPos = new THREE.Vector3((Math.random()-0.5)*(arenaSize-6), 0, (Math.random()-0.5)*(arenaSize-6));
+          createGoldenApple(this.level, newPos);
           Sfx.goldenApple();
         }
 
@@ -772,7 +1030,7 @@
           for (let i = 0; i < bodyPositions.length; i += step) {
             samples.push(bodyPositions[i]);
           }
-          dropApplesAlongLine(samples);
+          dropApplesAlongLine(this.level, samples);
         }
         this.score -= dropCount;
         this.alive = false; scene.remove(this.headMesh); this.headMesh = null;
@@ -781,7 +1039,7 @@
       }
       respawn() {
         if (this.alive) this.die();
-        const newPos = getRandomFreePosition(this);
+        const newPos = getRandomFreePosition(this.level, this);
         this.headPos.copy(newPos);
         this.yaw = 0; this.jumpVel = 0; this.boostDrainTimer = 0;
         this.powerupSpeedTimer = 0; this.powerupTurnTimer = 0; this.powerup2xTimer = 0;
@@ -802,9 +1060,9 @@
       }
     }
 
-    // ---------- AI Snake (20‑30% of top player score) ----------
+    // ---------- AI Snake (now with AI-AI collision) ----------
     class AISnake {
-      constructor(color, personality, name) {
+      constructor(color, personality, name, level) {
         this.color = color; this.personality = personality; this.name = name;
         this.headMesh = null; this.outlineMesh = null; this.bodyMeshes = [];
         this.alive = false; this.speed = 6 + Math.random()*4; this.segments = 4;
@@ -814,6 +1072,7 @@
         this.canJump = (personality === 'jumpy');
         if (this.name === '💀 Reaper') this.speed = 14;
         this.sizeMultiplier = 1;
+        this.level = level;
       }
       get segSize() { return baseSegSize * this.sizeMultiplier; }
       updateSize() {
@@ -825,7 +1084,7 @@
       spawn(pos) {
         this.die(true);
         this.headPos.copy(pos); this.yaw = Math.random()*Math.PI*2;
-        const maxPlayerScore = Math.max(player1.score, twoPlayerMode ? player2.score : 0);
+        const maxPlayerScore = Math.max(player1.score, (twoPlayerMode && !mobileMode && player2.alive) ? player2.score : 0);
         this.score = Math.floor(maxPlayerScore * (0.2 + Math.random() * 0.1));
         this.kills = 0;
         this.sizeMultiplier = 1;
@@ -855,9 +1114,9 @@
           if (dropBodyApples) {
             const segPositions = this.bodyMeshes.map(m => m.position.clone());
             segPositions.unshift(this.headPos.clone());
-            dropApplesAlongLine(segPositions);
+            dropApplesAlongLine(this.level, segPositions);
           } else {
-            dropApples(3, this.headPos.clone());
+            dropApples(this.level, 3, this.headPos.clone());
           }
           Sfx.aiDie();
         }
@@ -869,11 +1128,12 @@
           this.respawnTimer = setTimeout(() => {
             let pos;
             let attempts = 0;
+            const players = [player1, player2];
             do {
               pos = new THREE.Vector3((Math.random()-0.5)*(arenaSize-10), baseSegSize/2, (Math.random()-0.5)*(arenaSize-10));
               attempts++;
               if (attempts > 100) break;
-            } while (pos.distanceTo(player1.headPos) < 40 || (twoPlayerMode && player2.alive && pos.distanceTo(player2.headPos) < 40));
+            } while (players.some(p => p.alive && p.level === this.level && pos.distanceTo(p.headPos) < 40));
             this.spawn(pos);
           }, 0);
         }
@@ -896,7 +1156,7 @@
 
       rayDistance(origin, direction, maxDist = 5) {
         let closest = maxDist;
-        const allObs = [...obstacles, ...solidWalls];
+        const allObs = this.level === 1 ? [...obstaclesL1, ...solidWallsL1] : this.level === 2 ? [...obstaclesL2, ...solidWallsL2] : [...obstaclesL3, ...solidWallsL3];
         for (const obj of allObs) {
           const box = new THREE.Box3().setFromObject(obj);
           const t = this.rayBoxIntersect(origin, direction, box, maxDist);
@@ -932,7 +1192,8 @@
       findNearestCluster() {
         const cellSize = 3;
         const clusters = new Map();
-        foods.forEach(f => {
+        const foodArr = this.level === 1 ? foodsL1 : this.level === 2 ? foodsL2 : foodsL3;
+        foodArr.forEach(f => {
           const cx = Math.floor(f.position.x / cellSize);
           const cz = Math.floor(f.position.z / cellSize);
           const key = `${cx},${cz}`;
@@ -955,6 +1216,37 @@
         return bestCluster;
       }
 
+      // Brown block teleport for AI – random level, random spot
+      teleportToRandomLevel() {
+        const newLevel = Math.floor(Math.random() * 3) + 1;
+        this.level = newLevel;
+        const newPos = getRandomFreePosition(newLevel, null);
+        this.headPos.copy(newPos);
+        this.yaw = Math.random() * Math.PI * 2;
+        this.jumpVel = 0;
+        this.trail = [];
+        for (let dist = 0; dist < segmentSpacing * this.bodyMeshes.length + 5; dist += 0.1) {
+          this.trail.push(this.headPos.clone().add(new THREE.Vector3(0,0,-dist)));
+        }
+        let distFromHead = segmentSpacing;
+        for (let i = 0; i < this.bodyMeshes.length; i++) {
+          let acc = 0, prev = this.trail[0], target = prev.clone();
+          for (let j = 1; j < this.trail.length; j++) {
+            const curr = this.trail[j]; const step = prev.distanceTo(curr);
+            if (acc + step >= distFromHead) { target = prev.clone().lerp(curr, (distFromHead - acc) / step); break; }
+            acc += step; prev = curr; target = curr.clone();
+          }
+          this.bodyMeshes[i].position.copy(target);
+          const nextPos = i === 0 ? this.headMesh.position : this.bodyMeshes[i-1].position;
+          const dir = new THREE.Vector3().subVectors(nextPos, target).normalize();
+          if (dir.lengthSq() > 0.01) this.bodyMeshes[i].quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1), dir);
+          distFromHead += segmentSpacing;
+        }
+        this.headMesh.position.copy(this.headPos);
+        this.headMesh.rotation.y = this.yaw;
+        Sfx.portal();
+      }
+
       update(delta, players, solidWalls) {
         if (!this.alive) return;
         const gravity = 15;
@@ -970,18 +1262,30 @@
         if (!avoidanceActive) {
           if (this.name === '💀 Reaper') {
             let closest = null, minDist = Infinity;
-            for (const p of players) { if (!p.alive) continue; const d = head.distanceTo(p.headPos); if (d < minDist) { minDist = d; closest = p.headPos; } }
+            let closestObj = null;
+            for (const p of players) { if (!p.alive || p.level !== this.level) continue; const d = head.distanceTo(p.headPos); if (d < minDist) { minDist = d; closest = p.headPos; closestObj = p; } }
             for (const ai of aiSnakes) {
-              if (ai === this || !ai.alive) continue;
+              if (ai === this || !ai.alive || ai.level !== this.level) continue;
               const d = head.distanceTo(ai.headPos);
-              if (d < minDist) { minDist = d; closest = ai.headPos; }
+              if (d < minDist) { minDist = d; closest = ai.headPos; closestObj = ai; }
             }
-            if (closest) targetDir.copy(closest).sub(head).normalize();
+            if (closest) {
+              if (closestObj && closestObj.yaw !== undefined) {
+                const predict = closest.clone().add(new THREE.Vector3(Math.sin(closestObj.yaw), 0, Math.cos(closestObj.yaw)).multiplyScalar(5));
+                targetDir.copy(predict).sub(head).normalize();
+              } else {
+                targetDir.copy(closest).sub(head).normalize();
+              }
+            }
             this.speed = 14;
           } else if (this.personality === 'killer') {
             let closest = null, minDist = Infinity;
-            for (const p of players) { if (!p.alive) continue; const d = head.distanceTo(p.headPos); if (d < minDist) { minDist = d; closest = p.headPos; } }
-            if (closest) targetDir.copy(closest).sub(head).normalize();
+            let closestPlayer = null;
+            for (const p of players) { if (!p.alive || p.level !== this.level) continue; const d = head.distanceTo(p.headPos); if (d < minDist) { minDist = d; closest = p.headPos; closestPlayer = p; } }
+            if (closest) {
+              const predict = closest.clone().add(new THREE.Vector3(Math.sin(closestPlayer.yaw), 0, Math.cos(closestPlayer.yaw)).multiplyScalar(5));
+              targetDir.copy(predict).sub(head).normalize();
+            }
             this.speed = 11;
           } else if (this.personality === 'hungry') {
             const cluster = this.findNearestCluster();
@@ -989,13 +1293,14 @@
               targetDir.copy(cluster).sub(head).normalize();
             } else {
               let best = null, bestD = Infinity;
-              for (const f of foods) { const d = head.distanceTo(f.position); if (d < bestD) { bestD = d; best = f.position; } }
+              const foodArr = this.level === 1 ? foodsL1 : this.level === 2 ? foodsL2 : foodsL3;
+              for (const f of foodArr) { const d = head.distanceTo(f.position); if (d < bestD) { bestD = d; best = f.position; } }
               if (best) targetDir.copy(best).sub(head).normalize();
             }
             this.speed = 7;
           } else if (this.personality === 'shy') {
             let closestPlayer = null, minDist = 100;
-            for (const p of players) { if (!p.alive) continue; const d = head.distanceTo(p.headPos); if (d < minDist) { minDist = d; closestPlayer = p.headPos; } }
+            for (const p of players) { if (!p.alive || p.level !== this.level) continue; const d = head.distanceTo(p.headPos); if (d < minDist) { minDist = d; closestPlayer = p.headPos; } }
             if (closestPlayer && minDist < 12) targetDir.copy(head).sub(closestPlayer).normalize();
             this.speed = 6;
           } else if (this.personality === 'jumpy') {
@@ -1004,7 +1309,7 @@
             this.speed = 7;
             if (this.headPos.y <= this.segSize/2 + 0.01) {
               const ahead = head.clone().add(targetDir.clone().multiplyScalar(0.8));
-              const willCollide = obstacles.some(o => new THREE.Box3().setFromObject(o).containsPoint(ahead));
+              const willCollide = (this.level === 1 ? obstaclesL1 : this.level === 2 ? obstaclesL2 : obstaclesL3).some(o => new THREE.Box3().setFromObject(o).containsPoint(ahead));
               if (willCollide || Math.random() < 0.01) { this.jumpVel = 12; Sfx.jump(); }
             }
           } else {
@@ -1018,11 +1323,13 @@
           targetDir.z += (Math.random() - 0.5) * jitter;
 
           const avoid = new THREE.Vector3();
-          for (const obs of obstacles) {
+          const obsArr = this.level === 1 ? obstaclesL1 : this.level === 2 ? obstaclesL2 : obstaclesL3;
+          const wallsArr = this.level === 1 ? solidWallsL1 : this.level === 2 ? solidWallsL2 : solidWallsL3;
+          for (const obs of obsArr) {
             const diff = head.clone().sub(obs.position); const len = diff.length();
             if (len < 3 && len > 0.001) { diff.divideScalar(len); avoid.add(diff.multiplyScalar(3 / (len+0.1))); }
           }
-          for (const wall of solidWalls) {
+          for (const wall of wallsArr) {
             const diff = head.clone().sub(wall.position); const len = diff.length();
             if (len < 3 && len > 0.001) { diff.divideScalar(len); avoid.add(diff.multiplyScalar(5 / (len+0.1))); }
           }
@@ -1046,10 +1353,18 @@
           new THREE.Vector3(newPos.x-0.7*s, 0, newPos.z-0.7*s),
           new THREE.Vector3(newPos.x+0.7*s, 2.0, newPos.z+0.7*s)
         );
-        for (const wall of solidWalls) {
-          if (headBox.intersectsBox(new THREE.Box3().setFromObject(wall))) { this.die(false, false); return; }
+        const wallsArr = this.level === 1 ? solidWallsL1 : this.level === 2 ? solidWallsL2 : solidWallsL3;
+        for (const wall of wallsArr) {
+          if (headBox.intersectsBox(new THREE.Box3().setFromObject(wall))) {
+            if (Math.random() < 0.25) {
+              spawnRandomAISnake(this.level);
+            }
+            this.teleportToRandomLevel(); // random level teleport
+            return;
+          }
         }
-        for (const obs of obstacles) {
+        const obsArr = this.level === 1 ? obstaclesL1 : this.level === 2 ? obstaclesL2 : obstaclesL3;
+        for (const obs of obsArr) {
           if (headBox.intersectsBox(new THREE.Box3().setFromObject(obs))) {
             const obsBox = new THREE.Box3().setFromObject(obs);
             const overlapX = Math.min(headBox.max.x - obsBox.min.x, obsBox.max.x - headBox.min.x);
@@ -1072,19 +1387,30 @@
         }
 
         this.headPos.copy(newPos);
-        for (let i = foods.length-1; i>=0; i--) {
-          if (newPos.distanceTo(foods[i].position) < 1.5 * this.sizeMultiplier) {
+        const foodArr = this.level === 1 ? foodsL1 : this.level === 2 ? foodsL2 : foodsL3;
+        for (let i = foodArr.length-1; i>=0; i--) {
+          if (newPos.distanceTo(foodArr[i].position) < 1.5 * this.sizeMultiplier) {
             let pts = 1;
-            if (foods[i].userData.type === 'blue') pts = 3;
-            else if (foods[i].userData.type === 'golden') pts = 5;
-            this.score += pts; scene.remove(foods[i]); foods.splice(i,1); this.grow(); this.updateSize();
+            if (foodArr[i].userData.type === 'blue') pts = 3;
+            else if (foodArr[i].userData.type === 'golden') pts = 5;
+            this.score += pts;
+            (this.level === 1 ? groupL1 : this.level === 2 ? groupL2 : groupL3).remove(foodArr[i]);
+            foodArr.splice(i,1);
+            this.grow(); this.updateSize();
+            let attempts = 0;
+            let newApplePos;
+            do {
+              newApplePos = new THREE.Vector3((Math.random()-0.5)*(arenaSize-6), (this.level===1?0:this.level===2?LEVEL2_HEIGHT:LEVEL3_HEIGHT)+0.5, (Math.random()-0.5)*(arenaSize-6));
+              attempts++;
+            } while (attempts < 50 && !spawnApple(this.level, newApplePos));
             break;
           }
         }
-        if (checkGoldenAppleCollision(newPos, 0.7 * this.sizeMultiplier)) {
+        if (checkGoldenAppleCollision(this.level, newPos, 0.7 * this.sizeMultiplier)) {
           this.score += 50;
           this.updateSize();
-          createGoldenApple(new THREE.Vector3((Math.random()-0.5)*(arenaSize-6), 0.5, (Math.random()-0.5)*(arenaSize-6)));
+          const newPosGold = new THREE.Vector3((Math.random()-0.5)*(arenaSize-6), 0, (Math.random()-0.5)*(arenaSize-6));
+          createGoldenApple(this.level, newPosGold);
           Sfx.goldenApple();
         }
         this.updateBodyPositions();
@@ -1121,17 +1447,57 @@
       }
     }
 
-    // ---------- Reaper kill logic ----------
+    // AI-AI collision (already handled in handleAIAICollisions below)
+    function handleAIAICollisions() {
+      for (let i = 0; i < aiSnakes.length; i++) {
+        const ai = aiSnakes[i];
+        if (!ai.alive) continue;
+        const aiS = ai.segSize;
+        const aiHeadBox = new THREE.Box3(
+          new THREE.Vector3(ai.headPos.x - 0.7*aiS, ai.headPos.y - 0.7*aiS, ai.headPos.z - 0.7*aiS),
+          new THREE.Vector3(ai.headPos.x + 0.7*aiS, ai.headPos.y + 0.7*aiS, ai.headPos.z + 0.7*aiS)
+        );
+        for (let j = 0; j < aiSnakes.length; j++) {
+          if (i === j) continue;
+          const other = aiSnakes[j];
+          if (!other.alive || other.level !== ai.level) continue;
+          let touched = false;
+          if (other.headMesh) {
+            const otherS = other.segSize;
+            const otherHeadBox = new THREE.Box3(
+              new THREE.Vector3(other.headPos.x - 0.7*otherS, other.headPos.y - 0.7*otherS, other.headPos.z - 0.7*otherS),
+              new THREE.Vector3(other.headPos.x + 0.7*otherS, other.headPos.y + 0.7*otherS, other.headPos.z + 0.7*otherS)
+            );
+            if (aiHeadBox.intersectsBox(otherHeadBox)) touched = true;
+          }
+          if (!touched) {
+            for (const mesh of other.bodyMeshes) {
+              if (aiHeadBox.intersectsBox(new THREE.Box3().setFromObject(mesh))) {
+                touched = true;
+                break;
+              }
+            }
+          }
+          if (touched) {
+            ai.die(false, true);
+            Sfx.aiKill();
+            break;
+          }
+        }
+      }
+    }
+
     function reaperKillAIs() {
       const reaper = aiSnakes.find(ai => ai.name === '💀 Reaper' && ai.alive);
       if (!reaper) return;
+      const level = reaper.level;
       const s = reaper.segSize;
       const headBox = new THREE.Box3(
         new THREE.Vector3(reaper.headPos.x - 0.7*s, 0, reaper.headPos.z - 0.7*s),
         new THREE.Vector3(reaper.headPos.x + 0.7*s, 2.0, reaper.headPos.z + 0.7*s)
       );
       for (const ai of aiSnakes) {
-        if (ai === reaper || !ai.alive) continue;
+        if (ai === reaper || !ai.alive || ai.level !== level) continue;
         let killed = false;
         if (ai.headMesh) {
           const aiS = ai.segSize;
@@ -1161,23 +1527,26 @@
     let mobileMode = false;
     const playerKeys1 = { left: false, right: false, jump: false, boost: false };
     const playerKeys2 = { left: false, right: false, jump: false, boost: false };
-    const player1 = new PlayerSnake(0x00ffcc, -12, 0, playerKeys1);
-    const player2 = new PlayerSnake(0xff44ff, 12, 0, playerKeys2);
+    const player1 = new PlayerSnake(0x00ffcc, -12, 0, playerKeys1, 2);
+    const player2 = new PlayerSnake(0xff44ff, 12, 0, playerKeys2, 2);
     const players = [player1, player2];
 
-    const aiSnakes = [
-      new AISnake(0xff5555, 'hungry', '🍎 Hungry'),
-      new AISnake(0x5588ff, 'shy', '💧 Shy'),
-      new AISnake(0xffaa00, 'random', '🎲 Random'),
-      new AISnake(0xff2222, 'killer', '☠️ Killer'),
-      new AISnake(0xff66ff, 'jumpy', '🐇 Jumpy'),
-      new AISnake(0xffdd00, 'hungry', '🍏 Greedy'),
-      new AISnake(0x66ff66, 'jumpy', '🐇 Hoppy'),
-      new AISnake(0xff8800, 'jumpy', '🦘 Bouncy'),
-      new AISnake(0xff0000, 'killer', '💀 Reaper')
-    ];
+    function createAISnakes(level) {
+      return [
+        new AISnake(0xff5555, 'hungry', '🍎 Hungry', level),
+        new AISnake(0x5588ff, 'shy', '💧 Shy', level),
+        new AISnake(0xffaa00, 'random', '🎲 Random', level),
+        new AISnake(0xff2222, 'killer', '☠️ Killer', level),
+        new AISnake(0xff66ff, 'jumpy', '🐇 Jumpy', level),
+        new AISnake(0xffdd00, 'hungry', '🍏 Greedy', level),
+        new AISnake(0x66ff66, 'jumpy', '🐇 Hoppy', level),
+        new AISnake(0xff8800, 'jumpy', '🦘 Bouncy', level),
+        new AISnake(0xff0000, 'killer', '💀 Reaper', level)
+      ];
+    }
+    aiSnakes.push(...createAISnakes(2));
 
-    // ---------- Mobile Controls ----------
+    // ---------- Mobile Controls (unchanged) ----------
     const mobileControls = document.getElementById('mobileControls');
     const touchLeft = document.getElementById('touchLeft');
     const touchRight = document.getElementById('touchRight');
@@ -1188,30 +1557,27 @@
       mobileMode = active;
       if (active) {
         mobileControls.classList.add('active');
-        twoPlayerMode = false;  // force 1-player
+        twoPlayerMode = false;
         document.getElementById('modeToggle').textContent = '🎮 1‑Player Mode';
+        document.body.classList.remove('two-player');
       } else {
         mobileControls.classList.remove('active');
-        // Restore previous twoPlayerMode? We'll just keep it as it was.
-        // For simplicity, when turning off mobile, go back to 2-player mode?
-        // Let's just toggle 2-player mode off if it was on before? Better to leave as is.
         document.getElementById('modeToggle').textContent = twoPlayerMode ? '👥 2‑Player Mode' : '🎮 1‑Player Mode';
+        if (twoPlayerMode) document.body.classList.add('two-player');
+        else document.body.classList.remove('two-player');
       }
       resetWorld();
     }
 
-    // Touch event handlers
     touchLeft.addEventListener('touchstart', (e) => { e.preventDefault(); playerKeys1.left = true; });
     touchLeft.addEventListener('touchend', (e) => { e.preventDefault(); playerKeys1.left = false; });
     touchRight.addEventListener('touchstart', (e) => { e.preventDefault(); playerKeys1.right = true; });
     touchRight.addEventListener('touchend', (e) => { e.preventDefault(); playerKeys1.right = false; });
-
     jumpBtn.addEventListener('touchstart', (e) => { e.preventDefault(); playerKeys1.jump = true; });
     jumpBtn.addEventListener('touchend', (e) => { e.preventDefault(); playerKeys1.jump = false; });
     boostBtn.addEventListener('touchstart', (e) => { e.preventDefault(); playerKeys1.boost = true; });
     boostBtn.addEventListener('touchend', (e) => { e.preventDefault(); playerKeys1.boost = false; });
 
-    // Also handle mouse clicks on touch areas for desktop testing
     touchLeft.addEventListener('mousedown', () => { playerKeys1.left = true; });
     touchLeft.addEventListener('mouseup', () => { playerKeys1.left = false; });
     touchRight.addEventListener('mousedown', () => { playerKeys1.right = true; });
@@ -1221,12 +1587,11 @@
     boostBtn.addEventListener('mousedown', () => { playerKeys1.boost = true; });
     boostBtn.addEventListener('mouseup', () => { playerKeys1.boost = false; });
 
-    // Toggle button
     document.getElementById('mobileToggle').addEventListener('click', () => {
       setMobileMode(!mobileMode);
     });
 
-    // Minimap with apple clusters
+    // Minimap (unchanged)
     const minimapCanvas = document.getElementById('minimap');
     const minimapCtx = minimapCanvas.getContext('2d');
     function drawMinimap() {
@@ -1235,22 +1600,28 @@
       minimapCtx.fillStyle = 'rgba(0,0,0,0.8)';
       minimapCtx.fillRect(0, 0, 180, 180);
 
+      const levelToShow = player1.level;
+      const obsArr = levelToShow === 1 ? obstaclesL1 : levelToShow === 2 ? obstaclesL2 : obstaclesL3;
+      const wallsArr = levelToShow === 1 ? solidWallsL1 : levelToShow === 2 ? solidWallsL2 : solidWallsL3;
+      const foodArr = levelToShow === 1 ? foodsL1 : levelToShow === 2 ? foodsL2 : foodsL3;
+      const pwrArr = levelToShow === 1 ? powerupsL1 : levelToShow === 2 ? powerupsL2 : powerupsL3;
+      const golden = levelToShow === 1 ? goldenAppleL1 : levelToShow === 2 ? goldenAppleL2 : goldenAppleL3;
+
       minimapCtx.fillStyle = '#666';
-      obstacles.forEach(o => {
+      obsArr.forEach(o => {
         minimapCtx.fillRect(
           (o.position.x - 1) * scale + 90, (o.position.z - 1) * scale + 90, 2 * scale, 2 * scale
         );
       });
       minimapCtx.fillStyle = '#8b5a2b';
-      solidWalls.forEach(w => {
+      wallsArr.forEach(w => {
         minimapCtx.fillRect(
           (w.position.x - 1.25) * scale + 90, (w.position.z - 1.25) * scale + 90, 2.5 * scale, 2.5 * scale
         );
       });
-
       const cellSize = 3;
       const grid = new Map();
-      foods.forEach(f => {
+      foodArr.forEach(f => {
         const cx = Math.floor(f.position.x / cellSize);
         const cz = Math.floor(f.position.z / cellSize);
         const key = `${cx},${cz}`;
@@ -1266,18 +1637,17 @@
           minimapCtx.fillRect(x - 1.5, z - 1.5, 3, 3);
         }
       }
-
       minimapCtx.fillStyle = 'yellow';
-      powerups.forEach(p => {
+      pwrArr.forEach(p => {
         minimapCtx.fillRect(
           (p.position.x - 0.6) * scale + 90, (p.position.z - 0.6) * scale + 90, 1.2 * scale, 1.2 * scale
         );
       });
-      if (goldenApple) {
+      if (golden) {
         minimapCtx.fillStyle = '#ffdd00';
         minimapCtx.beginPath();
         minimapCtx.arc(
-          goldenApple.position.x * scale + 90, goldenApple.position.z * scale + 90, 2 * scale, 0, Math.PI*2
+          golden.position.x * scale + 90, golden.position.z * scale + 90, 2 * scale, 0, Math.PI*2
         );
         minimapCtx.fill();
       }
@@ -1297,68 +1667,76 @@
         }
       }
 
-      if (player1.alive) drawSnakeBody(player1.headPos, player1.bodyMeshes, '#00ffcc', player1.sizeMultiplier);
-      if (twoPlayerMode && player2.alive) drawSnakeBody(player2.headPos, player2.bodyMeshes, '#ff44ff', player2.sizeMultiplier);
+      if (player1.alive && player1.level === levelToShow) drawSnakeBody(player1.headPos, player1.bodyMeshes, '#00ffcc', player1.sizeMultiplier);
+      if (twoPlayerMode && !mobileMode && player2.alive && player2.level === levelToShow) drawSnakeBody(player2.headPos, player2.bodyMeshes, '#ff44ff', player2.sizeMultiplier);
       aiSnakes.forEach(ai => {
-        if (ai.alive) drawSnakeBody(ai.headPos, ai.bodyMeshes, '#' + ai.color.toString(16).padStart(6, '0'), ai.sizeMultiplier);
+        if (ai.alive && ai.level === levelToShow) drawSnakeBody(ai.headPos, ai.bodyMeshes, '#' + ai.color.toString(16).padStart(6, '0'), ai.sizeMultiplier);
       });
     }
 
     function resetWorld() {
       clearWorld();
+      aiSnakes.forEach(ai => { ai.die(true); });
+      aiSnakes.length = 0;
+      aiSnakes.push(...createAISnakes(2));
+
       const step = 10;
       for (let x = -halfArena + step; x < halfArena - step; x += step) {
         for (let z = -halfArena + step; z < halfArena - step; z += step) {
           if (Math.random() < 0.7) continue;
           if (Math.abs(x - (-12)) < 6 && Math.abs(z - 0) < 6) continue;
           if (Math.abs(x - 12) < 6 && Math.abs(z - 0) < 6) continue;
-          spawnSolidWall(x, z);
+          spawnSolidWall(1, x, z);
+          spawnSolidWall(2, x, z);
+          spawnSolidWall(3, x, z);
         }
       }
 
       const gridStep = 4.5;
-      for (let x = -halfArena + 3; x < halfArena - 3; x += gridStep) {
-        for (let z = -halfArena + 3; z < halfArena - 3; z += gridStep) {
-          if (Math.abs(x) < 4 && Math.abs(z) < 4) continue;
-          if (Math.abs(x - (-12)) < 4 && Math.abs(z - 0) < 4) continue;
-          if (Math.abs(x - 12) < 4 && Math.abs(z - 0) < 4) continue;
-          if (Math.random() < 0.7) continue;
-          const pos = new THREE.Vector3(x, 1.0, z);
-          if (solidWalls.some(w => new THREE.Box3().setFromObject(w).containsPoint(pos))) continue;
-          spawnObstacle(pos);
+      for (let level = 1; level <= 3; level++) {
+        for (let x = -halfArena + 3; x < halfArena - 3; x += gridStep) {
+          for (let z = -halfArena + 3; z < halfArena - 3; z += gridStep) {
+            if (Math.abs(x) < 4 && Math.abs(z) < 4) continue;
+            if (Math.abs(x - (-12)) < 4 && Math.abs(z - 0) < 4) continue;
+            if (Math.abs(x - 12) < 4 && Math.abs(z - 0) < 4) continue;
+            if (Math.random() < 0.7) continue;
+            const pos = new THREE.Vector3(x, 1.0, z);
+            if (solidWallsL1.some(w => new THREE.Box3().setFromObject(w).containsPoint(pos))) continue;
+            spawnObstacle(level, pos);
+          }
         }
       }
 
-      for (let i = 0; i < MAX_APPLES; i++) {
-        let pos;
-        do {
-          pos = new THREE.Vector3((Math.random()-0.5)*(arenaSize-6), 0.5, (Math.random()-0.5)*(arenaSize-6));
-        } while (
-          obstacles.some(o => new THREE.Box3().setFromObject(o).containsPoint(pos)) ||
-          solidWalls.some(w => new THREE.Box3().setFromObject(w).containsPoint(pos)) ||
-          (goldenApple && pos.distanceTo(goldenApple.position) < 2)
-        );
-        spawnApple(pos);
+      for (let level = 1; level <= 3; level++) {
+        let spawned = 0;
+        let attempts = 0;
+        while (spawned < MAX_APPLES && attempts < MAX_APPLES * 5) {
+          const pos = new THREE.Vector3((Math.random()-0.5)*(arenaSize-6), 0.5, (Math.random()-0.5)*(arenaSize-6));
+          if (spawnApple(level, pos)) spawned++;
+          attempts++;
+        }
       }
 
-      for (let i = 0; i < MAX_POWERUPS; i++) {
-        let pos;
-        do {
-          pos = new THREE.Vector3((Math.random()-0.5)*(arenaSize-6), 0.6, (Math.random()-0.5)*(arenaSize-6));
-        } while (
-          obstacles.some(o => new THREE.Box3().setFromObject(o).containsPoint(pos)) ||
-          solidWalls.some(w => new THREE.Box3().setFromObject(w).containsPoint(pos))
-        );
-        spawnPowerup(pos);
+      for (let level = 1; level <= 3; level++) {
+        for (let i = 0; i < MAX_POWERUPS; i++) {
+          let pos;
+          do {
+            pos = new THREE.Vector3((Math.random()-0.5)*(arenaSize-6), 0.6, (Math.random()-0.5)*(arenaSize-6));
+          } while (
+            (level === 1 ? obstaclesL1 : level === 2 ? obstaclesL2 : obstaclesL3).some(o => new THREE.Box3().setFromObject(o).containsPoint(pos)) ||
+            (level === 1 ? solidWallsL1 : level === 2 ? solidWallsL2 : solidWallsL3).some(w => new THREE.Box3().setFromObject(w).containsPoint(pos))
+          );
+          spawnPowerup(level, pos);
+        }
       }
 
-      // Reset players
       [player1, player2].forEach(p => {
         p.alive = true;
         p.score = 0;
         p.kills = 0;
         p.sizeMultiplier = 1;
-        p.headPos.set(p === player1 ? -12 : 12, baseSegSize/2, 0);
+        p.level = 2;
+        p.headPos.set(p === player1 ? -12 : 12, LEVEL2_HEIGHT + baseSegSize/2, 0);
         p.yaw = 0;
         p.jumpVel = 0;
         p.boostDrainTimer = 0;
@@ -1367,10 +1745,7 @@
         p.powerup2xTimer = 0;
         p.spawnInvincibleTimer = 3;
         p.freezeTimer = 0;
-        while (p.bodyMeshes.length > 5) {
-          const mesh = p.bodyMeshes.pop();
-          scene.remove(mesh);
-        }
+        while (p.bodyMeshes.length > 5) { const m = p.bodyMeshes.pop(); scene.remove(m); }
         while (p.bodyMeshes.length < 5) p.addBodySegment();
         p.createHead();
         p.resetTrail();
@@ -1379,22 +1754,31 @@
         p.headMesh.rotation.y = 0;
       });
 
-      // If mobile mode or single player, kill player2
-      if (!twoPlayerMode || mobileMode) {
-        player2.die();
-      }
-
-      for (const ai of aiSnakes) {
+      aiSnakes.forEach(ai => {
         let pos;
         let attempts = 0;
         do {
-          pos = new THREE.Vector3((Math.random()-0.5)*(arenaSize-10), baseSegSize/2, (Math.random()-0.5)*(arenaSize-10));
+          pos = new THREE.Vector3((Math.random()-0.5)*(arenaSize-10), LEVEL2_HEIGHT + baseSegSize/2, (Math.random()-0.5)*(arenaSize-10));
           attempts++;
           if (attempts > 100) break;
-        } while (pos.distanceTo(player1.headPos) < 40 || (twoPlayerMode && !mobileMode && player2.alive && pos.distanceTo(player2.headPos) < 40));
+        } while (pos.distanceTo(player1.headPos) < 40 || (twoPlayerMode && player2.alive && pos.distanceTo(player2.headPos) < 40));
         ai.spawn(pos);
+      });
+
+      createGoldenApple(1, new THREE.Vector3((Math.random()-0.5)*(arenaSize-6), 0.5, (Math.random()-0.5)*(arenaSize-6)));
+      createGoldenApple(2, new THREE.Vector3((Math.random()-0.5)*(arenaSize-6), LEVEL2_HEIGHT + 0.5, (Math.random()-0.5)*(arenaSize-6)));
+      createGoldenApple(3, new THREE.Vector3((Math.random()-0.5)*(arenaSize-6), LEVEL3_HEIGHT + 0.5, (Math.random()-0.5)*(arenaSize-6)));
+
+      groupL1.visible = false;
+      groupL2.visible = true;
+      groupL3.visible = false;
+
+      // Update body class for two-player layout
+      if (twoPlayerMode && !mobileMode) {
+        document.body.classList.add('two-player');
+      } else {
+        document.body.classList.remove('two-player');
       }
-      createGoldenApple(new THREE.Vector3((Math.random()-0.5)*(arenaSize-6), 0.5, (Math.random()-0.5)*(arenaSize-6)));
     }
 
     document.getElementById('respawnP1').addEventListener('click', () => { if (!player1.alive) player1.respawn(); });
@@ -1402,15 +1786,17 @@
     document.getElementById('fullRestart').addEventListener('click', () => resetWorld());
     const modeToggle = document.getElementById('modeToggle');
     modeToggle.addEventListener('click', () => {
-      if (mobileMode) return; // ignore in mobile mode
+      if (mobileMode) return;
       twoPlayerMode = !twoPlayerMode;
       modeToggle.textContent = twoPlayerMode ? '👥 2‑Player Mode' : '🎮 1‑Player Mode';
+      if (twoPlayerMode) document.body.classList.add('two-player');
+      else document.body.classList.remove('two-player');
       resetWorld();
     });
 
     window.addEventListener('keydown', (e) => {
       Sfx.init();
-      if (mobileMode) return; // ignore keyboard in mobile mode
+      if (mobileMode) return;
       if (e.code === 'KeyA') playerKeys1.left = true;
       if (e.code === 'KeyD') playerKeys1.right = true;
       if (e.code === 'KeyW') playerKeys1.jump = true;
@@ -1446,25 +1832,78 @@
       const delta = Math.min(0.1, (now - lastTime) / 1000); lastTime = now;
 
       for (const player of players) { if (player.alive) player.handleInput(delta); }
-      const p2Ref = (twoPlayerMode && !mobileMode && player2.alive) ? player2 : null;
-      player1.updatePhysics(delta, obstacles, solidWalls, p2Ref);
-      if (p2Ref) player2.updatePhysics(delta, obstacles, solidWalls, player1);
-      for (const ai of aiSnakes) { if (ai.alive) ai.update(delta, [player1, player2], solidWalls); }
-      reaperKillAIs();
-      updateGoldenApple(delta);
+      const p1Other = (player2.alive && player2.level === player1.level) ? player2 : null;
+      const p2Other = (player1.alive && player1.level === player2.level) ? player1 : null;
+      player1.updatePhysics(delta, p1Other);
+      if (twoPlayerMode && !mobileMode) player2.updatePhysics(delta, p2Other);
 
-      while (powerups.length < MAX_POWERUPS) {
+      for (const ai of aiSnakes) { if (ai.alive) ai.update(delta, [player1, player2], null); }
+      handleAIAICollisions();
+      reaperKillAIs();
+
+      updateGoldenApple(1, delta);
+      updateGoldenApple(2, delta);
+      updateGoldenApple(3, delta);
+
+      const maintainApples = (level, foodArr) => {
+        let attempts = 0;
+        while (foodArr.length < MAX_APPLES && attempts < 50) {
+          const pos = new THREE.Vector3((Math.random()-0.5)*(arenaSize-6), (level===1?0:level===2?LEVEL2_HEIGHT:LEVEL3_HEIGHT)+0.5, (Math.random()-0.5)*(arenaSize-6));
+          if (spawnApple(level, pos)) attempts = 0;
+          else attempts++;
+        }
+      };
+      maintainApples(1, foodsL1);
+      maintainApples(2, foodsL2);
+      maintainApples(3, foodsL3);
+
+      while (powerupsL1.length < MAX_POWERUPS) {
         let pos;
         do {
           pos = new THREE.Vector3((Math.random()-0.5)*(arenaSize-6), 0.6, (Math.random()-0.5)*(arenaSize-6));
         } while (
-          obstacles.some(o => new THREE.Box3().setFromObject(o).containsPoint(pos)) ||
-          solidWalls.some(w => new THREE.Box3().setFromObject(w).containsPoint(pos))
+          obstaclesL1.some(o => new THREE.Box3().setFromObject(o).containsPoint(pos)) ||
+          solidWallsL1.some(w => new THREE.Box3().setFromObject(w).containsPoint(pos))
         );
-        spawnPowerup(pos);
+        spawnPowerup(1, pos);
+      }
+      while (powerupsL2.length < MAX_POWERUPS) {
+        let pos;
+        do {
+          pos = new THREE.Vector3((Math.random()-0.5)*(arenaSize-6), 0.6, (Math.random()-0.5)*(arenaSize-6));
+        } while (
+          obstaclesL2.some(o => new THREE.Box3().setFromObject(o).containsPoint(pos)) ||
+          solidWallsL2.some(w => new THREE.Box3().setFromObject(w).containsPoint(pos))
+        );
+        spawnPowerup(2, pos);
+      }
+      while (powerupsL3.length < MAX_POWERUPS) {
+        let pos;
+        do {
+          pos = new THREE.Vector3((Math.random()-0.5)*(arenaSize-6), 0.6, (Math.random()-0.5)*(arenaSize-6));
+        } while (
+          obstaclesL3.some(o => new THREE.Box3().setFromObject(o).containsPoint(pos)) ||
+          solidWallsL3.some(w => new THREE.Box3().setFromObject(w).containsPoint(pos))
+        );
+        spawnPowerup(3, pos);
       }
 
-      while (foods.length < MAX_APPLES) spawnApple();
+      // Group visibility
+      if (twoPlayerMode && !mobileMode && player1.alive && player2.alive) {
+        if (player1.level !== player2.level) {
+          groupL1.visible = (player1.level === 1 || player2.level === 1);
+          groupL2.visible = (player1.level === 2 || player2.level === 2);
+          groupL3.visible = (player1.level === 3 || player2.level === 3);
+        } else {
+          groupL1.visible = (player1.level === 1);
+          groupL2.visible = (player1.level === 2);
+          groupL3.visible = (player1.level === 3);
+        }
+      } else {
+        groupL1.visible = (player1.level === 1);
+        groupL2.visible = (player1.level === 2);
+        groupL3.visible = (player1.level === 3);
+      }
 
       const baseCamDistance = 22, baseCamHeight = 10;
       if (player1.alive) {
@@ -1474,7 +1913,7 @@
         cam1.position.lerp(player1.headPos.clone().add(behind1.multiplyScalar(camDist).add(new THREE.Vector3(0, baseCamHeight * mul, 0))), 4*delta);
         cam1.lookAt(player1.headPos.clone().add(new THREE.Vector3(0, 1.5, 0)));
       }
-      if (p2Ref) {
+      if (twoPlayerMode && !mobileMode && player2.alive) {
         const mul = 1 + player2.score * 0.005;
         const camDist = Math.min(baseCamDistance * mul, 40);
         const behind2 = new THREE.Vector3(-Math.sin(player2.yaw), 0, -Math.cos(player2.yaw)).normalize();
