@@ -32,7 +32,11 @@
     .ai5 { color: #ffdd00; }
     .ai6 { color: #66ff66; }
     .ai7 { color: #ff8800; }
-    .ai8 { color: #ff0000; font-weight: bold; text-shadow: 0 0 5px red; }
+    .ai8 { color: #2A9D8F; }
+    .ai9 { color: #6D597A; }
+    .ai10 { color: #E76F51; }
+    .ai11 { color: #3FA7D6; }
+    .ai12 { color: #ff0000; font-weight: bold; text-shadow: 0 0 5px red; }
     #buttons {
       position: absolute; bottom: 20px; left: 50%;
       transform: translateX(-50%);
@@ -177,7 +181,7 @@
       powerup()   { this.playTone(1200,1600,0.2,'sine',0.2); },
       teleport()  { this.playTone(500,800,0.15,'sine',0.2); },
       portal()    { this.playTone(600,1000,0.3,'triangle',0.2); },
-      fall()      { this.playTone(200,50,0.4,'sawtooth',0.2); },
+      fall()      { this.playTone(200,50,0.4,'triangle',0.2); },
       spawnSnake(){ this.playTone(300,600,0.2,'square',0.2); }
     };
     document.addEventListener('click', () => Sfx.init(), { once: true });
@@ -204,8 +208,8 @@
     // ---------- Arena (200x200) ----------
     const arenaSize = 200;
     const halfArena = arenaSize / 2;
-    const LEVEL2_HEIGHT = 10;
-    const LEVEL3_HEIGHT = 20;
+    const LEVEL2_HEIGHT = 15;
+    const LEVEL3_HEIGHT = 30;
 
     // Ground (Level 1)
     const groundGeom = new THREE.PlaneGeometry(arenaSize, arenaSize, 200, 200);
@@ -400,7 +404,7 @@
     }
 
     // Power‑ups
-    const MAX_POWERUPS = 16;
+    const MAX_POWERUPS = 20;
     const powerupTypes = ['speed', 'turn', 'bonus', '2x', 'portal'];
 
     function createPowerupLabel(type) {
@@ -587,7 +591,7 @@
     function spawnRandomAISnake(level) {
       const personalities = ['hungry', 'shy', 'random', 'killer', 'jumpy'];
       const names = ['🍎 Hungry', '💧 Shy', '🎲 Random', '☠️ Killer', '🐇 Jumpy', '🍏 Greedy', '🐇 Hoppy', '🦘 Bouncy', '💀 Reaper'];
-      const colors = [0xff5555, 0x5588ff, 0xffaa00, 0xff2222, 0xff66ff, 0xffdd00, 0x66ff66, 0xff8800, 0xff0000];
+      const colors = [0xff5555, 0x5588ff, 0xffaa00, 0xff2222, 0xff66ff, 0xffdd00, 0x66ff66, 0xff8800, 0x3FA7D6,0xE76F51,0x6D597A,0x2A9D8F, 0xff0000];
       const idx = Math.floor(Math.random() * personalities.length);
       const name = names[idx] || names[0];
       const newAI = new AISnake(colors[idx] || 0xff5555, personalities[idx], name, level);
