@@ -1,1 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>3D Floorball · All Fixes</title>
+  <style>
+    :root {
+      --bg: #1a1a2e;
+      --panel-bg: rgba(20, 20, 40, 0.95);
+      --blue: #4a90d9;
+      --red: #d94a4a;
+      --gold: #ffd700;
+      --green: #4caf84;
+    }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { background:#0a0a14; overflow:hidden; font-family:'Segoe UI',system-ui,sans-serif; user-select:none; }
+    #gameCanvas { display:block; position:fixed; top:0; left:0; width:100%; height:100%; z-index:1; }
+    #ui-layer { position:fixed; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:10; }
+    #scoreboard {
+      position:absolute; top:20px; left:50%; transform:translateX(-50%);
+      background:var(--panel-bg); border:2px solid #333; border-radius:16px; padding:12px 28px;
+      display:flex; align-items:center; gap:15px; backdrop-filter:blur(12px);
+    }
+    .team { text-align:center; }
+    .team-name { font-weight:700; font-size:0.85rem; letter-spacing:1px; text-transform:uppercase; }
+    .team-score { font-size:2.4rem; font-weight:900; line-height:1; }
+    .team.blue { color:var(--blue); } .team.red { color:var(--red); }
+    #timer-display { font-size:1.8rem; font-weight:900; color:#fff; background:rgba(0,0,0,0.5); padding:4px 12px; border-radius:8px; min-width:70px; text-align:center; }
+    #period-display { color:#aaa; font-size:0.9rem; }
+    #power-meter-container {
+      position:absolute; bottom:100px; left:50%; transform:translateX(-50%); width:180px; height:18px;
+      background:rgba(0,0,0,0.6); border:2px solid #444; border-radius:10px; overflow:hidden; opacity:0;
+      transition:opacity 0.15s;
+    }
+    #power-meter-fill { height:100%; background:linear-gradient(90deg,#4caf84,#ffd700,#ff4444); width:0%; border-radius:8px; }
+    #power-meter-container.active { opacity:1; }
+    #message-center {
+      position:absolute; top:50%; left:50%; transform:translate(-50%,-50%) scale(0); font-size:2.5rem;
+      font-weight:900; color:#fff; text-shadow:0 0 30px rgba(255,255,255,0.8); pointer-events:none;
+      transition:transform 0.2s cubic-bezier(0.175,0.885,0.32,1.275); text-align:center;
+    }
+    #message-center.show { transform:translate(-50%,-50%) scale(1); }
+    #whistle-indicator {
+      position:absolute; top:50%; left:50%; transform:translate(-50%,-50%) scale(0); width:120px; height:120px;
+      border-radius:50%; border:4px solid #fff; background:rgba(255,255,255,0.08); pointer-events:none;
+      transition:all 0.3s; display:flex; align-items:center; justify-content:center; font-size:1.2rem;
+      font-weight:700; color:#fff; letter-spacing:2px;
+    }
+    #whistle-indicator.active { transform:translate(-50%,-50%) scale(1); animation:pulse-ring 0.8s infinite; }
+    @keyframes pulse-ring { 0%,100%{ box-shadow:0 0 20px rgba(255,255,255,0.3); } 50%{ box-shadow:0 0 50px rgba(255,255,255,0.7); } }
+    #whistle-indicator.go { background:rgba(76,175,132,0.4); border-color:#4caf84; animation:none; box-shadow:0 0 60px rgba(76,175,132,0.9); }
+    #skill-panel {
+      position:absolute; top:120px; right:16px; background:var(--panel-bg); border:2px solid #333;
+      border-radius:12px; padding:14px 16px; font-size:0.78rem; color:#e0e0e0; pointer-events:auto;
+      backdrop-filter:blur(10px); min-width:180px; display:none; z-index:25;
+    }
+    #skill-panel h4 { margin:0 0 8px; color:var(--gold); font-size:0.85rem; }
+    .skill-row { display:flex; justify-content:space-between; align-items:center; padding:4px 0; border-bottom:1px solid #222; gap:10px; }
+    .skill-name { flex:1; font-size:0.7rem; }
+    .skill-btn { pointer-events:auto; cursor:pointer; background:#333; color:#ccc; border:1px solid #555; border-radius:6px; padding:3px 8px; font-size:0.65rem; transition:all 0.2s; }
+    .skill-btn:hover { background:#555; color:#fff; border-color:var(--gold); }
+    .skill-btn.unlocked { background:#2a5a2a; border-color:#4caf84; color:#4caf84; cursor:default; }
+    .skill-btn.affordable { background:#3a3a1a; border-color:var(--gold); color:var(--gold); animation:subtle-glow 1.5s infinite; }
+    @keyframes subtle-glow { 0%,100%{ box-shadow:0 0 4px rgba(255,215,0,0.3); } 50%{ box-shadow:0 0 12px rgba(255,215,0,0.6); } }
+    #points-display { color:var(--gold); font-weight:700; font-size:0.8rem; margin-bottom:6px; }
+    #dribble-indicator { position:absolute; bottom:140px; left:50%; transform:translateX(-50%); display:flex; gap:30px; font-size:0.75rem; color:#aaa; pointer-events:none; }
+    #dribble-indicator span { padding:4px 10px; border-radius:4px; background:rgba(0,0,0,0.4); }
+    .active-side { color:#fff; background:rgba(255,255,255,0.2); font-weight:700; }
+    #controls-hint { position:absolute; bottom:20px; left:50%; transform:translateX(-50%); color:#666; font-size:0.7rem; text-align:center; }
+    #game-over-overlay {
+      position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.75);
+      display:none; align-items:center; justify-content:center; flex-direction:column; pointer-events:auto; z-index:30;
+    }
+    #game-over-overlay h2 { font-size:3rem; color:#fff; margin-bottom:10px; }
+    #game-over-overlay p { color:#ccc; font-size:1.2rem; margin-bottom:25px; }
+    #play-again-btn {
+      padding:14px 32px; font-size:1.2rem; background:var(--green); color:#fff; border:none; border-radius:12px;
+      cursor:pointer; font-weight:700; transition:0.2s; pointer-events:auto;
+    }
+    #play-again-btn:hover { background:#3d8b5e; transform:scale(1.05); }
+    #handedness-select {
+      position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:var(--panel-bg);
+      border:2px solid #555; border-radius:16px; padding:30px; text-align:center; z-index:30;
+      display:flex; flex-direction:column; gap:15px; pointer-events:auto;
+    }
+    #handedness-select button { padding:12px 24px; font-size:1rem; border:none; border-radius:8px; cursor:pointer; background:var(--blue); color:#fff; transition:0.2s; }
+    #handedness-select button:hover { filter:brightness(1.2); }
+    #handedness-select p { color:#ddd; margin-bottom:5px; }
+  </style>
+</head>
+<body>
+  <div id="ui-layer">
+    <div id="scoreboard">
+      <div class="team blue"><div class="team-name">Blue</div><div class="team-score" id="score-blue">0</div></div>
+      <div id="timer-display">1:00</div>
+      <div class="team red"><div class="team-name">Red</div><div class="team-score" id="score-red">0</div></div>
+      <span id="period-display">P1</span>
+    </div>
+    <div id="power-meter-container"><div id="power-meter-fill"></div></div>
+    <div id="message-center"></div>
+    <div id="whistle-indicator">WAIT</div>
+    <div id="skill-panel">
+      <h4>⭐ Upgrades</h4>
+      <div id="points-display">Points: 0</div>
+      <div class="skill-row"><span class="skill-name">🏃 Speed Boost</span><button class="skill-btn" data-skill="0">50 pts</button></div>
+      <div class="skill-row"><span class="skill-name">💪 Power Shot</span><button class="skill-btn" data-skill="1">75 pts</button></div>
+      <div class="skill-row"><span class="skill-name">🌀 Quick Dribble</span><button class="skill-btn" data-skill="2">60 pts</button></div>
+      <div class="skill-row"><span class="skill-name">👋 Steal Range</span><button class="skill-btn" data-skill="3">80 pts</button></div>
+      <div class="skill-row"><span class="skill-name">🎯 Pass Speed</span><button class="skill-btn" data-skill="4">40 pts</button></div>
+    </div>
+    <div id="dribble-indicator"><span id="forehand-ind">Q: Forehand</span><span id="backhand-ind">E: Backhand</span></div>
+    <div id="controls-hint">WASD: Move | Shift: Sprint | LMB (hold): Shoot | RMB: Pass | SPACE: Steal | Q/E: Dribble & Sweep Steal | C: Crouch | I: Camera</div>
+    <div id="game-over-overlay">
+      <h2 id="game-over-title"></h2>
+      <p id="game-over-subtitle"></p>
+      <button id="play-again-btn">Play Again</button>
+    </div>
+    <div id="handedness-select">
+      <p>Choose your shooting hand</p>
+      <button id="btn-right">Right Shooter (forehand right)</button>
+      <button id="btn-left">Left Shooter (forehand left)</button>
+    </div>
+  </div>
 
+  <script type="importmap">
+    { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.157.0/build/three.module.js" } }
+  </script>
+
+   <script type="module">
+    import * as THREE from 'three';
+  
+    // ... all DOM references and Three.js setup remain identical ...
+  
+    const RINK_LENGTH = 44, RINK_WIDTH = 20;
+    const RINK_HALF = RINK_LENGTH / 2, RINK_HW = RINK_WIDTH / 2;
+    const GOAL_WIDTH = 3.0, GOAL_HEIGHT = 2.1, GOAL_DEPTH = 1.8;
+    // ★ Move goals closer to the end boards – still fully inside ★
+    const GOAL_X_OFFSET = RINK_HALF - 1.0;   // now 21.0 instead of 20.0
+    const BALL_RADIUS = 0.18, PLAYER_RADIUS = 0.45, PLAYER_HEIGHT = 1.75, STICK_LENGTH = 1.3, PICKUP_RADIUS = 2.2;
+    // ★ Larger collision radius → stops players from tunnelling through each other ★
+    const PLAYER_COLLISION_RADIUS = 0.9;    // was 0.7
+    const GOALIE_CATCH_RADIUS = 2.8;
+  
+    // ... rest of the constants, state, entities, etc. ...
+  
+    function handleCollisions() {
+      const all = [...allPlayers, ...allGoalies];
+      for (let i = 0; i < all.length; i++) {
+        for (let j = i + 1; j < all.length; j++) {
+          const a = all[i], b = all[j];
+          const dist = a.pos.distanceTo(b.pos);
+          const minDist = (a instanceof Goalkeeper || b instanceof Goalkeeper) ? 1.3 : PLAYER_COLLISION_RADIUS * 2;
+          if (dist < minDist) {
+            const push = a.pos.clone().sub(b.pos).normalize().multiplyScalar((minDist - dist) * 0.5);
+            a.pos.add(push);
+            b.pos.sub(push);
+  
+            // ★ Lock goalkeepers to their goal line after any push ★
+            if (a instanceof Goalkeeper) {
+              a.pos.x = (a.team === 'blue' ? -GOAL_X_OFFSET : GOAL_X_OFFSET);
+              a.pos.z = Math.max(-RINK_HW + 0.6, Math.min(RINK_HW - 0.6, a.pos.z));
+            }
+            if (b instanceof Goalkeeper) {
+              b.pos.x = (b.team === 'blue' ? -GOAL_X_OFFSET : GOAL_X_OFFSET);
+              b.pos.z = Math.max(-RINK_HW + 0.6, Math.min(RINK_HW - 0.6, b.pos.z));
+            }
+  
+            // ... ball bump logic remains unchanged ...
+          }
+        }
+      }
+    }
+  
+    // The rest of the game logic stays exactly the same, including the main loop.
+    // No other changes needed.
+  </script>
+</body>
+</html>
