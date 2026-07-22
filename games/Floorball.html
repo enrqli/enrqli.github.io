@@ -127,53 +127,692 @@
     { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.157.0/build/three.module.js" } }
   </script>
 
-   <script type="module">
-    import * as THREE from 'three';
-  
-    // ... all DOM references and Three.js setup remain identical ...
-  
-    const RINK_LENGTH = 44, RINK_WIDTH = 20;
-    const RINK_HALF = RINK_LENGTH / 2, RINK_HW = RINK_WIDTH / 2;
-    const GOAL_WIDTH = 3.0, GOAL_HEIGHT = 2.1, GOAL_DEPTH = 1.8;
-    // ★ Move goals closer to the end boards – still fully inside ★
-    const GOAL_X_OFFSET = RINK_HALF - 1.0;   // now 21.0 instead of 20.0
-    const BALL_RADIUS = 0.18, PLAYER_RADIUS = 0.45, PLAYER_HEIGHT = 1.75, STICK_LENGTH = 1.3, PICKUP_RADIUS = 2.2;
-    // ★ Larger collision radius → stops players from tunnelling through each other ★
-    const PLAYER_COLLISION_RADIUS = 0.9;    // was 0.7
-    const GOALIE_CATCH_RADIUS = 2.8;
-  
-    // ... rest of the constants, state, entities, etc. ...
-  
-    function handleCollisions() {
-      const all = [...allPlayers, ...allGoalies];
-      for (let i = 0; i < all.length; i++) {
-        for (let j = i + 1; j < all.length; j++) {
-          const a = all[i], b = all[j];
-          const dist = a.pos.distanceTo(b.pos);
-          const minDist = (a instanceof Goalkeeper || b instanceof Goalkeeper) ? 1.3 : PLAYER_COLLISION_RADIUS * 2;
-          if (dist < minDist) {
-            const push = a.pos.clone().sub(b.pos).normalize().multiplyScalar((minDist - dist) * 0.5);
-            a.pos.add(push);
-            b.pos.sub(push);
-  
-            // ★ Lock goalkeepers to their goal line after any push ★
-            if (a instanceof Goalkeeper) {
-              a.pos.x = (a.team === 'blue' ? -GOAL_X_OFFSET : GOAL_X_OFFSET);
-              a.pos.z = Math.max(-RINK_HW + 0.6, Math.min(RINK_HW - 0.6, a.pos.z));
-            }
-            if (b instanceof Goalkeeper) {
-              b.pos.x = (b.team === 'blue' ? -GOAL_X_OFFSET : GOAL_X_OFFSET);
-              b.pos.z = Math.max(-RINK_HW + 0.6, Math.min(RINK_HW - 0.6, b.pos.z));
-            }
-  
-            // ... ball bump logic remains unchanged ...
-          }
+  <script type="module">
+import * as THREE from 'three';
+
+// ── DOM ────────────────────────────────
+const scoreBlueEl = document.getElementById('score-blue');
+const scoreRedEl = document.getElementById('score-red');
+const periodEl = document.getElementById('period-display');
+const timerEl = document.getElementById('timer-display');
+const powerContainer = document.getElementById('power-meter-container');
+const powerFill = document.getElementById('power-meter-fill');
+const msgCenter = document.getElementById('message-center');
+const whistle = document.getElementById('whistle-indicator');
+const pointsDisp = document.getElementById('points-display');
+const foreInd = document.getElementById('forehand-ind');
+const backInd = document.getElementById('backhand-ind');
+const skillPanel = document.getElementById('skill-panel');
+const skillBtns = document.querySelectorAll('.skill-btn');
+const gameOverOverlay = document.getElementById('game-over-overlay');
+const gameOverTitle = document.getElementById('game-over-title');
+const gameOverSub = document.getElementById('game-over-subtitle');
+const playAgainBtn = document.getElementById('play-again-btn');
+const handedSelect = document.getElementById('handedness-select');
+const btnRight = document.getElementById('btn-right');
+const btnLeft = document.getElementById('btn-left');
+
+// ── Three.js ────────────────────────────
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.1;
+renderer.domElement.id = 'gameCanvas';
+document.body.prepend(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color('#1a1a2e');
+scene.fog = new THREE.Fog('#1a1a2e', 30, 80);
+const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.5, 120);
+camera.position.set(0, 8, 14);
+
+const ambient = new THREE.AmbientLight('#8899bb', 1.4); scene.add(ambient);
+const sun = new THREE.DirectionalLight('#fffef0', 3.5);
+sun.position.set(15, 25, 10); sun.castShadow = true;
+sun.shadow.mapSize.width = 2048; sun.shadow.mapSize.height = 2048;
+sun.shadow.camera.near = 0.5; sun.shadow.camera.far = 80;
+sun.shadow.camera.left = -30; sun.shadow.camera.right = 30;
+sun.shadow.camera.top = 20; sun.shadow.camera.bottom = -20;
+sun.shadow.bias = -0.0003; scene.add(sun);
+const fill = new THREE.DirectionalLight('#aaccff', 0.8); fill.position.set(-8, 5, -5); scene.add(fill);
+
+// ── Constants & Rink ────────────────────
+const RINK_LENGTH = 44, RINK_WIDTH = 20;
+const RINK_HALF = RINK_LENGTH / 2, RINK_HW = RINK_WIDTH / 2;
+const GOAL_WIDTH = 3.0, GOAL_HEIGHT = 2.1, GOAL_DEPTH = 1.8;
+// ★ Goals now sit entirely inside the rink (close to the boards)
+const GOAL_X_OFFSET = RINK_HALF - 1.0;   // 21.0, back of net at 21.9 (well inside 22.0)
+const BALL_RADIUS = 0.18, PLAYER_RADIUS = 0.45, PLAYER_HEIGHT = 1.75, STICK_LENGTH = 1.3, PICKUP_RADIUS = 2.2;
+// ★ Larger collision radius – players can’t ghost through each other
+const PLAYER_COLLISION_RADIUS = 0.9;    // was 0.7
+const GOALIE_CATCH_RADIUS = 2.8;
+
+const rink = new THREE.Group(); scene.add(rink);
+const floor = new THREE.Mesh(
+  new THREE.PlaneGeometry(RINK_LENGTH, RINK_WIDTH),
+  new THREE.MeshStandardMaterial({ color: '#3a754a', roughness: 0.7 })
+);
+floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; rink.add(floor);
+
+const centerLineGeo = new THREE.PlaneGeometry(0.2, RINK_WIDTH);
+const centerLineMat = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.5 });
+const centerLine = new THREE.Mesh(centerLineGeo, centerLineMat);
+centerLine.rotation.x = -Math.PI / 2; centerLine.position.y = 0.01; centerLine.receiveShadow = true;
+rink.add(centerLine);
+
+const boardMat = new THREE.MeshStandardMaterial({ color: '#3a3a4a', roughness: 0.3, metalness: 0.5 });
+function addBoard(w, d, x, z) {
+  const b = new THREE.Mesh(new THREE.BoxGeometry(w, 0.9, d), boardMat);
+  b.position.set(x, 0.45, z);
+  b.castShadow = true; b.receiveShadow = true;
+  rink.add(b);
+}
+addBoard(RINK_LENGTH, 0.2, 0, -RINK_HW);
+addBoard(RINK_LENGTH, 0.2, 0, RINK_HW);
+addBoard(0.2, RINK_WIDTH + 0.4, -RINK_HALF, 0);
+addBoard(0.2, RINK_WIDTH + 0.4, RINK_HALF, 0);
+
+function createGoal(xPos) {
+  const g = new THREE.Group();
+  const pm = new THREE.MeshStandardMaterial({ color: '#dd4444', roughness: 0.25, metalness: 0.7 });
+  const nm = new THREE.MeshStandardMaterial({ color: '#fff', roughness: 0.9, metalness: 0, transparent: true, opacity: 0.45, side: THREE.DoubleSide });
+  const pr = 0.12;
+  const pg = new THREE.CylinderGeometry(pr, pr, GOAL_HEIGHT, 8);
+  g.add(new THREE.Mesh(pg, pm)).position.set(xPos, GOAL_HEIGHT / 2, -GOAL_WIDTH / 2);
+  g.add(new THREE.Mesh(pg, pm)).position.set(xPos, GOAL_HEIGHT / 2, GOAL_WIDTH / 2);
+  const cg = new THREE.CylinderGeometry(pr, pr, GOAL_WIDTH, 8);
+  const cross = new THREE.Mesh(cg, pm);
+  cross.rotation.z = Math.PI / 2;
+  cross.position.set(xPos, GOAL_HEIGHT, 0);
+  g.add(cross);
+  const backX = xPos > 0 ? xPos + GOAL_DEPTH / 2 : xPos - GOAL_DEPTH / 2;
+  const back = new THREE.Mesh(new THREE.PlaneGeometry(GOAL_WIDTH, GOAL_HEIGHT), nm);
+  back.position.set(backX, GOAL_HEIGHT / 2, 0);
+  back.rotation.y = Math.PI / 2;
+  g.add(back);
+  const top = new THREE.Mesh(new THREE.PlaneGeometry(GOAL_WIDTH, GOAL_DEPTH), nm);
+  top.position.set(xPos, GOAL_HEIGHT, 0);
+  top.rotation.x = -Math.PI / 2;
+  g.add(top);
+  const sm = new THREE.Mesh(new THREE.PlaneGeometry(GOAL_DEPTH, GOAL_HEIGHT), nm);
+  sm.position.set(xPos, GOAL_HEIGHT / 2, -GOAL_WIDTH / 2);
+  sm.rotation.y = Math.PI / 2;
+  g.add(sm);
+  const sm2 = sm.clone();
+  sm2.position.set(xPos, GOAL_HEIGHT / 2, GOAL_WIDTH / 2);
+  g.add(sm2);
+  return g;
+}
+rink.add(createGoal(-GOAL_X_OFFSET));
+rink.add(createGoal(GOAL_X_OFFSET));
+
+// ── Game State ──────────────────────────
+const state = {
+  scoreBlue: 0, scoreRed: 0, period: 1, phase: 'faceoff',
+  faceoffStage: 'waiting', faceoffTimer: 0, faceoffDelay: 0,
+  playerReacted: false, playerReactionTime: 0, botReactionTime: 0,
+  goalTimer: 0, messageTimer: 0, skillPoints: 200,
+  unlockedSkills: [false, false, false, false, false],
+  skillCosts: [50, 75, 60, 80, 40], skillNames: ['Speed Boost', 'Power Shot', 'Quick Dribble', 'Steal Range', 'Pass Speed'],
+  ballPossessor: null, ballFree: true, periodTime: 0, periodDuration: 60, gameOver: false, maxPeriods: 2,
+  handedness: 'right',
+  faceoffResolved: false,
+};
+
+const input = {
+  keys: {}, mouseDown: false, mouseButton: null, chargeStart: 0,
+  mouseX: 0, mouseY: 0, stealPressed: false, camIndex: 0, camToggle: false,
+};
+const camPresets = [{ dist: 7, height: 4.5 }, { dist: 14, height: 8 }, { dist: 2, height: 22 }];
+
+// ── Audio ───────────────────────────────
+let audioCtx;
+function initAudio() { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+function beep(f, d, t = 'sine', v = 0.15) {
+  if (!audioCtx) return;
+  try {
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.type = t; o.frequency.setValueAtTime(f, audioCtx.currentTime);
+    g.gain.setValueAtTime(v, audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + d);
+    o.connect(g); g.connect(audioCtx.destination);
+    o.start(); o.stop(audioCtx.currentTime + d);
+  } catch (e) { }
+}
+function whistleSnd() { beep(800, 0.15); setTimeout(() => beep(1000, 0.2), 150); }
+function goalSnd() { beep(440, 0.2, 'square', 0.2); setTimeout(() => beep(660, 0.2, 'square', 0.2), 200); setTimeout(() => beep(880, 0.35, 'square', 0.25), 400); }
+function stealSnd() { beep(200, 0.1, 'triangle', 0.12); }
+function shotSnd(p) { beep(150 + p * 300, 0.15, 'sawtooth', 0.08 + p * 0.12); }
+
+// ── Player & Goalkeeper Classes ─────────
+class Player {
+  constructor(x, z, team, isHuman = false) {
+    this.team = team; this.isHuman = isHuman;
+    this.pos = new THREE.Vector3(x, 0, z); this.vel = new THREE.Vector3();
+    this.facing = team === 'blue' ? 0 : Math.PI; this.targetFacing = this.facing;
+    this.speed = 7.5; this.hasBall = false;
+    this.dribbleSide = 'forehand'; this.dribbleOff = 0; this.targetDribbleOff = 1.0;
+    this.crouchAmt = 0; this.targetCrouch = 0; this.lastSteal = 0;
+    this.lastRelease = 0;
+    this.group = new THREE.Group(); this.group.position.copy(this.pos); scene.add(this.group);
+    this.createModel();
+    this.ai = { shootCd: 0, passCd: 0, stealCd: 0 };
+    this.role = 'support';
+  }
+  createModel() {
+    const col = this.team === 'blue' ? '#4a90d9' : '#d94a4a';
+    const body = new THREE.Mesh(new THREE.CapsuleGeometry(PLAYER_RADIUS * 0.85, PLAYER_HEIGHT * 0.45), new THREE.MeshStandardMaterial({ color: col, roughness: 0.4 }));
+    body.position.y = PLAYER_HEIGHT * 0.35; body.castShadow = true; this.group.add(body); this.bodyMesh = body;
+    const pants = new THREE.Mesh(new THREE.CapsuleGeometry(PLAYER_RADIUS * 0.8, PLAYER_HEIGHT * 0.35), new THREE.MeshStandardMaterial({ color: '#2a2a38', roughness: 0.5 }));
+    pants.position.y = PLAYER_HEIGHT * 0.1; pants.castShadow = true; this.group.add(pants);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.22), new THREE.MeshStandardMaterial({ color: '#f4c8a0', roughness: 0.6 }));
+    head.position.y = PLAYER_HEIGHT * 0.68; head.castShadow = true; this.group.add(head); this.headMesh = head;
+    const helmet = new THREE.Mesh(new THREE.SphereGeometry(0.24, 12, 10, 0, Math.PI * 2, 0, Math.PI * 0.55), new THREE.MeshStandardMaterial({ color: this.team === 'blue' ? '#3366aa' : '#aa3333', roughness: 0.3, metalness: 0.4 }));
+    helmet.position.y = PLAYER_HEIGHT * 0.72; helmet.castShadow = true; this.group.add(helmet);
+    const stick = new THREE.Group();
+    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, STICK_LENGTH), new THREE.MeshStandardMaterial({ color: '#1a1a1a', roughness: 0.3, metalness: 0.6 }));
+    shaft.position.y = STICK_LENGTH / 2; shaft.castShadow = true; stick.add(shaft);
+    const blade = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.06, 0.12), new THREE.MeshStandardMaterial({ color: '#111', roughness: 0.25, metalness: 0.7 }));
+    blade.position.set(0.2, 0.03, 0); blade.castShadow = true; stick.add(blade);
+    stick.position.set(0.3, 0.18, 0); stick.rotation.x = -0.2; this.stick = stick; this.group.add(stick);
+  }
+  update(dt) {
+    this.crouchAmt += (this.targetCrouch - this.crouchAmt) * Math.min(dt * 12, 1);
+    const cs = 1 - this.crouchAmt * 0.4;
+    this.bodyMesh.scale.y = cs; this.bodyMesh.position.y = PLAYER_HEIGHT * 0.35 * cs;
+    this.headMesh.position.y = PLAYER_HEIGHT * 0.68 * cs;
+    this.dribbleOff += (this.targetDribbleOff - this.dribbleOff) * Math.min(dt * 12, 1);
+    let diff = this.targetFacing - this.facing;
+    diff = ((diff + Math.PI) % (Math.PI * 2)) - Math.PI;
+    const maxRot = 10 * dt;
+    if (Math.abs(diff) > maxRot) diff = Math.sign(diff) * maxRot;
+    this.facing += diff;
+    this.pos.x += this.vel.x * dt; this.pos.z += this.vel.z * dt;
+    this.pos.x = Math.max(-RINK_HALF + PLAYER_RADIUS, Math.min(RINK_HALF - PLAYER_RADIUS, this.pos.x));
+    this.pos.z = Math.max(-RINK_HW + PLAYER_RADIUS, Math.min(RINK_HW - PLAYER_RADIUS, this.pos.z));
+    this.vel.x *= Math.pow(0.02, dt); this.vel.z *= Math.pow(0.02, dt);
+    if (Math.abs(this.vel.x) < 0.05) this.vel.x = 0;
+    if (Math.abs(this.vel.z) < 0.05) this.vel.z = 0;
+    this.group.position.set(this.pos.x, 0, this.pos.z);
+    this.group.rotation.y = this.facing;
+    const side = this.dribbleOff;
+    this.stick.position.set(0.3, 0.18, side * 0.8);
+    this.stick.rotation.z = -0.15 - side * 0.5;
+    if (this.ai.shootCd > 0) this.ai.shootCd -= dt;
+    if (this.ai.passCd > 0) this.ai.passCd -= dt;
+    if (this.ai.stealCd > 0) this.ai.stealCd -= dt;
+  }
+  attachPoint() {
+    const forward = new THREE.Vector3(Math.cos(this.facing), 0, Math.sin(this.facing));
+    const right = new THREE.Vector3(-Math.sin(this.facing), 0, Math.cos(this.facing));
+    const side = this.dribbleOff * 0.65;
+    return this.pos.clone().add(forward.clone().multiplyScalar(0.6)).add(right.clone().multiplyScalar(side)).setY(BALL_RADIUS);
+  }
+  shotDir() { return new THREE.Vector3(Math.cos(this.facing), 0, Math.sin(this.facing)).normalize(); }
+}
+
+class Goalkeeper {
+  constructor(x, team) {
+    this.team = team; this.pos = new THREE.Vector3(x, 0, 0); this.hasBall = false; this.throwCd = 0;
+    this.group = new THREE.Group(); this.group.position.copy(this.pos); scene.add(this.group);
+    const col = team === 'blue' ? '#4a90d9' : '#d94a4a';
+    const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.6, 1.4), new THREE.MeshStandardMaterial({ color: col, roughness: 0.4 }));
+    body.position.y = 0.7; body.castShadow = true; this.group.add(body);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.28), new THREE.MeshStandardMaterial({ color: '#f4c8a0' }));
+    head.position.y = 1.65; head.castShadow = true; this.group.add(head);
+  }
+  update(dt) {
+    if (!this.hasBall && ball.free) {
+      const tz = Math.max(-GOAL_WIDTH / 2 + 0.5, Math.min(GOAL_WIDTH / 2 - 0.5, ball.position.z));
+      this.pos.z += (tz - this.pos.z) * Math.min(dt * 7, 1);
+    }
+    this.pos.z = Math.max(-RINK_HW + 0.6, Math.min(RINK_HW - 0.6, this.pos.z));
+    this.group.position.copy(this.pos);
+    if (this.throwCd > 0) this.throwCd -= dt;
+    if (this.hasBall && this.throwCd <= 0) {
+      const mates = (this.team === 'blue' ? blueTeam : redTeam);
+      if (mates.length) {
+        const target = mates[Math.floor(Math.random() * mates.length)];
+        const dir = new THREE.Vector3().subVectors(target.pos, this.pos).normalize();
+        releaseBall(dir.multiplyScalar(14));
+        this.hasBall = false; state.ballPossessor = null;
+      }
+      this.throwCd = 1.0;
+    }
+  }
+}
+
+// ── Ball ────────────────────────────────
+const ballMesh = new THREE.Mesh(
+  new THREE.SphereGeometry(BALL_RADIUS),
+  new THREE.MeshStandardMaterial({ color: '#fff', roughness: 0.2, metalness: 0.1, emissive: '#222' })
+);
+ballMesh.castShadow = true; ballMesh.receiveShadow = true; scene.add(ballMesh);
+const ball = {
+  mesh: ballMesh, position: new THREE.Vector3(0, BALL_RADIUS, 0), velocity: new THREE.Vector3(),
+  free: true, possessor: null,
+};
+function setPossessor(p) {
+  if (ball.possessor) ball.possessor.hasBall = false;
+  ball.possessor = p; ball.free = (p === null);
+  if (p) { p.hasBall = true; state.ballPossessor = p; }
+  else state.ballPossessor = null;
+}
+function releaseBall(vel) {
+  if (ball.possessor) {
+    ball.possessor.hasBall = false;
+    ball.possessor.lastRelease = performance.now() / 1000;
+    ball.possessor = null;
+  }
+  ball.free = true; ball.velocity.copy(vel || new THREE.Vector3()); ball.position.y = BALL_RADIUS;
+  state.ballPossessor = null;
+}
+
+// ── Entities ────────────────────────────
+let human, blueTeam, redTeam, allPlayers, goalieBlue, goalieRed, allGoalies;
+let b1, b2, r1, r2, r3;
+
+function createEntities() {
+  human = new Player(0, -3, 'blue', true);
+  allPlayers = [human];
+  blueTeam = [human]; redTeam = [];
+  b1 = new Player(-4, 2, 'blue'); b1.role = 'forward'; blueTeam.push(b1); allPlayers.push(b1);
+  b2 = new Player(4, 2, 'blue'); b2.role = 'defender'; blueTeam.push(b2); allPlayers.push(b2);
+  r1 = new Player(-3, -2, 'red'); r1.role = 'forward'; redTeam.push(r1); allPlayers.push(r1);
+  r2 = new Player(3, -2, 'red'); r2.role = 'defender'; redTeam.push(r2); allPlayers.push(r2);
+  r3 = new Player(0, 5, 'red'); r3.role = 'support'; redTeam.push(r3); allPlayers.push(r3);
+  goalieBlue = new Goalkeeper(-GOAL_X_OFFSET, 'blue');
+  goalieRed = new Goalkeeper(GOAL_X_OFFSET, 'red');
+  allGoalies = [goalieBlue, goalieRed];
+}
+createEntities();
+
+// ── Handedness ──────────────────────────
+function applyHandedness() {
+  if (state.handedness === 'right') {
+    human.forehand = () => { human.targetDribbleOff = 1.0; human.dribbleSide = 'forehand'; };
+    human.backhand = () => { human.targetDribbleOff = -1.0; human.dribbleSide = 'backhand'; };
+  } else {
+    human.forehand = () => { human.targetDribbleOff = -1.0; human.dribbleSide = 'forehand'; };
+    human.backhand = () => { human.targetDribbleOff = 1.0; human.dribbleSide = 'backhand'; };
+  }
+  human.forehand();
+  for (const p of allPlayers) if (!p.isHuman) { p.targetDribbleOff = 1.0; p.dribbleSide = 'forehand'; }
+}
+btnRight.addEventListener('click', () => { state.handedness = 'right'; handedSelect.style.display = 'none'; applyHandedness(); initGame(); });
+btnLeft.addEventListener('click', () => { state.handedness = 'left'; handedSelect.style.display = 'none'; applyHandedness(); initGame(); });
+let gameStarted = false;
+function initGame() {
+  if (gameStarted) return;
+  gameStarted = true;
+  resetFaceoff();
+  updateSkills();
+  requestAnimationFrame(animate);
+}
+
+// ── Collision (★ FIXED: solid bumps, locked goalie X) ──
+function handleCollisions() {
+  const all = [...allPlayers, ...allGoalies];
+  for (let i = 0; i < all.length; i++) {
+    for (let j = i + 1; j < all.length; j++) {
+      const a = all[i], b = all[j];
+      const dist = a.pos.distanceTo(b.pos);
+      const minDist = (a instanceof Goalkeeper || b instanceof Goalkeeper) ? 1.3 : PLAYER_COLLISION_RADIUS * 2;
+      if (dist < minDist) {
+        const push = a.pos.clone().sub(b.pos).normalize().multiplyScalar((minDist - dist) * 0.5);
+        a.pos.add(push);
+        b.pos.sub(push);
+        // Lock goalkeepers to their goal line
+        if (a instanceof Goalkeeper) {
+          a.pos.x = (a.team === 'blue' ? -GOAL_X_OFFSET : GOAL_X_OFFSET);
+          a.pos.z = Math.max(-RINK_HW + 0.6, Math.min(RINK_HW - 0.6, a.pos.z));
+        }
+        if (b instanceof Goalkeeper) {
+          b.pos.x = (b.team === 'blue' ? -GOAL_X_OFFSET : GOAL_X_OFFSET);
+          b.pos.z = Math.max(-RINK_HW + 0.6, Math.min(RINK_HW - 0.6, b.pos.z));
+        }
+        // Random bump when ball carrier collides
+        if (a.hasBall && b instanceof Player && b.team !== a.team) {
+          const randomDir = new THREE.Vector3(Math.random() - 0.5, 0, Math.random() - 0.5).normalize();
+          releaseBall(randomDir.multiplyScalar(8 + Math.random() * 6));
+          a.hasBall = false; setPossessor(null);
+        } else if (b.hasBall && a instanceof Player && a.team !== b.team) {
+          const randomDir = new THREE.Vector3(Math.random() - 0.5, 0, Math.random() - 0.5).normalize();
+          releaseBall(randomDir.multiplyScalar(8 + Math.random() * 6));
+          b.hasBall = false; setPossessor(null);
         }
       }
     }
-  
-    // The rest of the game logic stays exactly the same, including the main loop.
-    // No other changes needed.
-  </script>
-</body>
+  }
+}
+
+// ── Game Functions (unchanged) ──────────
+function resetFaceoff() {
+  state.phase = 'faceoff'; state.faceoffStage = 'waiting'; state.faceoffDelay = 1.5 + Math.random() * 3;
+  state.faceoffTimer = 0; state.playerReacted = false; state.playerReactionTime = 0; state.botReactionTime = 0;
+  state.faceoffResolved = false;
+  whistle.classList.remove('go'); whistle.classList.add('active'); whistle.textContent = 'WAIT';
+  human.pos.set(0, -1.5, 0); human.vel.set(0, 0, 0); human.facing = 0; human.targetFacing = 0; human.crouchAmt = 0; human.targetCrouch = 0; human.forehand();
+  r1.pos.set(0, 1.5, 0); r1.vel.set(0, 0, 0); r1.facing = Math.PI; r1.targetFacing = Math.PI;
+  b1.pos.set(-4, 4, 0); b1.vel.set(0, 0, 0);
+  b2.pos.set(4, 4, 0); b2.vel.set(0, 0, 0);
+  r2.pos.set(-3, -4, 0); r2.vel.set(0, 0, 0);
+  r3.pos.set(3, -4, 0); r3.vel.set(0, 0, 0);
+  ball.position.set(0, BALL_RADIUS, 0); ball.velocity.set(0, 0, 0); setPossessor(null); ball.free = true;
+  goalieBlue.hasBall = false; goalieRed.hasBall = false;
+}
+function handleFaceoffWin(winner) {
+  if (state.faceoffResolved) return;
+  state.faceoffResolved = true;
+  state.phase = 'playing'; whistle.classList.remove('active', 'go'); whistle.textContent = '';
+  setPossessor(winner); ball.position.copy(winner.attachPoint()); ball.velocity.set(0, 0, 0);
+  showMsg(winner === human ? 'You win face-off!' : 'Opponent wins', 1.2);
+}
+function showMsg(m, d = 1.5) { msgCenter.textContent = m; msgCenter.classList.add('show'); state.messageTimer = d; }
+function hideMsg() { msgCenter.classList.remove('show'); }
+
+function checkGoal() {
+  if (ball.position.x > GOAL_X_OFFSET - 0.2 && Math.abs(ball.position.z) < GOAL_WIDTH / 2 && ball.position.y < GOAL_HEIGHT) return 'blue';
+  if (ball.position.x < -GOAL_X_OFFSET + 0.2 && Math.abs(ball.position.z) < GOAL_WIDTH / 2 && ball.position.y < GOAL_HEIGHT) return 'red';
+  return null;
+}
+function scoreGoal(team) {
+  if (team === 'blue') { state.scoreBlue++; scoreBlueEl.textContent = state.scoreBlue; state.skillPoints += 100; showMsg('GOAL Blue!', 2.5); }
+  else { state.scoreRed++; scoreRedEl.textContent = state.scoreRed; showMsg('GOAL Red!', 1.8); }
+  goalSnd(); updateSkills();
+  state.phase = 'goal_scored'; state.goalTimer = 2.5;
+  setPossessor(null); ball.free = true; ball.velocity.set(0, 0, 0); ball.position.set(0, BALL_RADIUS, 0);
+}
+
+function attemptSteal(stealer, target) {
+  if (!target || !target.hasBall) return false;
+  const dist = stealer.pos.distanceTo(target.pos);
+  const range = (stealer.isHuman && state.unlockedSkills[3]) ? 2.8 : 2.2;
+  if (dist > range) return false;
+  if (stealer.lastSteal && performance.now() / 1000 - stealer.lastSteal < 0.6) return false;
+  stealer.lastSteal = performance.now() / 1000;
+  if (Math.random() < 0.65) {
+    setPossessor(stealer); ball.position.copy(stealer.attachPoint()); ball.velocity.set(0, 0, 0);
+    if (stealer.isHuman) { state.skillPoints += 25; updateSkills(); showMsg('Stolen!', 1); }
+    stealSnd(); return true;
+  } return false;
+}
+
+function shoot(player, power) {
+  if (!player.hasBall) return;
+  const dir = player.shotDir();
+  const base = 28; const bonus = (player.isHuman && state.unlockedSkills[1]) ? 36 : 26;
+  releaseBall(dir.multiplyScalar(base + power * bonus));
+  shotSnd(power);
+}
+function pass(player) {
+  if (!player.hasBall) return;
+  releaseBall(player.shotDir().multiplyScalar(22));
+  beep(500, 0.08);
+}
+
+// ── Bot AI (unchanged) ──────────────────
+function updateBot(bot, dt) {
+  if (state.phase !== 'playing' || state.gameOver) { bot.vel.set(0, 0, 0); return; }
+  const nowSec = performance.now() / 1000;
+  if (ball.free && bot.pos.distanceTo(ball.position) < 1.0 && (nowSec - bot.lastRelease) > 0.15) {
+    setPossessor(bot); ball.position.copy(bot.attachPoint()); ball.velocity.set(0, 0, 0);
+  }
+  const spd = bot.speed * 0.8;
+  if (bot.hasBall) {
+    const targetX = bot.team === 'blue' ? GOAL_X_OFFSET - 3 : -GOAL_X_OFFSET + 3;
+    const targetZ = bot.pos.z * 0.7 + Math.sin(performance.now() / 1000 * 1.5 + bot.pos.x) * 2.5;
+    const tgt = new THREE.Vector3(targetX, 0, targetZ);
+    const to = tgt.clone().sub(bot.pos);
+    if (to.length() > 0.5) { to.normalize(); bot.vel.x += to.x * spd * dt * 4; bot.vel.z += to.z * spd * dt * 4; bot.targetFacing = Math.atan2(to.z, to.x); }
+    if (bot.ai.shootCd <= 0 && Math.random() < dt * 1.8) { shoot(bot, 0.5 + Math.random() * 0.5); bot.ai.shootCd = 1.2 + Math.random() * 2; }
+    if (bot.ai.passCd <= 0 && Math.random() < dt * 0.5) { pass(bot); bot.ai.passCd = 2 + Math.random() * 3; }
+  } else {
+    let tgt;
+    if (ball.free) tgt = ball.position.clone();
+    else if (state.ballPossessor && state.ballPossessor.team === bot.team) tgt = ball.position.clone().add(new THREE.Vector3(bot.team === 'blue' ? -2 : 2, 0, 0));
+    else if (state.ballPossessor && state.ballPossessor.team !== bot.team) tgt = state.ballPossessor.pos.clone();
+    else tgt = ball.position.clone();
+    if (bot.role === 'defender') tgt.x = Math.max(-RINK_HALF + 2, Math.min(bot.team === 'blue' ? -RINK_HALF + 2 : RINK_HALF - 2, tgt.x));
+    else if (bot.role === 'forward') tgt.x = bot.team === 'blue' ? Math.min(GOAL_X_OFFSET - 2, tgt.x) : Math.max(-GOAL_X_OFFSET + 2, tgt.x);
+    const to = tgt.clone().sub(bot.pos);
+    if (to.length() > 0.5) { to.normalize(); bot.vel.x += to.x * spd * dt * 4; bot.vel.z += to.z * spd * dt * 4; bot.targetFacing = Math.atan2(to.z, to.x); }
+    if (state.ballPossessor && state.ballPossessor.team !== bot.team && bot.ai.stealCd <= 0 && bot.pos.distanceTo(state.ballPossessor.pos) < 2.5) {
+      attemptSteal(bot, state.ballPossessor); bot.ai.stealCd = 0.7 + Math.random() * 1.2;
+    }
+  }
+  const mag = Math.sqrt(bot.vel.x ** 2 + bot.vel.z ** 2); if (mag > spd) { bot.vel.x *= spd / mag; bot.vel.z *= spd / mag; }
+}
+
+// ── Ball Update & Goalie Catch ──────────
+function updateBall(dt) {
+  if (!ball.free && ball.possessor) {
+    ball.position.copy(ball.possessor.attachPoint());
+    ball.velocity.set(0, 0, 0);
+  } else {
+    ball.velocity.x *= Math.pow(0.06, dt); ball.velocity.z *= Math.pow(0.06, dt);
+    if (Math.abs(ball.velocity.x) < 0.03) ball.velocity.x = 0;
+    if (Math.abs(ball.velocity.z) < 0.03) ball.velocity.z = 0;
+    ball.position.x += ball.velocity.x * dt; ball.position.z += ball.velocity.z * dt;
+    if (ball.position.x < -RINK_HALF + BALL_RADIUS) { ball.position.x = -RINK_HALF + BALL_RADIUS; ball.velocity.x *= -0.5; }
+    if (ball.position.x > RINK_HALF - BALL_RADIUS) { ball.position.x = RINK_HALF - BALL_RADIUS; ball.velocity.x *= -0.5; }
+    if (ball.position.z < -RINK_HW + BALL_RADIUS) { ball.position.z = -RINK_HW + BALL_RADIUS; ball.velocity.z *= -0.5; }
+    if (ball.position.z > RINK_HW - BALL_RADIUS) { ball.position.z = RINK_HW - BALL_RADIUS; ball.velocity.z *= -0.5; }
+    ball.position.y = BALL_RADIUS;
+    for (const g of allGoalies) {
+      if (!g.hasBall && ball.position.distanceTo(g.pos) < GOALIE_CATCH_RADIUS) {
+        g.hasBall = true; setPossessor(null); ball.free = false; ball.position.copy(g.pos); ball.velocity.set(0, 0, 0);
+        state.ballPossessor = g; g.throwCd = 0.5; break;
+      }
+    }
+  }
+  ball.mesh.position.copy(ball.position);
+}
+
+// ── Skills ──────────────────────────────
+function updateSkills() {
+  pointsDisp.textContent = `Points: ${state.skillPoints}`;
+  skillBtns.forEach((btn, i) => {
+    if (state.unlockedSkills[i]) { btn.textContent = '✓ Owned'; btn.className = 'skill-btn unlocked'; }
+    else if (state.skillPoints >= state.skillCosts[i]) { btn.textContent = `${state.skillCosts[i]} pts`; btn.className = 'skill-btn affordable'; }
+    else { btn.textContent = `${state.skillCosts[i]} pts`; btn.className = 'skill-btn'; }
+  });
+}
+skillBtns.forEach(btn => {
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (!state.gameOver) { showMsg('Upgrades after game!', 1.5); return; }
+    const i = parseInt(btn.dataset.skill);
+    if (state.unlockedSkills[i]) return;
+    if (state.skillPoints >= state.skillCosts[i]) {
+      state.skillPoints -= state.skillCosts[i]; state.unlockedSkills[i] = true; updateSkills();
+      showMsg(`Unlocked: ${state.skillNames[i]}!`, 1.8); beep(700, 0.15, 'sine', 0.2);
+      if (i === 0) human.speed = 9.0;
+    }
+  });
+});
+
+function trySweepSteal() {
+  if (human.hasBall) return;
+  const range = 2.8;
+  let closest = null, closestDist = Infinity;
+  for (const p of allPlayers) {
+    if (p === human || !p.hasBall || p.team === human.team) continue;
+    const d = human.pos.distanceTo(p.pos);
+    if (d < range && d < closestDist) { closest = p; closestDist = d; }
+  }
+  if (closest) attemptSteal(human, closest);
+}
+
+// ── Event Listeners ─────────────────────
+window.addEventListener('keydown', (e) => {
+  input.keys[e.key.toLowerCase()] = true;
+  if (e.key.toLowerCase() === 'c') { human.targetCrouch = 1; }
+  if (e.key.toLowerCase() === 'q') { human.forehand(); if (!human.hasBall) trySweepSteal(); }
+  if (e.key.toLowerCase() === 'e') { human.backhand(); if (!human.hasBall) trySweepSteal(); }
+  if (e.key.toLowerCase() === 'i' && !input.camToggle) { input.camToggle = true; input.camIndex = (input.camIndex + 1) % camPresets.length; }
+  if (e.key === ' ' && !input.stealPressed) {
+    input.stealPressed = true; initAudio();
+    if (state.phase === 'faceoff' && state.faceoffStage === 'ready' && !state.playerReacted) {
+      state.playerReacted = true; state.playerReactionTime = performance.now() / 1000 - state.faceoffWhistleTime;
+      if (state.playerReactionTime < 0) {
+        if (!state.faceoffResolved) {
+          state.faceoffResolved = true;
+          state.phase = 'playing'; whistle.classList.remove('active', 'go'); whistle.textContent = '';
+          handleFaceoffWin(r1);
+          showMsg('FALSE START!', 2);
+          beep(150, 0.4, 'square', 0.3);
+        }
+      }
+    }
+    if (state.phase === 'playing' && !human.hasBall && state.ballPossessor?.team !== 'blue') attemptSteal(human, state.ballPossessor);
+  }
+});
+window.addEventListener('keyup', (e) => {
+  input.keys[e.key.toLowerCase()] = false;
+  if (e.key.toLowerCase() === 'c') { human.targetCrouch = 0; }
+  if (e.key.toLowerCase() === 'i') input.camToggle = false;
+  if (e.key === ' ') input.stealPressed = false;
+});
+window.addEventListener('mousedown', (e) => {
+  initAudio(); input.mouseDown = true; input.mouseButton = e.button;
+  if (e.button === 0 && human.hasBall && state.phase === 'playing' && !state.gameOver) { input.chargeStart = performance.now() / 1000; powerContainer.classList.add('active'); }
+  if (e.button === 2 && human.hasBall && state.phase === 'playing' && !state.gameOver) { pass(human); e.preventDefault(); }
+});
+window.addEventListener('mouseup', (e) => {
+  if (e.button === 0 && input.mouseDown && human.hasBall && state.phase === 'playing' && !state.gameOver) {
+    const dur = performance.now() / 1000 - input.chargeStart;
+    shoot(human, Math.min(1, dur / 1.2));
+  }
+  input.mouseDown = false; powerContainer.classList.remove('active'); powerFill.style.width = '0%';
+});
+window.addEventListener('mousemove', (e) => { input.mouseX = e.clientX; input.mouseY = e.clientY; });
+window.addEventListener('contextmenu', e => e.preventDefault());
+window.addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+
+playAgainBtn.addEventListener('click', () => {
+  gameOverOverlay.style.display = 'none';
+  skillPanel.style.display = 'none';
+  state.gameOver = false;
+  state.period = 1;
+  state.periodTime = 0;
+  state.scoreBlue = 0; scoreBlueEl.textContent = '0';
+  state.scoreRed = 0; scoreRedEl.textContent = '0';
+  periodEl.textContent = 'P1';
+  state.skillPoints = 200;
+  state.unlockedSkills = [false, false, false, false, false];
+  updateSkills();
+  resetFaceoff();
+});
+
+function updateTimer() {
+  const remaining = Math.max(0, state.periodDuration - state.periodTime);
+  const min = Math.floor(remaining / 60);
+  const sec = Math.floor(remaining % 60).toString().padStart(2, '0');
+  timerEl.textContent = `${min}:${sec}`;
+}
+
+// ── Main Loop ──────────────────────────
+let lastTime = performance.now() / 1000;
+function animate(now) {
+  if (!gameStarted) return;
+  requestAnimationFrame(animate);
+  const t = now / 1000;
+  let dt = t - lastTime; lastTime = t;
+  if (dt <= 0) dt = 0.016; if (dt > 0.2) dt = 0.2;
+
+  if (!state.gameOver && state.phase === 'playing' && state.periodTime >= state.periodDuration) {
+    if (state.period >= state.maxPeriods) {
+      state.gameOver = true; state.phase = 'game_over';
+      gameOverOverlay.style.display = 'flex';
+      const w = state.scoreBlue > state.scoreRed ? 'Blue Wins!' : (state.scoreRed > state.scoreBlue ? 'Red Wins!' : 'Draw!');
+      gameOverTitle.textContent = w; gameOverSub.textContent = 'Upgrades now available.';
+      skillPanel.style.display = 'block'; showMsg('Game Over', 4);
+      setPossessor(null); ball.free = true;
+    } else {
+      state.period++; state.periodTime = 0; periodEl.textContent = `P${state.period}`;
+      resetFaceoff();
+    }
+  }
+  updateTimer();
+
+  if (state.gameOver) {
+    for (const p of allPlayers) p.vel.set(0, 0, 0);
+    updateBall(dt); renderer.render(scene, camera); return;
+  }
+
+  if (state.phase === 'faceoff') {
+    state.faceoffTimer += dt;
+    if (state.faceoffStage === 'waiting' && state.faceoffTimer >= state.faceoffDelay) {
+      state.faceoffStage = 'ready'; state.faceoffWhistleTime = t; whistle.classList.add('go'); whistle.textContent = 'GO!'; whistleSnd();
+      state.botReactionTime = 0.15 + Math.random() * 0.35;
+      setTimeout(() => {
+        if (state.phase === 'faceoff' && state.faceoffStage === 'ready' && !state.faceoffResolved && !state.playerReacted) {
+          handleFaceoffWin(r1);
+        }
+      }, Math.max(0, state.botReactionTime * 1000));
+    }
+    if (state.faceoffStage === 'ready' && state.playerReacted && state.playerReactionTime >= 0 && !state.faceoffResolved) {
+      if (state.playerReactionTime < state.botReactionTime) handleFaceoffWin(human);
+    }
+  }
+
+  if (state.phase === 'goal_scored') { state.goalTimer -= dt; if (state.goalTimer <= 0) resetFaceoff(); }
+
+  if (state.phase === 'playing') {
+    state.periodTime += dt;
+    const gt = checkGoal(); if (gt) scoreGoal(gt);
+    if (ball.free) {
+      const nowSec = performance.now() / 1000;
+      for (const p of allPlayers) {
+        if (!p.hasBall && p.pos.distanceTo(ball.position) < PICKUP_RADIUS && (nowSec - p.lastRelease) > 0.15) {
+          setPossessor(p); ball.position.copy(p.attachPoint()); break;
+        }
+      }
+    }
+
+    const move = new THREE.Vector3();
+    const cf = new THREE.Vector3(); camera.getWorldDirection(cf); cf.y = 0; cf.normalize();
+    const cr = new THREE.Vector3().crossVectors(cf, new THREE.Vector3(0, 1, 0)).normalize();
+    if (input.keys['w']) move.add(cf);
+    if (input.keys['s']) move.sub(cf);
+    if (input.keys['a']) move.sub(cr);
+    if (input.keys['d']) move.add(cr);
+    let currentSpeed = human.speed;
+    if (input.keys['shift']) currentSpeed *= 1.6;
+    if (move.length() > 0) { move.normalize(); human.vel.x += move.x * currentSpeed * dt * 4; human.vel.z += move.z * currentSpeed * dt * 4; human.targetFacing = Math.atan2(move.z, move.x); }
+    const mag = Math.sqrt(human.vel.x ** 2 + human.vel.z ** 2); if (mag > currentSpeed) { human.vel.x *= currentSpeed / mag; human.vel.z *= currentSpeed / mag; }
+
+    if (input.mouseDown && input.mouseButton === 0 && human.hasBall) {
+      powerFill.style.width = `${Math.min(1, (t - input.chargeStart) / 1.2) * 100}%`;
+    }
+  }
+
+  foreInd.className = human.dribbleSide === 'forehand' ? 'active-side' : '';
+  backInd.className = human.dribbleSide === 'backhand' ? 'active-side' : '';
+
+  for (const b of [...blueTeam, ...redTeam]) if (!b.isHuman) updateBot(b, dt);
+  for (const p of allPlayers) p.update(dt);
+  for (const g of allGoalies) g.update(dt);
+  handleCollisions();
+  updateBall(dt);
+
+  if (state.messageTimer > 0) { state.messageTimer -= dt; if (state.messageTimer <= 0) hideMsg(); }
+
+  const preset = camPresets[input.camIndex];
+  const behind = human.facing + Math.PI;
+  camera.position.lerp(new THREE.Vector3(human.pos.x + Math.cos(behind) * preset.dist, preset.height, human.pos.z + Math.sin(behind) * preset.dist), Math.min(dt * 6, 1));
+  camera.lookAt(human.pos.x, 0.8, human.pos.z);
+
+  renderer.render(scene, camera);
+}
+
+skillPanel.style.display = 'none';
+gameOverOverlay.style.display = 'none';
+updateSkills();
+console.log('🏒 Floorball – solid collisions, goals inside rink.');
+</script></body>
 </html>
