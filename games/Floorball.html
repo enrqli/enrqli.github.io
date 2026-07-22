@@ -455,14 +455,6 @@ function initGame() {
 
 // ── Collision (★ FIXED: solid bumps, locked goalie X) ──
 function handleCollisions() {
-  a.pos.add(push);
-  b.pos.sub(push);
-  // Prevent velocity from pushing them back together
-  const randomDir = new THREE.Vector3(Math.random() - 0.5, 0, Math.random() - 0.5).normalize();
-  releaseBall(randomDir.multiplyScalar(8 + Math.random() * 6));
-  const pushDir = push.clone().normalize();
-  a.vel.addScaledVector(pushDir, -Math.max(0, a.vel.dot(pushDir)));
-  b.vel.addScaledVector(pushDir, -Math.max(0, b.vel.dot(pushDir)));
   const all = [...allPlayers, ...allGoalies];
   for (let i = 0; i < all.length; i++) {
     for (let j = i + 1; j < all.length; j++) {
@@ -473,6 +465,12 @@ function handleCollisions() {
         const push = a.pos.clone().sub(b.pos).normalize().multiplyScalar((minDist - dist) * 0.5);
         a.pos.add(push);
         b.pos.sub(push);
+
+        // Prevent velocity from pushing them back together (new fix)
+        const pushDir = push.clone().normalize();
+        a.vel.addScaledVector(pushDir, -Math.max(0, a.vel.dot(pushDir)));
+        b.vel.addScaledVector(pushDir, -Math.max(0, b.vel.dot(pushDir)));
+
         // Lock goalkeepers to their goal line
         if (a instanceof Goalkeeper) {
           a.pos.x = (a.team === 'blue' ? -GOAL_X_OFFSET : GOAL_X_OFFSET);
@@ -482,14 +480,15 @@ function handleCollisions() {
           b.pos.x = (b.team === 'blue' ? -GOAL_X_OFFSET : GOAL_X_OFFSET);
           b.pos.z = Math.max(-RINK_HW + 0.6, Math.min(RINK_HW - 0.6, b.pos.z));
         }
+
         // Random bump when ball carrier collides
         if (a.hasBall && b instanceof Player && b.team !== a.team) {
           const randomDir = new THREE.Vector3(Math.random() - 0.5, 0, Math.random() - 0.5).normalize();
-          releaseBall(randomDir.multiplyScalar(8 + Math.random() * 6));
+          releaseBall(randomDir.multiplyScalar(12 + Math.random() * 8));
           a.hasBall = false; setPossessor(null);
         } else if (b.hasBall && a instanceof Player && a.team !== b.team) {
           const randomDir = new THREE.Vector3(Math.random() - 0.5, 0, Math.random() - 0.5).normalize();
-          releaseBall(randomDir.multiplyScalar(8 + Math.random() * 6));
+          releaseBall(randomDir.multiplyScalar(12 + Math.random() * 8));
           b.hasBall = false; setPossessor(null);
         }
       }
