@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Emberfall</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@500;700&family=Jacquard+12&family=Pixelify+Sans:wght@400;600&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:#000;font-family:'Pixelify Sans',monospace;color:#fff;user-select:none}
+#c{position:fixed;inset:0;width:100vw;height:100vh;image-rendering:pixelated;display:block}
+.hidden{display:none!important}
+.panel{background:rgba(15,12,30,.75);border:3px solid #fff;box-shadow:4px 4px 0 #000;padding:6px 10px}
+#res{position:fixed;top:10px;left:10px;display:flex;flex-direction:column;gap:3px;font-size:15px}
+#res div{display:flex;align-items:center;gap:8px}
+#res i{width:14px;height:14px;display:inline-block;border:2px solid #000}
+#top{position:fixed;top:10px;left:50%;transform:translateX(-50%);text-align:center;min-width:240px}
+#phase{font-size:18px}
+#timer{font-size:30px}
+#sub{font-size:12px;opacity:.85}
+#skip{margin:4px 0 0}
+#spd button{margin:4px 3px 0 0;padding:2px 8px}
+#spd button.on{background:#fff}
+#vit{position:fixed;top:10px;right:10px;width:230px;font-size:13px}
+.bar{height:14px;background:#222;border:2px solid #fff;margin:3px 0 7px}
+.bar>div{height:100%;width:100%}
+#tpop{position:fixed;left:50%;top:38%;transform:translateX(-50%);z-index:6;text-align:center}
+#tpop h3{margin:0 0 4px;font-weight:600;color:#ffd23f}
+#tcount{position:fixed;left:10px;bottom:10px;font-size:12px;max-width:230px}
+#spd{display:none}
+#res,#top,#vit,#quest,#wave,#tcount,#hotbar{zoom:var(--ui,1)}
+.movable{outline:3px dashed #7be8ff;cursor:move!important;pointer-events:auto!important}
+#setbtn{position:fixed;right:10px;bottom:10px;z-index:8;margin:0;font-size:12px}
+#setpanel{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:9;width:340px;max-width:92vw}
+#setpanel h3{margin:0 0 6px;font-weight:600;color:#ffd23f}
+#wave{position:fixed;left:10px;top:232px;max-width:230px;font-size:12px}
+#sel{position:fixed;border:2px dashed #ff6b6b;background:rgba(255,80,80,.2);pointer-events:none;z-index:4}
+.num,#timer,#res,#vit,.slot .n,#quest{font-family:'Roboto Mono',Consolas,'Courier New',monospace;font-weight:600;letter-spacing:.5px}
+#quest{position:fixed;top:112px;right:10px;width:230px;font-size:13px}
+#quest h4{margin:0 0 4px;font-weight:600;color:#ffd23f}
+#quest .done{opacity:.5;text-decoration:line-through}
+#hotbar{position:fixed;bottom:12px;left:50%;transform:translateX(-50%);display:flex;gap:6px}
+.slot{width:74px;height:62px;background:rgba(15,12,30,.78);border:3px solid #777;text-align:center;font-size:11px;padding-top:4px;cursor:pointer;position:relative}
+.slot img{height:34px;image-rendering:pixelated;display:block;margin:0 auto}
+.slot b{display:block;font-size:14px;font-weight:400}
+.slot.sel{border-color:#ffd23f;background:rgba(80,60,0,.8);transform:translateY(-6px)}
+.slot.lock{opacity:.45}
+.slot .n{position:absolute;right:4px;bottom:2px;font-size:15px;color:#ffd23f}
+#menu{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:520px;max-width:94vw;max-height:80vh;overflow:auto;font-size:13px;z-index:5}
+#menu h3{margin:0 0 6px;font-weight:600;font-size:18px;color:#ffd23f}
+.tabs{display:flex;gap:4px;margin-bottom:8px}
+.tabs button{margin:0;flex:1}
+.tabs button.on{background:#fff}
+.row{border-top:2px solid #555;padding:6px 0}
+.row .nm{font-size:15px}
+.row .ds{opacity:.8;font-size:11px}
+.cost span{margin-right:8px;white-space:nowrap}
+.bad{color:#ff6b6b}
+.ok{color:#9cff7a}
+button{font-family:inherit;font-size:13px;background:#ffd23f;border:3px solid #000;box-shadow:2px 2px 0 #fff;padding:4px 10px;cursor:pointer;margin:4px 6px 0 0}
+button:disabled{background:#666;color:#aaa;cursor:default}
+button:hover:not(:disabled){background:#fff}
+#toast{position:fixed;top:128px;left:50%;transform:translateX(-50%);font-size:20px;text-shadow:3px 3px 0 #000;pointer-events:none;text-align:center;opacity:0;transition:opacity .4s;max-width:70vw}
+#cross{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-size:26px;text-shadow:2px 2px 0 #000;pointer-events:none}
+#hint{position:fixed;bottom:84px;left:50%;transform:translateX(-50%);font-size:13px;text-shadow:2px 2px 0 #000;pointer-events:none;text-align:center;white-space:nowrap}
+#tinfo{position:fixed;left:50%;bottom:112px;transform:translateX(-50%);font-size:13px;text-align:center}
+#ov{position:fixed;inset:0;background:rgba(5,3,15,.88);display:flex;align-items:center;justify-content:center;overflow:auto;z-index:10}
+.card{max-width:760px;margin:20px;padding:24px 30px;background:#17122e;border:4px solid #ffd23f;box-shadow:8px 8px 0 #000;text-align:center}
+.card h1{font-family:'Jacquard 12','Pixelify Sans',serif;font-weight:400;font-size:84px;line-height:.95;margin:0 0 10px;color:#f6e7b4;text-shadow:4px 4px 0 #5a2a10,-2px -2px 0 #5a2a10,2px -2px 0 #5a2a10,-2px 2px 0 #5a2a10}
+.card h2{font-family:'Jacquard 12','Pixelify Sans',serif;font-weight:400;font-size:40px;margin:0 0 10px;color:#ffd23f}
+.card p{font-family:Georgia,serif;font-size:15px;line-height:1.5;text-align:left;margin:8px 0}
+.card .ctl{font-size:12px;text-align:left;line-height:1.7;margin:12px 0;opacity:.92}
+.card button{font-size:22px;padding:8px 22px}
+#flash{position:fixed;inset:0;background:#f00;opacity:0;pointer-events:none;transition:opacity .25s}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="flash"></div>
+<div id="res" class="panel"></div>
+<div id="top" class="panel"><div id="phase"></div><div id="timer"></div><div id="sub"></div><button id="skip">Skip to night</button><div id="spd"><button data-s="1">1x</button><button data-s="2">2x</button><button data-s="3">3x</button></div></div>
+<div id="vit" class="panel">
+  <div>Sunstone Lv<span id="shl"></span> <span id="shv"></span></div><div class="bar"><div id="shb" style="background:#ffb400"></div></div>
+  <div>Warden <span id="plv"></span></div><div class="bar"><div id="plb" style="background:#4cd964"></div></div>
+</div>
+<div id="quest" class="panel"></div>
+<div id="menu" class="panel hidden"></div>
+<div id="tpop" class="panel hidden"></div>
+<div id="wave" class="panel"></div>
+<div id="tcount" class="panel"></div>
+<div id="sel" class="hidden"></div>
+<div id="toast"></div>
+<div id="cross">+</div>
+<div id="hint"></div>
+<div id="tinfo"></div>
+<div id="hotbar"></div>
+<button id="setbtn">Settings</button>
+<div id="setpanel" class="panel hidden"></div>
+<div id="ov"></div>
+<script src="three.min.js"></script>
+<script src="assets.js"></script>
+<script src="node_png.js"></script>
+<script src="data.js"></script>
+<script src="world.js"></script>
+<script src="combat.js"></script>
+<script src="enemy_png.js"></script>
+<script src="sprites.js"></script>
+<script src="enemies.js"></script>
+<script src="ui.js"></script>
+<script src="sword.js"></script>
+<script src="settings.js"></script>
+<script src="main.js"></script>
+</body>
+</html>
