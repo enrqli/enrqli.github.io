@@ -74,6 +74,16 @@
         .game-card-image { position: relative; width: 100%; height: 200px; overflow: hidden; background: var(--surface); }
         .game-card-image .placeholder-bg { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 3.5rem; transition: var(--transition); }
         .game-card:hover .placeholder-bg { transform: scale(1.06); }
+        .game-card-image img.cover-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+            transition: var(--transition);
+        }
+        .game-card:hover .game-card-image img.cover-image {
+            transform: scale(1.06);
+        }
 
         /* ⭐ Hover description overlay on the image */
         .game-card-image .hover-desc {
@@ -383,7 +393,9 @@
                 const hoverText = game.shortDesc || game.description;
                 card.innerHTML = `
                     <div class="game-card-image">
-                        <div class="placeholder-bg" style="background:${game.gradient};">${game.icon}</div>
+                        ${game.image
+                        ? `<img class="cover-image" src="${game.image}" alt="${escapeHTML(game.title)}" loading="lazy">`
+                        : `<div class="placeholder-bg" style="background:${game.gradient};">${game.icon}</div>`}
                         ${game.tag ? `<span class="overlay-tag ${game.tagClass}">${game.tag}</span>` : ''}
                         <div class="hover-desc">${escapeHTML(hoverText)}</div>
                     </div>
