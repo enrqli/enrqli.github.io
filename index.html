@@ -74,29 +74,52 @@
         .game-card-image { position: relative; width: 100%; height: 200px; overflow: hidden; background: var(--surface); }
         .game-card-image .placeholder-bg { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 3.5rem; transition: var(--transition); }
         .game-card:hover .placeholder-bg { transform: scale(1.06); }
-        .overlay-tag { position: absolute; top: 14px; right: 14px; background: rgba(0,0,0,0.7); backdrop-filter: blur(8px); color: #fff; padding: 5px 14px; border-radius: 20px; font-size: 0.78rem; font-weight: 600; border: 1px solid rgba(255,255,255,0.15); }
+
+        /* ⭐ Hover description overlay on the image */
+        .game-card-image .hover-desc {
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.88);
+            color: #fff;
+            padding: 22px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            font-size: 0.95rem;
+            line-height: 1.5;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+            z-index: 5;
+        }
+        .game-card:hover .game-card-image .hover-desc { opacity: 1; }
+
+        .overlay-tag { position: absolute; top: 14px; right: 14px; background: rgba(0,0,0,0.7); backdrop-filter: blur(8px); color: #fff; padding: 5px 14px; border-radius: 20px; font-size: 0.78rem; font-weight: 600; border: 1px solid rgba(255,255,255,0.15); z-index: 6; }
         .tag-new { background: rgba(34,197,94,0.85) !important; }
         .tag-featured { background: rgba(245,158,11,0.85) !important; }
+
         .game-card-body { padding: 22px 20px 18px; flex: 1; display: flex; flex-direction: column; }
         .game-card-body h3 { font-size: 1.25rem; font-weight: 700; color: #fff; margin-bottom: 6px; }
         .genre { font-size: 0.8rem; color: var(--accent-glow); font-weight: 500; text-transform: uppercase; margin-bottom: 10px; }
         .game-card-rating { margin: 8px 0; color: var(--gold); font-size: 0.9rem; letter-spacing: 1px; }
         .description { font-size: 0.9rem; color: var(--text-muted); line-height: 1.55; flex: 1; }
-        .game-card-footer { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
-        .btn { padding: 9px 18px; border-radius: 25px; font-weight: 600; font-size: 0.85rem; cursor: pointer; border: none; transition: var(--transition); text-decoration: none; display: inline-block; }
+        .game-card-footer { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+
+        .btn { padding: 9px 16px; border-radius: 25px; font-weight: 600; font-size: 0.82rem; cursor: pointer; border: none; transition: var(--transition); text-decoration: none; display: inline-block; white-space: nowrap; }
         .btn-primary { background: var(--accent); color: #fff; }
         .btn-primary:hover { background: #8b5cf6; box-shadow: 0 0 22px rgba(124,58,237,0.45); transform: translateY(-1px); }
         .btn-outline { background: transparent; color: #fff; border: 1.5px solid var(--border); }
         .btn-outline:hover { border-color: #fff; background: rgba(255,255,255,0.04); }
-        .btn-small { padding: 6px 14px; font-size: 0.8rem; }
 
-        /* modals, etc. */
+        /* modals */
         .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); backdrop-filter: blur(6px); z-index: 200; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.35s; }
         .modal-overlay.active { opacity: 1; pointer-events: auto; }
         .modal { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 36px 30px; max-width: 600px; width: 90%; text-align: left; position: relative; box-shadow: 0 30px 60px rgba(0,0,0,0.7); transform: translateY(20px); transition: transform 0.35s; max-height: 80vh; overflow-y: auto; }
         .modal-overlay.active .modal { transform: translateY(0); }
         .modal-close { position: absolute; top: 14px; right: 18px; background: none; border: none; color: #fff; font-size: 1.6rem; cursor: pointer; opacity: 0.6; transition: var(--transition); }
         .modal-close:hover { opacity: 1; }
+
         .play-overlay { z-index: 210; }
         .play-container { width: 95%; max-width: 1000px; height: 80vh; display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; box-shadow: 0 30px 60px rgba(0,0,0,0.7); }
         .play-header { display: flex; justify-content: space-between; align-items: center; padding: 14px 20px; background: var(--card); border-bottom: 1px solid var(--border); }
@@ -107,9 +130,10 @@
         .play-iframe-wrapper { flex: 1; background: #000; }
         .play-iframe-wrapper iframe { width: 100%; height: 100%; border: none; display: block; }
 
-        .comments-section { margin-top: 20px; border-top: 1px solid var(--border); padding-top: 16px; }
+        /* comments (now its own modal) */
+        .comments-section { margin-top: 8px; }
         .comments-section h4 { font-size: 1rem; color: #fff; margin-bottom: 12px; }
-        .comments-list { max-height: 180px; overflow-y: auto; margin-bottom: 12px; display: flex; flex-direction: column; gap: 10px; }
+        .comments-list { max-height: 260px; overflow-y: auto; margin-bottom: 14px; display: flex; flex-direction: column; gap: 10px; }
         .comment-item { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 14px; position: relative; }
         .comment-author { font-size: 0.85rem; font-weight: 600; color: var(--accent-glow); margin-right: 8px; }
         .comment-time { font-size: 0.7rem; color: var(--text-muted); float: right; }
@@ -118,7 +142,7 @@
         .delete-comment-btn { position: absolute; top: 6px; right: 10px; background: none; border: none; color: #ff4444; cursor: pointer; font-size: 1rem; display: none; opacity: 0.7; transition: var(--transition); }
         .delete-comment-btn:hover { opacity: 1; }
         .comment-form { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-start; }
-        .comment-form input, .comment-form textarea { background: var(--card); border: 1px solid var(--border); color: #fff; padding: 8px 12px; border-radius: var(--radius-sm); font-size: 0.85rem; outline: none; transition: var(--transition); }
+        .comment-form input, .comment-form textarea { background: var(--card); border: 1px solid var(--border); color: #fff; padding: 8px 12px; border-radius: var(--radius-sm); font-size: 0.85rem; outline: none; transition: var(--transition); font-family: inherit; }
         .comment-form input:focus, .comment-form textarea:focus { border-color: var(--accent); }
         .comment-form input { flex: 1 1 120px; min-width: 100px; }
         .comment-form textarea { flex: 3 1 200px; resize: vertical; }
@@ -176,7 +200,7 @@
         <h1>Games I've <span class="highlight">Built</span></h1>
         <p>
             Welcome to my personal game showcase! Each title here represents hours of passion,
-            creativity, and code. Click "Play" to try any game right here on this page.
+            creativity, and code. Hover over a game to preview it, then play it your way.
         </p>
         <div class="hero-stats">
             <div class="stat">
@@ -206,7 +230,7 @@
     <section class="section" id="games">
         <div class="section-header">
             <h2>🎮 My Games</h2>
-            <p>Hover for quick info — click "Details" or the card to learn more, choose how to play</p>
+            <p>Hover to preview — then click Details, Comments, or Play your way</p>
         </div>
         <div class="games-grid" id="gamesGrid"></div>
     </section>
@@ -245,8 +269,20 @@
             <button class="modal-close" id="modalClose">&times;</button>
             <h3 id="modalTitle"></h3>
             <p id="modalDesc"></p>
+            <div style="margin-top:20px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+                <button class="btn btn-primary" id="modalPlayHereBtn">▶ Play Here</button>
+                <a href="#" class="btn btn-outline" id="modalOpenTabBtn" target="_blank">🔗 Open in New Tab</a>
+                <button class="btn btn-outline" id="modalCommentsBtn">💬 Comments</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════ COMMENTS MODAL (separate) ═══════════════ -->
+    <div class="modal-overlay" id="commentsOverlay">
+        <div class="modal" id="commentsModal">
+            <button class="modal-close" id="commentsClose">&times;</button>
+            <h3 id="commentsTitle">💬 Comments</h3>
             <div class="comments-section">
-                <h4>💬 Comments & Ratings</h4>
                 <div class="comments-list" id="commentsList"></div>
                 <div class="comment-form">
                     <input type="text" id="commentName" placeholder="Your name (optional)" maxlength="30">
@@ -260,10 +296,6 @@
                     <textarea id="commentText" placeholder="Write a comment..." rows="2" maxlength="200"></textarea>
                     <button class="btn btn-primary" id="submitComment">Post</button>
                 </div>
-            </div>
-            <div style="margin-top:16px; display: flex; gap: 10px; justify-content: center;">
-                <button class="btn btn-primary btn-play-here" id="modalPlayHereBtn">▶ Play Here</button>
-                <a href="#" class="btn btn-outline btn-open-tab" id="modalOpenTabBtn" target="_blank">🔗 Open in New Tab</a>
             </div>
         </div>
     </div>
@@ -301,15 +333,16 @@
         const db = firebase.database();
 
         // ── GAME DATA ─────────────────────
+        // `shortDesc` is what appears when hovering the game image.
         const games = [
-            { id: 1, title: 'Rooms Escape', genre: 'Shooting / Multiplayer', description: '2P co-op roguelite where you clear rooms, upgrade weapons, and defeat bosses to escape.', icon: '🔑', gradient: 'linear-gradient(135deg, #1a0533 0%, #0d1b3e 50%, #0a0a2e 100%)', tag: 'Featured', tagClass: 'tag-featured', playUrl: 'games/room-escape.html' },
-            { id: 2, title: 'Snake', genre: 'Snake / Adventure', description: 'Snake', icon: '🐍', gradient: 'linear-gradient(135deg, #1a2a0a 0%, #0f1f1a 50%, #0a1a14 100%)', tag: 'Popular', tagClass: '', playUrl: 'games/snake.html' },
-            { id: 3, title: '3D snake', genre: 'Snake / Multiplayer', description: 'A chaotic 3D snake arena where you jump, boost, and battle AI snakes while collecting colorful apples and power‑ups, with a live minimap and split‑screen co‑op across 3 stacked levels.', icon: '🐍', gradient: 'linear-gradient(135deg, #2a0a0a 0%, #1f1010 50%, #1a0a0a 100%)', tag: 'Popular', tagClass: '', playUrl: 'games/3D-snake.html' },
-            { id: 4, title: 'Happy Pigs', genre: 'Casual / Fun', description: 'Slingshot green pigs to destroy the birds!', icon: '🐷', gradient: 'linear-gradient(135deg, #2a0a0a 0%, #1f1010 50%, #1a0a0a 100%)', tag: 'New', tagClass: 'tag-new', playUrl: 'games/happy_pigs.html' },
-            { id: 5, title: 'A very Clickable Button', genre: 'Casual', description: 'Click a button', icon: '⬜', gradient: 'linear-gradient(135deg, #2a0b7a 0%, #1a11c0 50%, #11fa7a 100%)', tag: 'New', tagClass: 'tag-new', playUrl: 'games/button/index.html' },
-            { id: 6, title: 'Equation Doors', genre: 'Educational', description: 'Solve Maths Equations', icon: '➕', gradient: 'linear-gradient(135deg, #2b0b3f 0%, #1a55c0 50%, #32fd7a 100%)', tag: 'New', tagClass: 'tag-new', playUrl: 'games/equation-doors.html' },
-            { id: 7, title: 'Floorball', genre: 'Sport / Casual', description: 'A floorball game', icon: '🏒', gradient: 'linear-gradient(135deg, #1cc13f 0%, #1a3a70 50%, #3aa37a 100%)', tag: 'New', tagClass: 'tag-new', playUrl: 'games/Floorball.html' },
-            { id: 8, title: 'TowerCraft', genre: 'Strategy / Casual', description: 'Minecraft + Tower Defence', icon: '⛏️', gradient: 'linear-gradient(135deg, #1ad53f 0%, #1a5d70 50%, #3bd37a 100%)', tag: 'New', tagClass: 'tag-new', playUrl: 'games/TowerCraft/index.html' }
+            { id: 1, title: 'Rooms Escape', genre: 'Shooting / Multiplayer', description: '2P co-op roguelite where you clear rooms, upgrade weapons, and defeat bosses to escape.', shortDesc: '2P co-op roguelite — clear rooms, upgrade, escape!', icon: '🔑', gradient: 'linear-gradient(135deg, #1a0533 0%, #0d1b3e 50%, #0a0a2e 100%)', tag: 'Featured', tagClass: 'tag-featured', playUrl: 'games/room-escape.html' },
+            { id: 2, title: 'Snake', genre: 'Snake / Adventure', description: 'Snake', shortDesc: 'Classic Snake — eat, grow, survive!', icon: '🐍', gradient: 'linear-gradient(135deg, #1a2a0a 0%, #0f1f1a 50%, #0a1a14 100%)', tag: 'Popular', tagClass: '', playUrl: 'games/snake.html' },
+            { id: 3, title: '3D snake', genre: 'Snake / Multiplayer', description: 'A chaotic 3D snake arena where you jump, boost, and battle AI snakes while collecting colorful apples and power‑ups, with a live minimap and split‑screen co‑op across 3 stacked levels.', shortDesc: '3D snake arena — jump, boost, battle AI rivals!', icon: '🐍', gradient: 'linear-gradient(135deg, #2a0a0a 0%, #1f1010 50%, #1a0a0a 100%)', tag: 'Popular', tagClass: '', playUrl: 'games/3D-snake.html' },
+            { id: 4, title: 'Happy Pigs', genre: 'Casual / Fun', description: 'Slingshot green pigs to destroy the birds!', shortDesc: 'Slingshot green pigs to smash the birds!', icon: '🐷', gradient: 'linear-gradient(135deg, #2a0a0a 0%, #1f1010 50%, #1a0a0a 100%)', tag: 'New', tagClass: 'tag-new', playUrl: 'games/happy_pigs.html' },
+            { id: 5, title: 'A very Clickable Button', genre: 'Casual', description: 'Click a button', shortDesc: 'Just click the button. How far can you go?', icon: '⬜', gradient: 'linear-gradient(135deg, #2a0b7a 0%, #1a11c0 50%, #11fa7a 100%)', tag: 'New', tagClass: 'tag-new', playUrl: 'games/button/index.html' },
+            { id: 6, title: 'Equation Doors', genre: 'Educational', description: 'Solve Maths Equations', shortDesc: 'Solve math equations to open the doors!', icon: '➕', gradient: 'linear-gradient(135deg, #2b0b3f 0%, #1a55c0 50%, #32fd7a 100%)', tag: 'New', tagClass: 'tag-new', playUrl: 'games/equation-doors.html' },
+            { id: 7, title: 'Floorball', genre: 'Sport / Casual', description: 'A floorball game', shortDesc: 'Fast-paced floorball action!', icon: '🏒', gradient: 'linear-gradient(135deg, #1cc13f 0%, #1a3a70 50%, #3aa37a 100%)', tag: 'New', tagClass: 'tag-new', playUrl: 'games/Floorball.html' },
+            { id: 8, title: 'TowerCraft', genre: 'Strategy / Casual', description: 'Minecraft + Tower Defence', shortDesc: 'Build towers, mine blocks, defend your base!', icon: '⛏️', gradient: 'linear-gradient(135deg, #1ad53f 0%, #1a5d70 50%, #3bd37a 100%)', tag: 'New', tagClass: 'tag-new', playUrl: 'games/TowerCraft/index.html' }
         ];
 
         const ADMIN_SECRET = 'my-secret-admin-key-2026';
@@ -323,7 +356,7 @@
             localStorage.setItem('myFirebaseUserId', myUserId);
         }
 
-        // ── RATING CALCULATION ──────────
+        // ── RATING CALCULATION (home card) ──────────
         function updateGameRatingDisplay(gameId, commentsObj) {
             const cardRatingEl = document.querySelector(`.game-card-rating[data-game-id="${gameId}"]`);
             if (!cardRatingEl) return;
@@ -347,10 +380,12 @@
                 const card = document.createElement('div');
                 card.className = 'game-card';
                 card.setAttribute('data-game-id', game.id);
+                const hoverText = game.shortDesc || game.description;
                 card.innerHTML = `
                     <div class="game-card-image">
                         <div class="placeholder-bg" style="background:${game.gradient};">${game.icon}</div>
                         ${game.tag ? `<span class="overlay-tag ${game.tagClass}">${game.tag}</span>` : ''}
+                        <div class="hover-desc">${escapeHTML(hoverText)}</div>
                     </div>
                     <div class="game-card-body">
                         <h3>${game.title}</h3>
@@ -359,8 +394,9 @@
                         <p class="description">${game.description}</p>
                         <div class="game-card-footer">
                             <button class="btn btn-primary btn-details" data-id="${game.id}">Details</button>
+                            <button class="btn btn-outline btn-comments" data-id="${game.id}">💬 Comments</button>
                             <button class="btn btn-primary btn-play-here" data-id="${game.id}">▶ Play Here</button>
-                            <a href="${game.playUrl}" class="btn btn-outline btn-open-tab" data-id="${game.id}" target="_blank">🔗 Open in Tab</a>
+                            <a href="${game.playUrl}" class="btn btn-outline btn-open-tab" data-id="${game.id}" target="_blank">🔗 Open Tab</a>
                         </div>
                     </div>
                 `;
@@ -376,42 +412,108 @@
             });
         }
 
-        // ── COMMENTS MODAL ──────────────
-        let currentModalGameId = null;
-        let commentsListener = null;
+        // ── DETAILS MODAL ───────────────
+        const modalOverlay = document.getElementById('modalOverlay');
+        const modalTitle = document.getElementById('modalTitle');
+        const modalDesc = document.getElementById('modalDesc');
+        const modalClose = document.getElementById('modalClose');
+        const modalPlayHereBtn = document.getElementById('modalPlayHereBtn');
+        const modalOpenTabBtn = document.getElementById('modalOpenTabBtn');
+        const modalCommentsBtn = document.getElementById('modalCommentsBtn');
+        let currentDetailsGameId = null;
 
         function openDetailsModal(game) {
-            currentModalGameId = game.id;
+            currentDetailsGameId = game.id;
             modalTitle.textContent = game.title;
             modalDesc.textContent = game.description + '\n\nGenre: ' + game.genre;
+            modalPlayHereBtn.setAttribute('data-game-id', game.id);
+            modalOpenTabBtn.href = game.playUrl;
+            modalCommentsBtn.setAttribute('data-game-id', game.id);
+            modalOverlay.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeDetailsModal() {
+            modalOverlay.classList.remove('active');
+            document.body.style.overflow = '';
+            currentDetailsGameId = null;
+        }
+
+        modalClose.addEventListener('click', closeDetailsModal);
+        modalOverlay.addEventListener('click', (e) => { if (e.target === modalOverlay) closeDetailsModal(); });
+
+        modalPlayHereBtn.addEventListener('click', () => {
+            const gameId = parseInt(modalPlayHereBtn.getAttribute('data-game-id'));
+            if (gameId) {
+                handlePlayHere(gameId);
+                closeDetailsModal();
+            }
+        });
+
+        modalCommentsBtn.addEventListener('click', () => {
+            const gameId = parseInt(modalCommentsBtn.getAttribute('data-game-id'));
+            if (gameId) {
+                const game = games.find(g => g.id === gameId);
+                if (game) {
+                    closeDetailsModal();
+                    openCommentsModal(game);
+                }
+            }
+        });
+
+        // ── COMMENTS MODAL (separate) ───
+        const commentsOverlay = document.getElementById('commentsOverlay');
+        const commentsModal = document.getElementById('commentsModal');
+        const commentsClose = document.getElementById('commentsClose');
+        const commentsTitle = document.getElementById('commentsTitle');
+        const commentsList = document.getElementById('commentsList');
+        const submitCommentBtn = document.getElementById('submitComment');
+        const commentNameInput = document.getElementById('commentName');
+        const commentTextInput = document.getElementById('commentText');
+
+        let currentCommentsGameId = null;
+        let commentsModalListener = null;
+
+        function openCommentsModal(game) {
+            currentCommentsGameId = game.id;
+            commentsTitle.textContent = '💬 ' + game.title + ' — Comments';
             commentNameInput.value = '';
             commentTextInput.value = '';
             selectedRating = 0;
             updateStarDisplay(0);
 
-            // Set play URLs in modal buttons
-            modalPlayHereBtn.setAttribute('data-game-id', game.id);
-            modalOpenTabBtn.href = game.playUrl;
-            modalOpenTabBtn.setAttribute('data-game-id', game.id);
-
-            if (commentsListener) {
-                db.ref('games/' + currentModalGameId + '/comments').off('value', commentsListener);
+            // Detach old listener
+            if (commentsModalListener && currentCommentsGameId) {
+                db.ref('games/' + currentCommentsGameId + '/comments').off('value', commentsModalListener);
+                commentsModalListener = null;
             }
             const commentsRef = db.ref('games/' + game.id + '/comments');
-            commentsListener = commentsRef.on('value', (snapshot) => {
+            commentsModalListener = commentsRef.on('value', (snapshot) => {
                 renderComments(snapshot.val() || {});
             });
 
-            modalOverlay.classList.add('active');
+            commentsOverlay.classList.add('active');
             document.body.style.overflow = 'hidden';
         }
 
+        function closeCommentsModal() {
+            commentsOverlay.classList.remove('active');
+            document.body.style.overflow = '';
+            if (commentsModalListener && currentCommentsGameId) {
+                db.ref('games/' + currentCommentsGameId + '/comments').off('value', commentsModalListener);
+                commentsModalListener = null;
+            }
+            currentCommentsGameId = null;
+        }
+
+        commentsClose.addEventListener('click', closeCommentsModal);
+        commentsOverlay.addEventListener('click', (e) => { if (e.target === commentsOverlay) closeCommentsModal(); });
+
         function renderComments(commentsObj) {
-            const list = document.getElementById('commentsList');
-            list.innerHTML = '';
+            commentsList.innerHTML = '';
             const commentsArray = Object.entries(commentsObj).map(([key, val]) => ({ key, ...val }));
             if (commentsArray.length === 0) {
-                list.innerHTML = '<p style="color:var(--text-muted); font-size:0.85rem;">No comments yet. Be the first!</p>';
+                commentsList.innerHTML = '<p style="color:var(--text-muted); font-size:0.85rem;">No comments yet. Be the first!</p>';
                 return;
             }
             commentsArray.sort((a, b) => b.timestamp - a.timestamp);
@@ -432,14 +534,14 @@
                     ${starsHtml}
                     <div class="comment-text">${escapeHTML(comment.text)}</div>
                 `;
-                list.appendChild(div);
+                commentsList.appendChild(div);
             });
 
-            document.querySelectorAll('.delete-comment-btn').forEach(btn => {
+            commentsList.querySelectorAll('.delete-comment-btn').forEach(btn => {
                 btn.addEventListener('click', () => {
                     const key = btn.getAttribute('data-comment-key');
-                    if (key && currentModalGameId) {
-                        db.ref('games/' + currentModalGameId + '/comments/' + key).remove();
+                    if (key && currentCommentsGameId) {
+                        db.ref('games/' + currentCommentsGameId + '/comments/' + key).remove();
                     }
                 });
             });
@@ -486,42 +588,13 @@
         });
         ratingStars.addEventListener('mouseleave', () => updateStarDisplay(selectedRating));
 
-        // ── DETAILS MODAL CONTROLS ──────
-        const modalOverlay = document.getElementById('modalOverlay');
-        const modalTitle = document.getElementById('modalTitle');
-        const modalDesc = document.getElementById('modalDesc');
-        const modalClose = document.getElementById('modalClose');
-        const submitCommentBtn = document.getElementById('submitComment');
-        const commentNameInput = document.getElementById('commentName');
-        const commentTextInput = document.getElementById('commentText');
-        const modalPlayHereBtn = document.getElementById('modalPlayHereBtn');
-        const modalOpenTabBtn = document.getElementById('modalOpenTabBtn');
-
-        function closeDetailsModal() {
-            modalOverlay.classList.remove('active');
-            document.body.style.overflow = '';
-            if (commentsListener && currentModalGameId) {
-                db.ref('games/' + currentModalGameId + '/comments').off('value', commentsListener);
-                commentsListener = null;
-            }
-            currentModalGameId = null;
-        }
-
-        modalClose.addEventListener('click', closeDetailsModal);
-        modalOverlay.addEventListener('click', (e) => { if (e.target === modalOverlay) closeDetailsModal(); });
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                if (playOverlay.classList.contains('active')) closePlayOverlay();
-                else if (modalOverlay.classList.contains('active')) closeDetailsModal();
-            }
-        });
-
+        // Submit comment (in comments modal)
         submitCommentBtn.addEventListener('click', () => {
-            if (!currentModalGameId) return;
+            if (!currentCommentsGameId) return;
             const name = commentNameInput.value.trim();
             const text = commentTextInput.value.trim();
             if (!text) { alert('Please enter a comment.'); return; }
-            addComment(currentModalGameId, name, text, selectedRating);
+            addComment(currentCommentsGameId, name, text, selectedRating);
             commentNameInput.value = '';
             commentTextInput.value = '';
             selectedRating = 0;
@@ -532,6 +605,15 @@
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
                 submitCommentBtn.click();
+            }
+        });
+
+        // ESC closes whichever overlay is open (priority: play > comments > details)
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                if (playOverlay.classList.contains('active')) closePlayOverlay();
+                else if (commentsOverlay.classList.contains('active')) closeCommentsModal();
+                else if (modalOverlay.classList.contains('active')) closeDetailsModal();
             }
         });
 
@@ -569,7 +651,7 @@
             else if (gameIframe.msRequestFullscreen) gameIframe.msRequestFullscreen();
         });
 
-        // ── EVENT HANDLERS FOR PLAY BUTTONS ──
+        // ── PLAY BUTTONS ────────────────
         function handlePlayHere(gameId) {
             const game = games.find(g => g.id === gameId);
             if (game) openPlayOverlay(game);
@@ -580,8 +662,15 @@
             const playHereBtn = e.target.closest('.btn-play-here');
             if (playHereBtn) {
                 e.preventDefault();
-                const gameId = parseInt(playHereBtn.getAttribute('data-id'));
-                handlePlayHere(gameId);
+                handlePlayHere(parseInt(playHereBtn.getAttribute('data-id')));
+                return;
+            }
+            const commentsBtn = e.target.closest('.btn-comments');
+            if (commentsBtn) {
+                e.preventDefault();
+                const gameId = parseInt(commentsBtn.getAttribute('data-id'));
+                const game = games.find(g => g.id === gameId);
+                if (game) openCommentsModal(game);
                 return;
             }
             const detailsBtn = e.target.closest('.btn-details');
@@ -599,17 +688,6 @@
             }
         });
 
-        // Modal "Play Here" button
-        modalPlayHereBtn.addEventListener('click', () => {
-            const gameId = parseInt(modalPlayHereBtn.getAttribute('data-game-id'));
-            if (gameId) {
-                handlePlayHere(gameId);
-                closeDetailsModal(); // optionally close modal when playing
-            }
-        });
-
-        // The "Open in Tab" in modal is an actual link, no extra JS needed
-
         // ── MOBILE MENU & ADMIN TOGGLE ──
         const menuToggle = document.getElementById('menuToggle');
         const navLinks = document.getElementById('navLinks');
@@ -623,8 +701,8 @@
             if (isAdmin) {
                 isAdmin = false;
                 adminToggle.textContent = '🔑 Admin';
-                if (currentModalGameId) {
-                    db.ref('games/' + currentModalGameId + '/comments').once('value', (snap) => {
+                if (currentCommentsGameId) {
+                    db.ref('games/' + currentCommentsGameId + '/comments').once('value', (snap) => {
                         renderComments(snap.val() || {});
                     });
                 }
@@ -634,8 +712,8 @@
             if (password === 'awyegbfkaweydfgbbfia837tr aky3gnab7wgr8ba7wvkrg8wa7rfharwefaw7v er7bawe7bgraw7tva7wrga7wkyfkha03r9aylr8rbla8etfneafaw7ibtefa8b7wtebfoanwn9e8fybawe7nfoawnefhabwfrga') {
                 isAdmin = true;
                 adminToggle.textContent = '🔓 Admin (active)';
-                if (currentModalGameId) {
-                    db.ref('games/' + currentModalGameId + '/comments').once('value', (snap) => {
+                if (currentCommentsGameId) {
+                    db.ref('games/' + currentCommentsGameId + '/comments').once('value', (snap) => {
                         renderComments(snap.val() || {});
                     });
                 }
@@ -646,7 +724,7 @@
 
         // ── INIT ─────────────────────────
         renderGames();
-        console.log('🎮 Portfolio ready – two play options available!');
+        console.log('🎮 Portfolio ready – separate details/comments + hover previews!');
     </script>
 </body>
 </html>
