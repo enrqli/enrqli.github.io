@@ -67,6 +67,8 @@
         .section-header { text-align: center; margin-bottom: 50px; }
         .section-header h2 { font-size: 2.2rem; font-weight: 800; color: #fff; margin-bottom: 0.5rem; }
         .section-header p { color: var(--text-muted); font-size: 1rem; }
+        .section-legend { display: inline-flex; align-items: center; gap: 14px; margin-top: 14px; font-size: 0.82rem; color: var(--text-muted); background: rgba(255,255,255,0.03); border: 1px solid var(--border); padding: 7px 16px; border-radius: 25px; }
+        .section-legend span { display: inline-flex; align-items: center; gap: 5px; }
 
         .games-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 28px; }
         .game-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; transition: var(--transition); cursor: pointer; display: flex; flex-direction: column; }
@@ -109,6 +111,34 @@
         .tag-new { background: rgba(34,197,94,0.85) !important; }
         .tag-featured { background: rgba(245,158,11,0.85) !important; }
 
+        /* 🖥️📱 Platform badges */
+        .platform-badges {
+            position: absolute;
+            top: 14px;
+            left: 14px;
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            z-index: 6;
+        }
+        .platform-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            background: rgba(0,0,0,0.7);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border: 1px solid rgba(255,255,255,0.15);
+            color: #fff;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            letter-spacing: 0.2px;
+            white-space: nowrap;
+        }
+        .platform-badge .pb-icon { font-size: 0.8rem; line-height: 1; }
+
         .game-card-body { padding: 22px 20px 18px; flex: 1; display: flex; flex-direction: column; }
         .game-card-body h3 { font-size: 1.25rem; font-weight: 700; color: #fff; margin-bottom: 6px; }
         .genre { font-size: 0.8rem; color: var(--accent-glow); font-weight: 500; text-transform: uppercase; margin-bottom: 10px; }
@@ -129,6 +159,7 @@
         .modal-overlay.active .modal { transform: translateY(0); }
         .modal-close { position: absolute; top: 14px; right: 18px; background: none; border: none; color: #fff; font-size: 1.6rem; cursor: pointer; opacity: 0.6; transition: var(--transition); }
         .modal-close:hover { opacity: 1; }
+        #modalDesc { white-space: pre-line; }
 
         .play-overlay { z-index: 210; }
         .play-container { width: 95%; max-width: 1000px; height: 80vh; display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; box-shadow: 0 30px 60px rgba(0,0,0,0.7); }
@@ -241,6 +272,10 @@
         <div class="section-header">
             <h2>🎮 My Games</h2>
             <p>Hover to preview — then click Details, Comments, or Play your way</p>
+            <div class="section-legend">
+                <span>🖥️ PC</span>
+                <span>📱 Mobile</span>
+            </div>
         </div>
         <div class="games-grid" id="gamesGrid"></div>
     </section>
@@ -342,17 +377,24 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
 
+        // ── PLATFORM ICON MAP ──────────────
+        const platformMeta = {
+            pc:     { icon: '🖥️', label: 'PC' },
+            mobile: { icon: '📱', label: 'Mobile' }
+        };
+
         // ── GAME DATA ─────────────────────
         // `shortDesc` is what appears when hovering the game image.
+        // `platforms` lists where the game can be played: 'pc' and/or 'mobile'.
         const games = [
-            { id: 1, title: 'Rooms Escape', genre: 'Shooting / Multiplayer', description: '2P co-op roguelite where you clear rooms, upgrade weapons, and defeat bosses to escape.', shortDesc: '2P co-op roguelite — clear rooms, upgrade, escape!', icon: '🔑', gradient: 'linear-gradient(135deg, #1a0533 0%, #0d1b3e 50%, #0a0a2e 100%)', tag: 'Featured', tagClass: 'tag-featured', playUrl: 'games/room-escape.html' },
-            { id: 2, title: 'Snake', genre: 'Snake / Adventure', description: 'Snake', shortDesc: 'Classic Snake — eat, grow, survive!', icon: '🐍', gradient: 'linear-gradient(135deg, #1a2a0a 0%, #0f1f1a 50%, #0a1a14 100%)', tag: 'Popular', tagClass: '', playUrl: 'games/snake.html' },
-            { id: 3, title: '3D snake', genre: 'Snake / Multiplayer', description: 'A chaotic 3D snake arena where you jump, boost, and battle AI snakes while collecting colorful apples and power‑ups, with a live minimap and split‑screen co‑op across 3 stacked levels.', shortDesc: '3D snake arena — jump, boost, battle AI rivals!', icon: '🐍', gradient: 'linear-gradient(135deg, #2a0a0a 0%, #1f1010 50%, #1a0a0a 100%)', tag: 'Popular', tagClass: '', playUrl: 'games/3D-snake.html' },
-            { id: 4, title: 'Happy Pigs', genre: 'Casual / Fun', description: 'Slingshot green pigs to destroy the birds!', shortDesc: 'Slingshot green pigs to smash the birds!', icon: '🐷', gradient: 'linear-gradient(135deg, #2a0a0a 0%, #1f1010 50%, #1a0a0a 100%)', tag: 'Cool', tagClass: '', playUrl: 'games/happy_pigs.html' },
-            { id: 5, title: 'A very Clickable Button', genre: 'Casual', description: 'Click a button', shortDesc: 'Just click the button. How far can you go?', icon: '⬜', gradient: 'linear-gradient(135deg, #2a0b7a 0%, #1a11c0 50%, #11fa7a 100%)', tag: '', tagClass: '', playUrl: 'games/button/index.html' },
-            { id: 6, title: 'Equation Doors', genre: 'Educational', description: 'Solve Maths Equations', shortDesc: 'Solve math equations to open the doors!', icon: '➕', gradient: 'linear-gradient(135deg, #2b0b3f 0%, #1a55c0 50%, #32fd7a 100%)', tag: '', tagClass: '', playUrl: 'games/equation-doors.html' },
-            { id: 7, title: 'Floorball', genre: 'Sport / Casual', description: 'A floorball game', shortDesc: 'Fast-paced floorball action!', icon: '🏒', gradient: 'linear-gradient(135deg, #1cc13f 0%, #1a3a70 50%, #3aa37a 100%)', tag: 'New', tagClass: 'tag-new', playUrl: 'games/Floorball.html' },
-            { id: 8, title: 'TowerCraft', genre: 'Strategy / Casual', description: 'Minecraft + Tower Defence', shortDesc: 'Build towers, mine blocks, defend your base!',image: 'images/TowerCraftCover.jpg', icon: '⛏️', gradient: 'linear-gradient(135deg, #1ad53f 0%, #1a5d70 50%, #3bd37a 100%)', tag: 'New', tagClass: 'tag-new', playUrl: 'games/TowerCraft/index.html' }
+            { id: 1, title: 'Rooms Escape', genre: 'Shooting / Multiplayer', description: '2P co-op roguelite where you clear rooms, upgrade weapons, and defeat bosses to escape.', shortDesc: '2P co-op roguelite — clear rooms, upgrade, escape!', icon: '🔑', gradient: 'linear-gradient(135deg, #1a0533 0%, #0d1b3e 50%, #0a0a2e 100%)', tag: 'Featured', tagClass: 'tag-featured', platforms: ['pc', 'mobile], playUrl: 'games/room-escape.html' },
+            { id: 2, title: 'Snake', genre: 'Snake / Adventure', description: 'Snake', shortDesc: 'Classic Snake — eat, grow, survive!', icon: '🐍', gradient: 'linear-gradient(135deg, #1a2a0a 0%, #0f1f1a 50%, #0a1a14 100%)', tag: 'Popular', tagClass: '', platforms: ['pc', 'mobile'], playUrl: 'games/snake.html' },
+            { id: 3, title: '3D snake', genre: 'Snake / Multiplayer', description: 'A chaotic 3D snake arena where you jump, boost, and battle AI snakes while collecting colorful apples and power‑ups, with a live minimap and split‑screen co‑op across 3 stacked levels.', shortDesc: '3D snake arena — jump, boost, battle AI rivals!', icon: '🐍', gradient: 'linear-gradient(135deg, #2a0a0a 0%, #1f1010 50%, #1a0a0a 100%)', tag: 'Popular', tagClass: '', platforms: ['pc', 'mobile'], playUrl: 'games/3D-snake.html' },
+            { id: 4, title: 'Happy Pigs', genre: 'Casual / Fun', description: 'Slingshot green pigs to destroy the birds!', shortDesc: 'Slingshot green pigs to smash the birds!', icon: '🐷', gradient: 'linear-gradient(135deg, #2a0a0a 0%, #1f1010 50%, #1a0a0a 100%)', tag: 'Cool', tagClass: '', platforms: ['pc', 'mobile'], playUrl: 'games/happy_pigs.html' },
+            { id: 5, title: 'A very Clickable Button', genre: 'Casual', description: 'Click a button', shortDesc: 'Just click the button. How far can you go?', icon: '⬜', gradient: 'linear-gradient(135deg, #2a0b7a 0%, #1a11c0 50%, #11fa7a 100%)', tag: '', tagClass: '', platforms: ['pc', 'mobile'], playUrl: 'games/button/index.html' },
+            { id: 6, title: 'Equation Doors', genre: 'Educational', description: 'Solve Maths Equations', shortDesc: 'Solve math equations to open the doors!', icon: '➕', gradient: 'linear-gradient(135deg, #2b0b3f 0%, #1a55c0 50%, #32fd7a 100%)', tag: '', tagClass: '', platforms: ['pc', 'mobile'], playUrl: 'games/equation-doors.html' },
+            { id: 7, title: 'Floorball', genre: 'Sport / Casual', description: 'A floorball game', shortDesc: 'Fast-paced floorball action!', icon: '🏒', gradient: 'linear-gradient(135deg, #1cc13f 0%, #1a3a70 50%, #3aa37a 100%)', tag: 'New', tagClass: 'tag-new', platforms: ['pc'], playUrl: 'games/Floorball.html' },
+            { id: 8, title: 'TowerCraft', genre: 'Strategy / Casual', description: 'Minecraft + Tower Defence', shortDesc: 'Build towers, mine blocks, defend your base!',image: 'images/TowerCraftCover.jpg', icon: '⛏️', gradient: 'linear-gradient(135deg, #1ad53f 0%, #1a5d70 50%, #3bd37a 100%)', tag: 'New', tagClass: 'tag-new', platforms: ['pc', 'mobile'], playUrl: 'games/TowerCraft/index.html' }
         ];
 
         const ADMIN_SECRET = 'my-secret-admin-key-2026';
@@ -364,6 +406,23 @@
         if (!myUserId) {
             myUserId = 'user_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 8);
             localStorage.setItem('myFirebaseUserId', myUserId);
+        }
+
+        // ── PLATFORM BADGE MARKUP HELPER ───────────
+        function platformBadgesHTML(platforms) {
+            if (!platforms || !platforms.length) return '';
+            const badges = platforms
+                .filter(p => platformMeta[p])
+                .map(p => `<span class="platform-badge" title="Playable on ${platformMeta[p].label}">
+                                <span class="pb-icon">${platformMeta[p].icon}</span>${platformMeta[p].label}
+                           </span>`)
+                .join('');
+            return badges ? `<div class="platform-badges">${badges}</div>` : '';
+        }
+
+        function platformText(platforms) {
+            if (!platforms || !platforms.length) return 'Not specified';
+            return platforms.filter(p => platformMeta[p]).map(p => platformMeta[p].label).join(' & ');
         }
 
         // ── RATING CALCULATION (home card) ──────────
@@ -396,6 +455,7 @@
                         ${game.image
                         ? `<img class="cover-image" src="${game.image}" alt="${escapeHTML(game.title)}" loading="lazy">`
                         : `<div class="placeholder-bg" style="background:${game.gradient};">${game.icon}</div>`}
+                        ${platformBadgesHTML(game.platforms)}
                         ${game.tag ? `<span class="overlay-tag ${game.tagClass}">${game.tag}</span>` : ''}
                         <div class="hover-desc">${escapeHTML(hoverText)}</div>
                     </div>
@@ -437,7 +497,9 @@
         function openDetailsModal(game) {
             currentDetailsGameId = game.id;
             modalTitle.textContent = game.title;
-            modalDesc.textContent = game.description + '\n\nGenre: ' + game.genre;
+            modalDesc.textContent = game.description
+                + '\n\nGenre: ' + game.genre
+                + '\nPlayable on: ' + platformText(game.platforms);
             modalPlayHereBtn.setAttribute('data-game-id', game.id);
             modalOpenTabBtn.href = game.playUrl;
             modalCommentsBtn.setAttribute('data-game-id', game.id);
@@ -736,7 +798,7 @@
 
         // ── INIT ─────────────────────────
         renderGames();
-        console.log('🎮 Portfolio ready – separate details/comments + hover previews!');
+        console.log('🎮 Portfolio ready – platform badges + separate details/comments + hover previews!');
     </script>
 </body>
 </html>
